@@ -4,12 +4,15 @@
   "description": "Framework d'ingénierie logicielle autonome pour Claude Code : orchestration, routage de modèles, Project Brain, garde-fous, quality gates.",
   "type": "module",
   "bin": {
-    "ceng": "dist/src/cli.js"
+    "ceng": "dist/src/cli.js",
+    "claude-eng-framework": "dist/src/cli.js"
   },
   "files": [
     "dist/src",
     "core",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "engines": {
     "node": ">=22"
@@ -20,9 +23,29 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepare": "npm run build"
   },
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "^22.20.5",
     "typescript": "^5.9.3"
-  }
+  },
+  "author": "Jean-Paul ADOGLI",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jean-Paul15/claude-eng-framework.git"
+  },
+  "homepage": "https://github.com/Jean-Paul15/claude-eng-framework#readme",
+  "bugs": {
+    "url": "https://github.com/Jean-Paul15/claude-eng-framework/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "claude",
+    "agents",
+    "skills",
+    "orchestration",
+    "ai-engineering",
+    "subagents",
+    "agent-teams",
+    "hooks"
+  ]
 }

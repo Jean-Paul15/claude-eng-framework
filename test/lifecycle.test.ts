@@ -10,6 +10,8 @@ import type { RouteDecision, Task } from '../src/domain/types.js';
  * et les hooks Claude Code : bootstrap → tâches → routage → gates → échecs → escalade → checkpoint
  * → interruption → reprise → rollback → observabilité.
  */
+// Faux identifiant construit à l'exécution (pas de motif de secret littéral dans le dépôt).
+const FAKE_AWS = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('');
 let dir = '';
 before(() => {
   dir = sandbox('api-backend');
@@ -105,7 +107,7 @@ describe('cycle de vie complet', () => {
   });
 
   it('gate secrets : détecte un secret introduit', () => {
-    fs.writeFileSync(path.join(dir, 'app/auth/config.py'), 'KEY = "AKIAABCDEFGHIJKLMNOP"\n');
+    fs.writeFileSync(path.join(dir, 'app/auth/config.py'), `KEY = "${FAKE_AWS}"\n`);
     assert.equal(run('task', 'start', 'T-0002').code, 0);
     const r = run('gate', 'run', 'T-0002', '--only', 'secrets');
     assert.notEqual(r.code, 0);
@@ -179,7 +181,7 @@ describe('cycle de vie complet', () => {
     assert.ok(t2.attempts >= 2);
     assert.match(rep.tasks.find((t) => t.id === 'T-0001')!.doneBecause, /gates vertes/);
     const raw = fs.readFileSync(path.join(dir, '.ceng/logs/events.jsonl'), 'utf8');
-    assert.ok(!raw.includes('AKIAABCDEFGHIJKLMNOP'), 'aucun secret dans les journaux');
+    assert.ok(!raw.includes(FAKE_AWS), 'aucun secret dans les journaux');
   });
 
   it('auto-amélioration : une leçon isolée n\'est pas promue, une leçon répétée l\'est', () => {

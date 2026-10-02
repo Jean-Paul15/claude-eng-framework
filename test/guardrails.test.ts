@@ -45,15 +45,21 @@ describe('garde-fous : fichiers', () => {
   });
 });
 
+// Faux secrets construits à l'exécution : aucun motif de secret littéral dans le dépôt (scanners GitHub).
+const FAKE_AWS = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('');
+const FAKE_GH = ['ghp', 'abcdefghijklmnopqrstuvwxyz0123456789'].join('_');
+const FAKE_PG = ['postgres://u', 'supersecret@db:5432/x'].join(':');
+const FAKE_STRIPE = ['sk', 'live', 'abcdefghijklmnopqrstuvwx'].join('_');
+
 describe('secrets', () => {
   it('détection à haute précision', () => {
-    const text = ['const k = "AKIAABCDEFGHIJKLMNOP"', 'token: ghp_abcdefghijklmnopqrstuvwxyz0123456789', 'url = "postgres://u:supersecret@db:5432/x"', 'const amount = 42'].join('\n');
+    const text = [`const k = "${FAKE_AWS}"`, `token: ${FAKE_GH}`, `url = "${FAKE_PG}"`, 'const amount = 42'].join('\n');
     const ids = scanText(text).map((f) => f.id);
     assert.deepEqual(ids, ['aws-access-key', 'github-token', 'connection-string-password']);
   });
   it('redaction des journaux', () => {
-    const out = redact('API_KEY=abcdef123456 and sk_live_abcdefghijklmnopqrstuvwx');
+    const out = redact(`API_KEY=abcdef123456 and ${FAKE_STRIPE}`);
     assert.ok(!out.includes('abcdef123456'));
-    assert.ok(!out.includes('sk_live_abcdefghijklmnopqrstuvwx'));
+    assert.ok(!out.includes(FAKE_STRIPE));
   });
 });

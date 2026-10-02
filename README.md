@@ -37,11 +37,33 @@ ceng run       # ouvre la session orchestrateur sur le modèle recommandé
 
 Prérequis : Node ≥ 22, git, [Claude Code](https://code.claude.com/docs/en/setup).
 
+**Framework complet** (CLI, hooks, agents, skills, Project Brain), directement depuis GitHub, dans le projet cible :
+
 ```bash
-git clone <url-du-dépôt> claude-eng-framework
-cd claude-eng-framework
-npm install        # compile (zéro dépendance d'exécution)
-npm link           # rend la commande `ceng` disponible partout
+npx github:Jean-Paul15/claude-eng-framework init
+```
+
+Ou en installation globale, qui rend la commande `ceng` disponible partout :
+
+```bash
+npm install -g github:Jean-Paul15/claude-eng-framework
+```
+
+**Skills seules**, sans le framework, via l'écosystème [skills](https://github.com/vercel-labs/skills) :
+
+```bash
+npx skills add Jean-Paul15/claude-eng-framework -g -a claude-code -y                        # toutes les skills
+npx skills add Jean-Paul15/claude-eng-framework -s creative-director -g -a claude-code -y    # une seule
+```
+
+Les skills `ceng-orchestrate` et `ceng-skill-forge` ont besoin du framework complet. Les autres (testing, security,
+creative-director, frontend-executor, quality-gate-auditor…) sont autonomes.
+
+**Depuis les sources** :
+
+```bash
+git clone https://github.com/Jean-Paul15/claude-eng-framework && cd claude-eng-framework
+npm install && npm link
 ```
 
 Puis, dans un projet :
@@ -95,3 +117,7 @@ appellent la copie locale : `node .ceng/runtime/cli.js <commande>`.
 ```bash
 npm test           # build + 68 tests (domaine, découverte sur 5 projets de démo, installation, cycle de vie, hooks, reprise)
 ```
+
+## Licence
+
+[Apache License 2.0](LICENSE) — Copyright 2026 Jean-Paul ADOGLI. Voir aussi [NOTICE](NOTICE).
