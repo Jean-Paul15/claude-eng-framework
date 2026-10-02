@@ -1,0 +1,240 @@
+[
+  {
+    "name": "stripe-engineering",
+    "description": "Intégration Stripe de ce projet — paiements, webhooks, idempotence, modes test/live, montants, remboursements, abonnements. À utiliser pour tout code qui crée, confirme, rembourse ou réconcilie un paiement ou traite un webhook Stripe.",
+    "match": { "services": ["stripe"] },
+    "focus": [
+      "Le montant et la devise sont calculés côté serveur, jamais acceptés du client.",
+      "Toute requête de création (PaymentIntent, Refund, Subscription) porte une clé d'idempotence stable dérivée de l'opération métier.",
+      "Les webhooks sont la source de vérité de l'état d'un paiement ; vérifier la signature (secret d'endpoint) sur le corps brut.",
+      "Traitement des webhooks idempotent (événement déjà traité → ignoré) et tolérant au désordre et aux doublons."
+    ],
+    "checklist": [
+      "Tests avec les clés et cartes de test Stripe uniquement ; aucune clé sk_live dans le code, les tests ou les logs.",
+      "Cas couverts : succès, échec de carte, authentification 3DS requise, webhook rejoué, webhook hors ordre, remboursement partiel.",
+      "Montants en plus petite unité monétaire (entiers) ; arrondis explicites.",
+      "Revue sécurité et gate compliance (PCI DSS : aucune donnée de carte ne transite par nos serveurs)."
+    ],
+    "pitfalls": [
+      "Marquer une commande payée au retour du client (redirect) au lieu du webhook.",
+      "Parser le JSON avant de vérifier la signature (le corps brut est requis).",
+      "Retry sans clé d'idempotence → double débit."
+    ],
+    "docs": [
+      "https://docs.stripe.com/api/idempotent_requests",
+      "https://docs.stripe.com/webhooks",
+      "https://docs.stripe.com/testing",
+      "https://docs.stripe.com/security/guide"
+    ],
+    "research": [
+      "Version d'API Stripe épinglée par le projet et changements depuis.",
+      "Événements webhook réellement utilisés par le projet et leur gestion actuelle.",
+      "Produits Stripe utilisés (Checkout, Elements, Billing, Connect) et leurs contraintes spécifiques."
+    ]
+  },
+  {
+    "name": "flutter-mobile",
+    "description": "Développement Flutter de ce projet — architecture des widgets et de l'état, navigation, plateformes iOS/Android, performance de rendu, accessibilité mobile, tests widget et d'intégration, publication. À utiliser pour tout code Dart/Flutter de l'application.",
+    "match": { "frameworks": ["flutter"] },
+    "focus": [
+      "Suivre la solution de gestion d'état déjà utilisée (Provider, Riverpod, Bloc…) ; ne pas en introduire une seconde.",
+      "Widgets petits et const quand c'est possible ; éviter les rebuilds coûteux (sélecteurs, keys).",
+      "Gérer les états chargement/erreur/vide et la perte de réseau ; ne jamais bloquer le thread UI (isolates pour le calcul lourd).",
+      "Accessibilité : Semantics, tailles de texte dynamiques, contrastes, cibles ≥ 48 dp."
+    ],
+    "checklist": [
+      "flutter analyze sans avertissement ; dart format appliqué.",
+      "Tests widget pour les composants clés ; integration_test pour les parcours critiques.",
+      "Vérifié sur petit et grand écran, mode sombre, texte agrandi.",
+      "Permissions natives demandées au bon moment avec justification (Info.plist / AndroidManifest)."
+    ],
+    "pitfalls": [
+      "BuildContext utilisé après un await sans vérifier mounted.",
+      "Secrets ou clés d'API embarqués dans l'application (ils sont extractibles).",
+      "Dépendances de packages non maintenus ou incompatibles avec la version de Flutter."
+    ],
+    "docs": [
+      "https://docs.flutter.dev/perf/best-practices",
+      "https://docs.flutter.dev/testing/overview",
+      "https://docs.flutter.dev/ui/accessibility-and-internationalization/accessibility",
+      "https://docs.flutter.dev/deployment"
+    ],
+    "research": [
+      "Version de Flutter/Dart du projet et changements cassants récents.",
+      "Solution d'état et de navigation du projet, conventions de dossiers.",
+      "Processus de publication (stores, signature, flavors) — toute publication exige l'humain."
+    ]
+  },
+  {
+    "name": "react-native-mobile",
+    "description": "Développement React Native / Expo de ce projet — navigation, état, modules natifs, performance (listes, re-rendus), accessibilité mobile, tests, mises à jour OTA et publication. À utiliser pour tout code de l'application mobile React Native.",
+    "match": { "frameworks": ["react-native", "expo"] },
+    "focus": [
+      "Listes longues avec FlatList/FlashList et clés stables ; pas de calcul lourd dans le rendu.",
+      "Différences iOS/Android explicites ; permissions natives justifiées.",
+      "Accessibilité : accessibilityLabel/Role, tailles dynamiques, cibles tactiles suffisantes.",
+      "Secrets jamais embarqués dans le bundle."
+    ],
+    "checklist": [
+      "Types et lint verts ; tests des composants clés ; parcours critiques en e2e (Detox/Maestro si présent).",
+      "Vérifié sur les deux plateformes ou limitation signalée.",
+      "Mises à jour OTA compatibles avec la version native déployée."
+    ],
+    "pitfalls": [
+      "Mise à jour OTA qui suppose un module natif absent de la version installée.",
+      "Re-rendus en cascade via un contexte global trop large."
+    ],
+    "docs": [
+      "https://reactnative.dev/docs/performance",
+      "https://reactnative.dev/docs/accessibility",
+      "https://docs.expo.dev/"
+    ],
+    "research": [
+      "Version React Native/Expo et architecture (New Architecture activée ?).",
+      "Pipeline de build et de publication du projet (EAS, fastlane) — publication = humain."
+    ]
+  },
+  {
+    "name": "data-pipeline-engineering",
+    "description": "Ingénierie des pipelines de données de ce projet — idempotence et rejouabilité, qualité et contrats de données, modélisation (staging → marts), incrémental, backfills, coûts, données personnelles. À utiliser pour tout code d'ingestion, de transformation (dbt, pandas, Spark), d'orchestration (Airflow, Dagster, Prefect) ou de notebooks destinés à la production.",
+    "match": { "projectTypes": ["data"] },
+    "focus": [
+      "Chaque tâche est idempotente et rejouable pour une partition donnée (écriture par partition, MERGE/upsert).",
+      "Contrats de données explicites : schéma, unicité, non-nullité, fraîcheur, valeurs acceptées — testés (dbt tests, Great Expectations, assertions).",
+      "Séparer extraction, transformation et chargement ; logique de transformation testable sur petits jeux de données.",
+      "Données personnelles : minimisation, pseudonymisation, rétention — voir legal-governance."
+    ],
+    "checklist": [
+      "Tests de données sur les clés et invariants des tables modifiées.",
+      "Backfill testé sur une petite fenêtre avant la totalité ; coût estimé pour les entrepôts facturés à l'usage.",
+      "Dépendances amont/aval identifiées (lineage) ; consommateurs prévenus d'un changement de schéma.",
+      "Aucun identifiant de connexion en dur ; connexions via la configuration de l'orchestrateur."
+    ],
+    "pitfalls": [
+      "Logique dépendant de l'heure d'exécution (now()) au lieu de la date logique de la partition.",
+      "Append sans déduplication → doublons à chaque relance.",
+      "Notebook non reproductible promu en production."
+    ],
+    "docs": [
+      "https://docs.getdbt.com/best-practices",
+      "https://airflow.apache.org/docs/apache-airflow/stable/best-practices.html",
+      "https://docs.greatexpectations.io/"
+    ],
+    "research": [
+      "Outils effectivement utilisés (dbt, orchestrateur, entrepôt) et leurs versions.",
+      "Conventions de modélisation et de nommage du projet ; SLA de fraîcheur.",
+      "Volumétrie et coût des requêtes principales."
+    ]
+  },
+  {
+    "name": "postgres-engineering",
+    "description": "PostgreSQL dans ce projet — schéma et contraintes, index et plans d'exécution, transactions et niveaux d'isolation, verrous, migrations sans interruption, RLS. À utiliser pour toute requête non triviale, migration ou problème de performance base de données.",
+    "match": { "databases": ["postgresql"] },
+    "focus": [
+      "Contraintes en base pour les invariants ; numeric ou entiers pour l'argent ; timestamptz.",
+      "EXPLAIN (ANALYZE, BUFFERS) avant de conclure sur une performance ; index adaptés aux requêtes réelles.",
+      "Isolation par défaut READ COMMITTED : protéger les check-then-act (FOR UPDATE, contrainte, SERIALIZABLE avec retry).",
+      "Migrations sur grosses tables : CREATE INDEX CONCURRENTLY, ajout de colonne sans réécriture, backfill par lots."
+    ],
+    "checklist": [
+      "Migration testée up/down sur base éphémère ; impact de verrous évalué.",
+      "Requêtes paramétrées ; pas de N+1.",
+      "RLS (si utilisée, ex. Supabase) testée avec plusieurs rôles/utilisateurs."
+    ],
+    "pitfalls": [
+      "ALTER TABLE prenant un verrou ACCESS EXCLUSIVE prolongé en production.",
+      "Se fier à des statistiques non à jour (reltuples à 0 avant ANALYZE)."
+    ],
+    "docs": [
+      "https://www.postgresql.org/docs/current/transaction-iso.html",
+      "https://www.postgresql.org/docs/current/using-explain.html",
+      "https://www.postgresql.org/docs/current/explicit-locking.html"
+    ],
+    "research": [
+      "Version de PostgreSQL et hébergement (managé ? extensions disponibles ?).",
+      "Outil de migration du projet et procédure de déploiement des migrations."
+    ]
+  },
+  {
+    "name": "supabase-engineering",
+    "description": "Supabase dans ce projet — RLS, clés publishable/secret, auth, storage, edge functions, migrations. À utiliser pour tout code qui interroge Supabase, modifie des politiques RLS ou gère l'authentification Supabase.",
+    "match": { "services": ["supabase"] },
+    "focus": [
+      "RLS activée sur toute table exposée ; politiques testées par rôle ; la clé secrète ne quitte jamais le serveur.",
+      "Clés actuelles : sb_publishable_… (client) et sb_secret_… (serveur), avec repli sur les anciens noms anon/service_role si le projet les utilise encore.",
+      "Migrations via le CLI Supabase et versionnées ; jamais de modification manuelle non tracée en production."
+    ],
+    "checklist": [
+      "Test d'accès refusé pour un utilisateur non propriétaire (RLS).",
+      "Advisors sécurité/performance relancés après une migration structurante."
+    ],
+    "pitfalls": [
+      "Utiliser la clé secrète côté client.",
+      "Seed exécuté sur une base déjà peuplée → doublons."
+    ],
+    "docs": [
+      "https://supabase.com/docs/guides/database/postgres/row-level-security",
+      "https://supabase.com/docs/guides/api/api-keys",
+      "https://supabase.com/docs/guides/deployment/database-migrations"
+    ],
+    "research": [
+      "Noms de variables d'environnement réellement utilisés pour les clés.",
+      "Fonctionnalités Supabase utilisées (auth, storage, realtime, edge functions)."
+    ]
+  },
+  {
+    "name": "firebase-engineering",
+    "description": "Firebase dans ce projet — règles de sécurité Firestore/Storage, auth, Cloud Functions, émulateurs, coûts de lecture. À utiliser pour tout code qui lit/écrit Firestore, modifie des règles de sécurité ou des Cloud Functions.",
+    "match": { "services": ["firebase"] },
+    "focus": [
+      "Les règles de sécurité sont la frontière d'autorisation : chaque collection a des règles testées (émulateur).",
+      "Modéliser pour les requêtes (dénormalisation consciente) ; maîtriser le nombre de lectures (coût).",
+      "Cloud Functions idempotentes (déclencheurs rejoués)."
+    ],
+    "checklist": [
+      "Tests des règles avec l'émulateur (accès autorisé et refusé).",
+      "Aucune clé d'administration côté client."
+    ],
+    "pitfalls": [
+      "Règles « allow read, write: if true » laissées après le prototypage.",
+      "Écoutes temps réel non désabonnées → coûts et fuites mémoire."
+    ],
+    "docs": [
+      "https://firebase.google.com/docs/rules",
+      "https://firebase.google.com/docs/emulator-suite"
+    ],
+    "research": [
+      "Services Firebase utilisés et versions des SDK.",
+      "Règles existantes et leur couverture de tests."
+    ]
+  },
+  {
+    "name": "llm-integration",
+    "description": "Fonctionnalités IA (LLM) de ce projet — appels aux API de modèles, prompts, sorties non fiables, injection de prompt, coûts et quotas, données envoyées au fournisseur, évaluation. À utiliser pour tout code qui appelle un modèle de langage ou expose une fonctionnalité IA aux utilisateurs.",
+    "match": { "services": ["openai", "anthropic"] },
+    "focus": [
+      "Traiter la sortie du modèle comme une entrée non fiable : validation de schéma, encodage, jamais exécutée telle quelle.",
+      "Injection de prompt : séparer instructions et données utilisateur ; outils du modèle au moindre privilège.",
+      "Coûts : limites par utilisateur, timeouts, cache quand pertinent ; choix du modèle selon la tâche.",
+      "Données personnelles envoyées au fournisseur : minimiser, informer l'utilisateur, vérifier la rétention."
+    ],
+    "checklist": [
+      "Jeu d'évaluation minimal (cas nominaux, adverses, limites) exécutable.",
+      "Gestion des erreurs fournisseur (rate limit, overloaded) avec retry borné.",
+      "Gate compliance : transparence et données (voir legal-governance)."
+    ],
+    "pitfalls": [
+      "Clé d'API côté client.",
+      "Dépendre d'un format libre au lieu de sorties structurées validées."
+    ],
+    "docs": [
+      "https://platform.claude.com/docs",
+      "https://platform.openai.com/docs",
+      "https://genai.owasp.org/llm-top-10/"
+    ],
+    "research": [
+      "Fournisseurs et modèles utilisés, versions des SDK, quotas.",
+      "Où et comment les sorties du modèle sont utilisées dans le produit."
+    ]
+  }
+]

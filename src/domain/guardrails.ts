@@ -1,0 +1,152 @@
+import { matchesAny, normalizePath } from './globs.js';
+import type { Autonomy } from './types.js';
+
+/**
+ * Classification des actions : AUTONOMOUS vs HUMAN APPROVAL REQUIRED vs FORBIDDEN.
+ * Défense en profondeur (s'ajoute aux règles `deny` natives de Claude Code) ;
+ * ce n'est pas un sandbox : une commande obfusquée peut passer, d'où la recommandation
+ * d'activer le sandbox OS pour une autonomie élevée.
+ */
+
+export type ActionClass = 'autonomous' | 'approval' | 'forbidden';
+
+export interface Verdict {
+  class: ActionClass;
+  reason: string;
+  rule?: string;
+}
+
+interface Rule {
+  id: string;
+  pattern: RegExp;
+  reason: string;
+}
+
+const FORBIDDEN: Rule[] = [
+  { id: 'rm-root', pattern: /\brm\s+(-[a-zA-Z]*[rf][a-zA-Z]*\s+)+(\/|~|\$HOME|\/\*|~\/\*|[A-Za-z]:[\\/]?)(\s|$)/, reason: 'Suppression récursive de la racine ou du répertoire personnel.' },
+  { id: 'fork-bomb', pattern: /:\(\)\s*\{\s*:\|:&\s*\};:/, reason: 'Fork bomb.' },
+  { id: 'disk-format', pattern: /\b(mkfs(\.\w+)?|format\s+[A-Za-z]:)\b/i, reason: 'Formatage de disque.' },
+  { id: 'dd-device', pattern: /\bdd\b.*\bof=\/dev\/(sd|nvme|disk|hd)/, reason: 'Écriture brute sur un périphérique.' },
+  { id: 'curl-pipe-shell', pattern: /\b(curl|wget|iwr|Invoke-WebRequest)\b[^|]*\|\s*(sudo\s+)?(ba|z|fi)?sh\b|\b(iex|Invoke-Expression)\b.*\b(iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b/i, reason: 'Téléchargement et exécution de code non vérifié.' },
+  { id: 'dump-env', pattern: /^\s*(printenv|env|set|Get-ChildItem\s+env:|gci\s+env:|dir\s+env:)\s*$/i, reason: 'Exposition de toutes les variables d\'environnement (secrets probables).' },
+  { id: 'chmod-777-root', pattern: /\bchmod\s+(-R\s+)?777\s+\/(\s|$)/, reason: 'Permissions universelles sur la racine.' },
+  { id: 'disable-guardrails', pattern: /(\bdisableAllHooks\b|--dangerously-skip-permissions\b)/, reason: 'Désactivation des garde-fous.' },
+];
+
+const APPROVAL: Rule[] = [
+  { id: 'git-force-push', pattern: /\bgit\s+push\b.*(\s--force(-with-lease)?\b|\s-f\b|\s\+\S+)/, reason: 'Push forcé : réécrit un historique partagé.' },
+  { id: 'git-discard', pattern: /\bgit\s+(reset\s+--hard\b|clean\s+-[a-zA-Z]*f[a-zA-Z]*|checkout\s+(--\s+)?\.(\s|$)|restore\s+(--\S+\s+)*\.(\s|$)|stash\s+(drop|clear)\b|branch\s+-D\b)/, reason: 'Peut détruire du travail non commité ou une branche.' },
+  { id: 'git-history-rewrite', pattern: /\bgit\s+(rebase|filter-branch|filter-repo|commit\s+--amend)\b/, reason: 'Réécriture d\'historique.' },
+  { id: 'publish', pattern: /\b(npm|pnpm|yarn)\s+publish\b|\bcargo\s+publish\b|\btwine\s+upload\b|\bgem\s+push\b|\bdotnet\s+nuget\s+push\b|\bflutter\s+pub\s+publish\b|\bdocker\s+push\b/, reason: 'Publication d\'un artefact public.' },
+  { id: 'deploy', pattern: /\b(vercel\b.*--prod|netlify\s+deploy\b.*--prod|fly\s+deploy|flyctl\s+deploy|firebase\s+deploy|gcloud\b.*\bdeploy\b|aws\b.*\b(deploy|update-function-code|cloudformation\s+(deploy|create-stack|update-stack))\b|serverless\s+deploy|sls\s+deploy|eb\s+deploy|heroku\s+(releases|ps:scale|config:set)|kamal\s+deploy|cdk\s+deploy|pulumi\s+up|railway\s+up|render\s+deploy)/i, reason: 'Déploiement.' },
+  { id: 'infra-change', pattern: /\b(terraform|tofu)\s+(apply|destroy|import|state\s+(rm|mv))\b|\bkubectl\s+(apply|delete|replace|patch|scale|rollout\s+undo|drain)\b|\bhelm\s+(install|upgrade|uninstall|rollback)\b/, reason: 'Changement d\'infrastructure.' },
+  { id: 'db-destructive', pattern: /\b(drop\s+(table|database|schema)|truncate\s+(table\s+)?\w|delete\s+from\s+\w+\s*;?\s*$)|\b(prisma\s+(migrate\s+reset|db\s+push\s+--force-reset)|supabase\s+db\s+(reset|push)|rails\s+db:(drop|reset)|manage\.py\s+flush|alembic\s+downgrade)\b/i, reason: 'Opération destructive ou migration sur base de données.' },
+  { id: 'prod-migrate', pattern: /\b(prisma\s+migrate\s+deploy|knex\s+migrate:latest\s+.*prod|NODE_ENV=production|RAILS_ENV=production|--env[= ]prod)/i, reason: 'Action ciblant la production.' },
+  { id: 'sudo', pattern: /(^|[;&|]\s*)sudo\b/, reason: 'Élévation de privilèges.' },
+  { id: 'gh-destructive', pattern: /\bgh\s+(repo\s+(delete|archive|edit\s+.*--visibility)|release\s+(create|delete)|secret\s+set|api\s+.*-X\s*DELETE)\b/, reason: 'Action GitHub irréversible ou sensible.' },
+  { id: 'secrets-mgmt', pattern: /\b(vault\s+(write|delete|kv\s+(put|delete))|aws\s+secretsmanager\s+(put|delete|create)|gcloud\s+secrets\s+(create|delete|versions\s+add))\b/, reason: 'Gestion de secrets.' },
+  { id: 'rm-recursive', pattern: /\b(rm\s+-[a-zA-Z]*r[a-zA-Z]*|Remove-Item\b.*-Recurse|rmdir\s+\/s)\b/i, reason: 'Suppression récursive.' },
+  { id: 'kill-all', pattern: /\b(killall|pkill\s+-9|taskkill\s+\/f\s+\/im)\b/i, reason: 'Arrêt de processus en masse.' },
+];
+
+/** Répertoires régénérables dont la suppression récursive est sans risque. */
+const REGENERABLE_DIRS = ['node_modules', 'dist', 'build', 'out', '.next', '.nuxt', '.turbo', 'coverage', 'target', '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.dart_tool', '.gradle', 'tmp', '.tmp', '.cache', '.parcel-cache', '.svelte-kit', '.ceng/tmp'];
+
+function isRegenerableRm(command: string): boolean {
+  const m = command.match(/\brm\s+-[a-zA-Z]+\s+(.+)$/) ?? command.match(/Remove-Item\s+(?:-\w+\s+)*([^-\s][^\s]*)/i);
+  if (!m) return false;
+  const targets = m[1]!.split(/\s+/).filter((t) => t && !t.startsWith('-'));
+  return targets.length > 0 && targets.every((t) => {
+    const clean = normalizePath(t.replace(/["']/g, '')).replace(/\/$/, '');
+    return REGENERABLE_DIRS.some((d) => clean === d || clean.endsWith(`/${d}`));
+  });
+}
+
+function protectedPush(command: string, protectedBranches: readonly string[]): boolean {
+  const m = command.match(/\bgit\s+push\b(.*)$/);
+  if (!m) return false;
+  const args = m[1]!.split(/\s+/).filter((a) => a && !a.startsWith('-'));
+  // git push <remote> <refspec>
+  const refspec = args[1];
+  if (!refspec) return false;
+  const dst = refspec.includes(':') ? refspec.split(':')[1]! : refspec;
+  return protectedBranches.includes(dst.replace(/^refs\/heads\//, ''));
+}
+
+export interface CommandContext {
+  autonomy: Autonomy;
+  protectedBranches: readonly string[];
+}
+
+/** Découpe une commande composée en segments (&&, ||, ;, |, retours ligne) pour évaluer chacun. */
+export function splitCommand(command: string): string[] {
+  return command.split(/&&|\|\||;|\n/).map((s) => s.trim()).filter(Boolean);
+}
+
+const SECRET_READERS = /^(cat|less|more|head|tail|type|Get-Content|gc|bat|xxd|od|strings|base64|cp|copy|scp|rsync|Copy-Item|sed|awk|grep|rg|nl|tac)$/i;
+
+/** Lecture/copie d'un fichier de secrets (exceptions : .env.example & co). */
+function readsSecretFile(segment: string): boolean {
+  const tokens = segment.split(/[\s|<>]+/).map((t) => t.replace(/^["']|["']$/g, '')).filter(Boolean);
+  if (tokens.length < 2 || !SECRET_READERS.test(tokens[0]!)) return false;
+  return tokens.slice(1).some((t) => !t.startsWith('-') && isSecretPath(t));
+}
+
+export function classifyCommand(command: string, ctx: CommandContext): Verdict {
+  const whole = command.trim();
+  for (const r of FORBIDDEN) if (r.pattern.test(whole)) return { class: 'forbidden', reason: r.reason, rule: r.id };
+  for (const segment of splitCommand(whole)) {
+    for (const piece of segment.split('|')) {
+      if (readsSecretFile(piece.trim())) return { class: 'forbidden', reason: "Lecture ou copie d'un fichier de secrets.", rule: 'read-secrets' };
+    }
+    for (const r of FORBIDDEN) if (r.pattern.test(segment)) return { class: 'forbidden', reason: r.reason, rule: r.id };
+    for (const r of APPROVAL) {
+      if (!r.pattern.test(segment)) continue;
+      if (r.id === 'rm-recursive' && isRegenerableRm(segment)) continue;
+      return { class: 'approval', reason: r.reason, rule: r.id };
+    }
+    if (/\bgit\s+push\b/.test(segment)) {
+      if (ctx.autonomy === 'supervised') return { class: 'approval', reason: 'Autonomie supervisée : tout push est validé par un humain.', rule: 'git-push-supervised' };
+      if (protectedPush(segment, ctx.protectedBranches)) return { class: 'approval', reason: 'Push direct sur une branche protégée.', rule: 'git-push-protected' };
+    }
+  }
+  return { class: 'autonomous', reason: 'Aucune règle de risque ne s\'applique.' };
+}
+
+// ---------------------------------------------------------------- Fichiers
+
+const SECRET_FILES = ['**/.env', '**/.env.*', '**/*.pem', '**/*.key', '**/id_rsa*', '**/id_ed25519*', '**/.npmrc', '**/.pypirc', '**/credentials.json', '**/service-account*.json', '**/*.p12', '**/*.keystore', '**/*.jks'];
+const SECRET_FILE_EXCEPTIONS = ['**/.env.example', '**/.env.sample', '**/.env.template', '**/.env.dist', '**/*.example.key'];
+const GIT_INTERNALS = ['.git/**'];
+/** Fichiers dont la modification change les garde-fous eux-mêmes ou la gouvernance du projet. */
+const GOVERNANCE_FILES = [
+  '.claude/settings.json', '.claude/settings.local.json', '.ceng/config.json', '.ceng/runtime/**',
+  'LICENSE', 'LICENSE.*', 'LICENCE', 'COPYING', 'CODEOWNERS', '.github/CODEOWNERS', 'SECURITY.md',
+];
+const CI_FILES = ['.github/workflows/**', '.gitlab-ci.yml', '.circleci/**', 'azure-pipelines.yml', 'Jenkinsfile', 'bitbucket-pipelines.yml'];
+const INFRA_FILES = ['**/*.tf', '**/*.tfvars', 'k8s/**', 'kubernetes/**', 'helm/**', '**/Chart.yaml'];
+
+export function classifyFileWrite(path: string, autonomy: Autonomy): Verdict {
+  const p = normalizePath(path);
+  if (matchesAny(p, GIT_INTERNALS)) return { class: 'forbidden', reason: 'Modification directe des internes git.', rule: 'git-internals' };
+  if (matchesAny(p, SECRET_FILES) && !matchesAny(p, SECRET_FILE_EXCEPTIONS)) return { class: 'forbidden', reason: 'Fichier de secrets : jamais écrit par un agent.', rule: 'secret-file' };
+  if (matchesAny(p, GOVERNANCE_FILES)) return { class: 'approval', reason: 'Fichier de gouvernance/garde-fous ou de licence : validation humaine.', rule: 'governance-file' };
+  if (matchesAny(p, CI_FILES) && autonomy !== 'high') return { class: 'approval', reason: 'Pipeline CI/CD : impact sur la chaîne de livraison.', rule: 'ci-file' };
+  if (matchesAny(p, INFRA_FILES) && autonomy !== 'high') return { class: 'approval', reason: 'Définition d\'infrastructure.', rule: 'infra-file' };
+  return { class: 'autonomous', reason: 'Fichier de travail ordinaire.' };
+}
+
+export function isSecretPath(path: string): boolean {
+  const p = normalizePath(path);
+  return matchesAny(p, SECRET_FILES) && !matchesAny(p, SECRET_FILE_EXCEPTIONS);
+}
+
+/** Tableau lisible des catégories, injecté dans le contexte et la documentation. */
+export const APPROVAL_SUMMARY = [
+  'Déploiement / publication / release',
+  'Changements d\'infrastructure (terraform, kubectl, helm, cloud)',
+  'Opérations destructives : push forcé, reset --hard, suppression récursive, données (DROP/TRUNCATE/reset)',
+  'Migrations ciblant la production',
+  'Secrets (création, rotation) et fichiers de garde-fous (.claude/settings*, .ceng/config.json)',
+  'Licence, CODEOWNERS, SECURITY.md, ajout de dépendance copyleft, nouvelle collecte de données personnelles',
+];
