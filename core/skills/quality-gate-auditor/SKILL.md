@@ -29,11 +29,12 @@ Pour chaque écart : où (fichier:ligne ou page/composant), ce qui est attendu (
 observé, **la modification précise à effectuer** (valeur, token, comportement). Pas de reformulation vague.
 
 ## Règles
-- **Tu ne modifies pas tout le code toi-même** : tu génères un rapport d'erreurs précis
-  (`.ceng/brain/reports/<TÂCHE>-audit.md`) que l'orchestrateur transforme en tâches pour les exécutants (Sonnet).
+- **Tu ne modifies pas tout le code toi-même** : tu génères un rapport d'erreurs précis (dans un projet
+  claude-eng-framework : `.ceng/brain/reports/<TÂCHE>-audit.md` ; sinon `docs/AUDIT.md`) que l'orchestrateur ou
+  l'humain transforme en corrections pour les exécutants (Sonnet).
 - Ne réécris pas inutilement le code existant. Ne modifie pas ce qui fonctionne déjà. L'objectif est d'améliorer le
   résultat sans repartir de zéro.
 - Si certaines décisions prises pendant l'implémentation sont **meilleures** que la direction initiale, explique
   pourquoi et **mets à jour les documents de référence** lorsque c'est pertinent (c'est la seule modification que tu fais).
 - Verdict de la gate : `fail` s'il reste au moins une correction importante, sinon `pass`.
-  L'orchestrateur l'enregistre (`ceng gate record <tâche> visual|ux pass|fail --note …`).
+  Dans un projet claude-eng-framework, l'orchestrateur l'enregistre (`ceng gate record <tâche> visual|ux pass|fail --note …`).

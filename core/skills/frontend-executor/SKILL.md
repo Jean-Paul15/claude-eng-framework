@@ -35,4 +35,5 @@ Ces fichiers constituent **la source de vérité**. S'ils sont absents, arrête-
 ## Validation avant de rendre la main
 - Tests adaptés (composants clés, parcours critiques), contrôle a11y (axe si disponible), validation visuelle
   (capture ou navigateur si disponible) sur desktop et mobile.
-- Rapport `.ceng/brain/reports/<TÂCHE>.md` : ce qui est implémenté, conformité, écarts volontaires et pourquoi.
+- Résume ce qui est implémenté, la conformité, les écarts volontaires et pourquoi (dans un projet
+  claude-eng-framework : rapport `.ceng/brain/reports/<TÂCHE>.md`).

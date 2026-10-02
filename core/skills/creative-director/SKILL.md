@@ -52,5 +52,6 @@ de la direction artistique. Ne développe pas les pages. Ne cherche pas à termi
 Termine ta réponse par une courte section **« VISION DU SITE »** : en quelques paragraphes, l'expérience que
 l'utilisateur doit ressentir et l'idée qui relie l'ensemble du design et du motion.
 
-Une fois cette phase terminée, ces fichiers sont **la source de vérité** du projet. Enregistre la décision :
+Une fois cette phase terminée, ces fichiers sont **la source de vérité** du projet. Si le projet utilise
+claude-eng-framework (dossier `.ceng/` présent), enregistre la décision :
 `node .ceng/runtime/cli.js decision add --title "Direction créative" --context … --decision … --consequences …`.
