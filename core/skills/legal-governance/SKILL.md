@@ -1,6 +1,6 @@
 ---
 name: legal-governance
-description: Dimension légale et gouvernance du développement — licences du projet et des dépendances, données personnelles (RGPD/CCPA : minimisation, base légale, consentement, conservation, sous-traitants), accessibilité légale, réglementation IA, traçabilité des décisions, propriété du code, approbations. À utiliser dès qu'on ajoute une dépendance, collecte ou transmet des données personnelles, intègre un tiers, ajoute une fonction IA, ou prend une décision qui engage le projet.
+description: Dimension légale et gouvernance du développement — licences du projet et des dépendances, données personnelles (RGPD/CCPA — minimisation, base légale, consentement, conservation, sous-traitants), accessibilité légale, réglementation IA, traçabilité des décisions, propriété du code, approbations. À utiliser dès qu'on ajoute une dépendance, collecte ou transmet des données personnelles, intègre un tiers, ajoute une fonction IA, ou prend une décision qui engage le projet.
 ---
 
 # Légal & gouvernance — ne jamais l'oublier, ne jamais trancher seul

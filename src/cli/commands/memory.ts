@@ -7,6 +7,7 @@ import { openEscalation, recordDecision, resolveEscalation } from '../../app/coo
 import { renderIndex, resumeBrief, statusCounts } from '../../brain/brief.js';
 import { BrainStore } from '../../brain/store.js';
 import { exists, writeTextAtomic } from '../../infra/fs.js';
+import { yamlString } from '../../generation/project-skills.js';
 import { bool, out, parse, requirePositional, requireStr, str, UsageError } from '../args.js';
 
 function storeFor(dir?: string): BrainStore {
@@ -215,7 +216,7 @@ export function skillCommand(argv: string[]): void {
   if (!/^[a-z0-9][a-z0-9-]{1,62}$/.test(name)) throw new UsageError('Nom de skill : minuscules, chiffres, tirets.');
   const file = path.join(store.paths.root, '.claude', 'skills', name, 'SKILL.md');
   if (exists(file)) throw new UsageError(`La skill ${name} existe déjà.`);
-  writeTextAtomic(file, `---\nname: ${name}\ndescription: ${requireStr(p, 'description')}\nmetadata:\n  ceng-tier: project\n  ceng-status: draft\n---\n\n# ${name}\n\n## Quand l'utiliser\n\n## Procédure\n\n## Pièges\n\n## Sources\n`);
+  writeTextAtomic(file, `---\nname: ${name}\ndescription: ${yamlString(requireStr(p, 'description'))}\nmetadata:\n  ceng-tier: project\n  ceng-status: draft\n---\n\n# ${name}\n\n## Quand l'utiliser\n\n## Procédure\n\n## Pièges\n\n## Sources\n`);
   const config = store.config();
   if (!config.installedSkills.includes(name)) store.saveConfig({ ...config, installedSkills: [...config.installedSkills, name] });
   out(p, `Squelette créé : .claude/skills/${name}/SKILL.md`, { file });

@@ -18,6 +18,14 @@ export interface ProjectSkillTemplate {
   research: string[];
 }
 
+/**
+ * Chaîne YAML sûre : une chaîne JSON est un scalaire YAML double-quoté valide. Évite qu'un « : » ou
+ * un « # » dans une description rende le frontmatter invalide (la skill serait alors ignorée).
+ */
+export function yamlString(value: string): string {
+  return JSON.stringify(value.replace(/\r?\n/g, ' '));
+}
+
 export function matchTemplates(templates: readonly ProjectSkillTemplate[], profile: ProjectProfile): ProjectSkillTemplate[] {
   return templates.filter((t) => {
     const m = t.match;
@@ -44,7 +52,7 @@ export function renderProjectSkill(t: ProjectSkillTemplate, profile: ProjectProf
   const list = (items: string[]) => items.map((i) => `- ${i}`).join('\n');
   return `---
 name: ${t.name}
-description: ${t.description}
+description: ${yamlString(t.description)}
 metadata:
   ceng-tier: project
   ceng-status: draft
