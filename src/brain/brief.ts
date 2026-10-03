@@ -99,7 +99,7 @@ export function resumeBrief(store: BrainStore, source: string): string {
   const blocked = tasks.filter((t) => t.status === 'blocked');
   if (blocked.length) parts.push(`Bloquées : ${blocked.map((t) => `${t.id} (${t.blockedReason ?? '?'})`).join(' ; ')}.`);
   const pending = (readText(`${p.brain}/pending-approvals.md`) ?? '').split(/\r?\n/).filter((l) => l.startsWith('- [ ]')).length;
-  if (pending) parts.push(`${pending} action(s) refusée(s) pendant un travail sans humain attendent une validation : présenter .ceng/brain/pending-approvals.md à l'humain dès qu'il est là.`);
+  if (pending) parts.push(`${pending} action(s) refusée(s) pendant un travail sans humain attendent une décision (.ceng/brain/pending-approvals.md) : dès que l'humain écrit, les lui poser avec l'outil de questions (AskUserQuestion), une décision par question, option recommandée en premier — pas de liste en texte.`);
   if (tasks.length === 0) parts.push('Aucune tâche : bootstrap nécessaire (objectif → architecture → graphe de tâches) via /ceng-orchestrate.');
   if (source === 'compact') parts.push('Le contexte vient d\'être compacté : relire le rapport de la tâche en cours avant d\'agir.');
   parts.push(`Commandes : \`${CLI_INVOCATION} resume\` (détail), \`task next\`, \`route <id>\`, \`checkpoint\`.`);

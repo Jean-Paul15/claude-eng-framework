@@ -95,9 +95,11 @@ Le prompt commence par « MODE SANS HUMAIN » : personne ne répondra.
 - Enchaîne les tâches (le hook Stop te relance tant qu'il reste du travail faisable). Checkpoint après chaque tâche.
 - Prudence accrue : pas de décision irréversible d'architecture sans ADR ; en cas de doute métier, choisir l'option
   la plus réversible et la consigner.
-Au retour de l'humain : reprends `pending-approvals.md` et les tâches bloquées **avec l'outil de questions**
-(approuver / refuser / modifier pour chaque action ; les questions en attente avec l'hypothèse prise la nuit en
-option recommandée), puis applique les réponses : débloquer, reprendre ou annuler, et coche les lignes traitées.
+Au retour de l'humain : reprends `pending-approvals.md` et les tâches bloquées **avec l'outil de questions**, jamais
+sous forme de liste à lire : une décision par question (approuver / refuser / modifier ; pour une question en attente,
+l'hypothèse prise la nuit en option recommandée), par lots de 4 maximum. Applique chaque réponse (débloquer, reprendre,
+annuler) et coche la ligne. Une décision ignorée reste non cochée : elle sera reproposée. Si l'humain demande à revoir
+les décisions en attente (« montre-moi les décisions », « reprends l'invite »), repose-les de la même façon.
 
 ## 7. Fin de phase / de session
 `ceng status` ; résume à l'humain ce qui est fait, ce qui reste, les décisions qui l'attendent.
