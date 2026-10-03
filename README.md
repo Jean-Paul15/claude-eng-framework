@@ -85,6 +85,14 @@ choisir une direction) passe par l'invite de questions de Claude Code, qui peut 
 - **Tu réécris** : les invites reviennent, et tu peux changer de trajectoire. Chaque décision provisoire est tracée
   (ADR), précédée d'un point de restauration, et gardée réversible.
 
+Les décisions sont triées avant de te déranger, selon que Claude est sûr ou non, et selon que changer d'avis
+coûterait peu ou beaucoup :
+- **Évident** (bonne pratique établie dans ce contexte) : il décide et te tient au courant.
+- **Incertain mais facile à changer** : il te demande. Si tu es absent, sa recommandation devient une décision
+  provisoire et il continue.
+- **Incertain et coûteux à changer** : il te demande. Si tu es absent, il ne construit rien sur une supposition :
+  seules les tâches qui en dépendent attendent ta réponse, tout le reste avance.
+
 Désactivable avec `ceng init --presence off`, qui rétablit les boîtes de permission natives.
 
 Lance le mode nuit dans un terminal plutôt que dans une session de Claude Desktop. Une session interactive s'arrête
