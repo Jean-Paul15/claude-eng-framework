@@ -56,7 +56,8 @@ describe('mode sans humain (nuit)', () => {
 
   it('au réveil, le brief signale les validations en attente', () => {
     const ctx = JSON.parse(runtimeHook(dir, 'session-start', { source: 'startup' }).stdout).hookSpecificOutput.additionalContext as string;
-    assert.match(ctx, /attendent une validation/);
+    assert.match(ctx, /attendent une décision/);
+    assert.match(ctx, /AskUserQuestion/);
   });
 
   it('ceng run --unattended : aucune invite de permission, mode auto, limites', () => {
