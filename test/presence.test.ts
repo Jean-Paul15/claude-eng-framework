@@ -65,6 +65,24 @@ describe('invite de questions et bascule automatique en mode sans humain', () =>
     assert.equal(hook('permission-request', { tool_name: 'WebFetch', tool_input: { url: 'https://example.com' } }).hookSpecificOutput!.decision!.behavior, 'deny');
   });
 
+  it('décision coûteuse à changer pendant l\'absence : on ne construit pas dessus, seules les tâches dépendantes attendent', () => {
+    const q = hook('ask-question', { tool_name: 'AskUserQuestion', tool_input: { questions: [{ header: 'Archi', question: '[impact: fort] Monolithe ou microservices ?', options: [{ label: 'Monolithe modulaire (Recommandé)' }, { label: 'Microservices' }] }] } });
+    const reason = q.hookSpecificOutput!.permissionDecisionReason!;
+    assert.match(reason, /Ne construis PAS sur une supposition/);
+    assert.match(reason, /bloque seulement les tâches qui dépendent/);
+    assert.match(pending(), /Monolithe ou microservices \? .* → impact fort : tâches dépendantes en attente/);
+  });
+
+  it('décisions prises sans l\'humain : tracées et signalées à son retour', () => {
+    const r = cli(dir, ['decision', 'add', '--title', 'ORM', '--context', 'c', '--decision', 'SQLAlchemy', '--consequences', 'x', '--status', 'provisional', '--impact', 'low', '--autonomous']);
+    assert.equal(r.code, 0, r.stderr);
+    const file = fs.readdirSync(path.join(dir, '.ceng/brain/decisions')).find((f) => f.includes('orm'))!;
+    assert.match(fs.readFileSync(path.join(dir, '.ceng/brain/decisions', file), 'utf8'), /PROVISOIRE \(à confirmer\) · impact d'un changement : faible · prise sans l'humain/);
+    const ctx = JSON.parse(runtimeHook(dir, 'session-start', { source: 'startup' }).stdout).hookSpecificOutput.additionalContext as string;
+    assert.match(ctx, /Décisions prises sans l'humain à lui signaler/);
+    assert.match(ctx, /ADR-\d{4}-orm/);
+  });
+
   it('le travail continue sans attendre (session d\'orchestration)', () => {
     assert.equal(cli(dir, ['task', 'add', '--title', 'X', '--complexity', '2', '--files', 'app/x/**']).code, 0);
     const out = hook('stop', {});

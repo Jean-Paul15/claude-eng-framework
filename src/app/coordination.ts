@@ -55,6 +55,9 @@ export function resolveEscalation(store: BrainStore, id: string, decision: strin
   return store.paths.rel(file);
 }
 
+export type DecisionStatus = 'accepted' | 'provisional' | 'pending';
+export type DecisionImpact = 'low' | 'high';
+
 export interface DecisionInput {
   title: string;
   context: string;
@@ -62,7 +65,16 @@ export interface DecisionInput {
   consequences: string;
   alternatives?: string;
   taskId?: string;
+  /** accepted (évidente ou validée) · provisional (recommandation appliquée, à confirmer) · pending (attend l'humain). */
+  status?: DecisionStatus;
+  /** Coût d'un changement d'avis : low (local) · high (beaucoup de travail en dépendrait). */
+  impact?: DecisionImpact;
+  /** Prise sans l'humain : il en sera informé à son retour. */
+  autonomous?: boolean;
 }
+
+const STATUS_LABEL: Record<DecisionStatus, string> = { accepted: 'acceptée', provisional: 'PROVISOIRE (à confirmer)', pending: 'EN ATTENTE de l\'humain' };
+export const AUTONOMOUS_MARK = 'prise sans l\'humain';
 
 export function recordDecision(store: BrainStore, input: DecisionInput): string {
   const existing = store.listDir(store.paths.decisions).map((f) => f.split('-').slice(0, 2).join('-'));
@@ -71,14 +83,16 @@ export function recordDecision(store: BrainStore, input: DecisionInput): string 
   writeTextAtomic(file, [
     `# ${id} — ${input.title}`,
     '',
-    `date: ${new Date().toISOString().slice(0, 10)} · statut : acceptée${input.taskId ? ` · tâche : ${input.taskId}` : ''}`,
+    `date: ${new Date().toISOString().slice(0, 10)} · statut : ${STATUS_LABEL[input.status ?? 'accepted']}` +
+      `${input.impact ? ` · impact d'un changement : ${input.impact === 'high' ? 'fort' : 'faible'}` : ''}` +
+      `${input.autonomous ? ` · ${AUTONOMOUS_MARK}` : ''}${input.taskId ? ` · tâche : ${input.taskId}` : ''}`,
     '',
     '## Contexte', input.context, '',
     '## Décision', input.decision, '',
     '## Conséquences', input.consequences, '',
     ...(input.alternatives ? ['## Alternatives écartées', input.alternatives, ''] : []),
   ].join('\n'));
-  store.log({ type: 'decision.recorded', ...(input.taskId ? { taskId: input.taskId } : {}), data: { id, title: input.title } });
+  store.log({ type: 'decision.recorded', ...(input.taskId ? { taskId: input.taskId } : {}), data: { id, title: input.title, status: input.status ?? 'accepted', impact: input.impact ?? null, autonomous: input.autonomous ?? false } });
   return store.paths.rel(file);
 }
 

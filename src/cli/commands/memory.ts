@@ -90,8 +90,12 @@ export function escalateCommand(argv: string[]): void {
 
 export function decisionCommand(argv: string[]): void {
   const [sub, ...rest] = argv;
-  if (sub !== 'add') throw new UsageError('ceng decision add --title … --context … --decision … --consequences …');
-  const p = parse(rest, { dir: { type: 'string' }, title: { type: 'string' }, context: { type: 'string' }, decision: { type: 'string' }, consequences: { type: 'string' }, alternatives: { type: 'string' }, task: { type: 'string' } });
+  if (sub !== 'add') throw new UsageError('ceng decision add --title … --context … --decision … --consequences … [--status accepted|provisional|pending] [--impact low|high] [--autonomous]');
+  const p = parse(rest, { dir: { type: 'string' }, title: { type: 'string' }, context: { type: 'string' }, decision: { type: 'string' }, consequences: { type: 'string' }, alternatives: { type: 'string' }, task: { type: 'string' }, status: { type: 'string' }, impact: { type: 'string' }, autonomous: { type: 'boolean' } });
+  const status = str(p, 'status');
+  if (status && !['accepted', 'provisional', 'pending'].includes(status)) throw new UsageError('--status : accepted|provisional|pending');
+  const impact = str(p, 'impact');
+  if (impact && !['low', 'high'].includes(impact)) throw new UsageError('--impact : low|high');
   const file = recordDecision(storeFor(str(p, 'dir')), {
     title: requireStr(p, 'title'),
     context: requireStr(p, 'context'),
@@ -99,6 +103,9 @@ export function decisionCommand(argv: string[]): void {
     consequences: requireStr(p, 'consequences'),
     ...(str(p, 'alternatives') ? { alternatives: str(p, 'alternatives')! } : {}),
     ...(str(p, 'task') ? { taskId: str(p, 'task')!.toUpperCase() } : {}),
+    ...(status ? { status: status as 'accepted' | 'provisional' | 'pending' } : {}),
+    ...(impact ? { impact: impact as 'low' | 'high' } : {}),
+    autonomous: bool(p, 'autonomous'),
   });
   out(p, `Décision enregistrée : ${file}`, { file });
 }

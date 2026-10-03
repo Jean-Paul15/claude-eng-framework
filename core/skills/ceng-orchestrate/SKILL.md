@@ -70,6 +70,18 @@ gates et revues sont tes garanties — pas ta relecture ligne à ligne.
 - Opus a échoué, décision métier, ambiguïté que seul l'humain peut lever, ou action à approbation humaine →
   `ceng task block <id> --reason …` et demande à l'humain, question précise + options + recommandation.
 
+## Trier une décision avant de déranger l'humain
+Deux critères : **certitude** (bonne pratique établie dans ce contexte, convention du projet, ADR existant) et
+**impact d'un changement d'avis** (faible = local et réversible ; fort = architecture, schéma de données, contrat
+public, choix structurant dont beaucoup de travail dépendrait).
+| Cas | Humain présent | Humain absent |
+|---|---|---|
+| Évident | décide, `decision add` (accepted, si structurant) — ne pas demander | idem, avec `--autonomous` |
+| Incertain, impact faible | invite (`[impact: faible]` dans la question) | recommandation = décision provisoire (`--status provisional --autonomous`), continuer |
+| Incertain, impact fort | invite (`[impact: fort]`), en continuant les tâches indépendantes | `--status pending`, bloquer **seulement** les tâches dépendantes, avancer sur tout le reste — jamais construire sur une supposition |
+Indique toujours l'impact dans le texte de la question (`[impact: fort]` / `[impact: faible]`) : le hook s'en sert si
+l'humain est absent. Au retour : résume en une ligne chaque décision prise sans lui, puis invite pour celles à confirmer.
+
 ## Poser une question à l'humain
 Utilise **l'outil de questions de Claude Code** (`AskUserQuestion`) : 1 à 4 questions par appel, 2 à 4 options
 chacune, l'option recommandée en premier marquée « (Recommandé) », une courte explication des conséquences par option ;

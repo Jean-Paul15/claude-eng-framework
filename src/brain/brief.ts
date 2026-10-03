@@ -100,6 +100,12 @@ export function resumeBrief(store: BrainStore, source: string): string {
   if (blocked.length) parts.push(`Bloquées : ${blocked.map((t) => `${t.id} (${t.blockedReason ?? '?'})`).join(' ; ')}.`);
   const pending = (readText(`${p.brain}/pending-approvals.md`) ?? '').split(/\r?\n/).filter((l) => l.startsWith('- [ ]')).length;
   if (pending) parts.push(`${pending} action(s) refusée(s) pendant un travail sans humain attendent une décision (.ceng/brain/pending-approvals.md) : dès que l'humain écrit, les lui poser avec l'outil de questions (AskUserQuestion), une décision par question, option recommandée en premier — pas de liste en texte.`);
+  const sinceHuman = state.lastHumanAt ?? '';
+  const autonomous = store.listDir(p.decisions).filter((f) => {
+    const text = readText(`${p.decisions}/${f}`) ?? '';
+    return text.includes("prise sans l'humain") && (!sinceHuman || (text.match(/^date: (\S+)/m)?.[1] ?? '') >= sinceHuman.slice(0, 10));
+  });
+  if (autonomous.length) parts.push(`Décisions prises sans l'humain à lui signaler brièvement (et à confirmer via l'invite si PROVISOIRE ou EN ATTENTE) : ${autonomous.map((f) => f.replace(/\.md$/, '')).join(', ')}.`);
   if (tasks.length === 0) parts.push('Aucune tâche : bootstrap nécessaire (objectif → architecture → graphe de tâches) via /ceng-orchestrate.');
   if (source === 'compact') parts.push('Le contexte vient d\'être compacté : relire le rapport de la tâche en cours avant d\'agir.');
   parts.push(`Commandes : \`${CLI_INVOCATION} resume\` (détail), \`task next\`, \`route <id>\`, \`checkpoint\`.`);

@@ -343,23 +343,36 @@ export function permissionRequest(store: BrainStore, input: HookInput): HookOutp
 }
 
 /**
- * PreToolUse sur AskUserQuestion, humain absent : la question n'attend pas. Claude applique SA recommandation comme
- * décision provisoire (tracée, checkpointée, gardée réversible) ; la question sera reposée au retour de l'humain.
+ * PreToolUse sur AskUserQuestion, humain absent : la question n'attend pas. Traitement selon l'impact déclaré
+ * dans la question (« [impact: fort] » / « [impact: faible] ») :
+ *  - impact faible (ou non précisé) : la recommandation devient une décision provisoire, le travail continue ;
+ *  - impact fort : on ne construit pas sur une supposition — seules les tâches qui dépendent du choix attendent,
+ *    tout le reste avance.
  */
 export function askQuestion(store: BrainStore, input: HookInput): HookOutput {
   if (!isHumanAway(store)) return OK;
-  const questions = (input.tool_input?.['questions'] as { question?: string; options?: { label?: string }[] }[] | undefined) ?? [];
+  const questions = (input.tool_input?.['questions'] as { question?: string; header?: string; options?: { label?: string }[] }[] | undefined) ?? [];
+  const highImpact = questions.some((q) => /impact\s*:\s*fort|impact\s*:\s*high/i.test(`${q.header ?? ''} ${q.question ?? ''}`));
   const chosen: string[] = [];
   for (const q of questions) {
     const labels = (q.options ?? []).map((o) => o.label ?? '').filter(Boolean);
     const recommended = labels.find((l) => /recommand/i.test(l)) ?? labels[0] ?? 'option la plus réversible';
     chosen.push(recommended);
-    recordPendingApproval(store, `QUESTION : ${q.question ?? '?'}${labels.length ? ` [${labels.join(' | ')}]` : ''} → provisoire : ${recommended}`, 'Question posée pendant une absence');
+    const outcome = highImpact ? 'impact fort : tâches dépendantes en attente' : `provisoire : ${recommended}`;
+    recordPendingApproval(store, `QUESTION : ${q.question ?? '?'}${labels.length ? ` [${labels.join(' | ')}]` : ''} → ${outcome}`, 'Question posée pendant une absence');
+  }
+  if (highImpact) {
+    return preToolDecision(
+      'deny',
+      '[ceng] Humain absent et décision COÛTEUSE à changer : question mise en file, à lui reposer à son retour. Ne construis PAS sur une supposition : ' +
+        `\`${CLI_INVOCATION} decision add --status pending --impact high …\`, bloque seulement les tâches qui dépendent de ce choix ` +
+        `(\`${CLI_INVOCATION} task block <id> --reason "attend décision ADR-…"\`) et continue toutes les tâches indépendantes.`,
+    );
   }
   return preToolDecision(
     'deny',
     `[ceng] Humain absent : question mise en file, à lui reposer à son retour. Applique ta recommandation comme DÉCISION PROVISOIRE (${chosen.join(' ; ')}) : ` +
-      `\`${CLI_INVOCATION} checkpoint --done "avant décision provisoire" --next "…"\`, puis \`${CLI_INVOCATION} decision add --title "PROVISOIRE : …" …\` ` +
+      `\`${CLI_INVOCATION} checkpoint --done "avant décision provisoire" --next "…"\`, puis \`${CLI_INVOCATION} decision add --status provisional --impact low --autonomous …\` ` +
       '(préciser ce qui en dépend), garde le choix isolé si cela ne coûte presque rien (interface, configuration), et continue.',
   );
 }
