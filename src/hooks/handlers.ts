@@ -6,7 +6,7 @@ import type { BrainStore } from '../brain/store.js';
 import { createCheckpoint } from '../app/checkpoints.js';
 import { completionCheck } from '../app/tasks.js';
 import { CLI_INVOCATION } from '../brain/paths.js';
-import { refreshIfNeeded } from '../app/codegraph.js';
+import { graphDisabledByEnv, graphifyAvailable, refreshIfNeeded } from '../app/codegraph.js';
 
 /**
  * Gestionnaires de hooks Claude Code. Chaque gestionnaire reçoit l'entrée JSON du hook et renvoie
@@ -59,7 +59,21 @@ export function sessionStart(store: BrainStore, input: HookInput): HookOutput {
     s.pendingSpawns = [];
   });
   store.log({ type: 'session.start', ...(input.session_id ? { sessionId: input.session_id } : {}), data: { source } });
-  return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: resumeBrief(store, source) } } };
+  const brief = [resumeBrief(store, source), ...machineWarnings(store)].join('\n');
+  return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: brief } } };
+}
+
+/**
+ * Ce qui manque sur CETTE machine (le dépôt peut avoir été cloné ailleurs) : signalé à chaque démarrage,
+ * pour que Claude le règle sans dépendre d'une mémoire propre à un poste.
+ */
+function machineWarnings(store: BrainStore): string[] {
+  const out: string[] = [];
+  const config = store.config();
+  if (config.codeGraph?.enabled && !graphDisabledByEnv() && !graphifyAvailable(store.paths.root)) {
+    out.push(`⚠ Graphe de code activé mais graphify absent sur cette machine : proposer à l'humain \`${CLI_INVOCATION} graph install\` puis \`graph build\` (sinon, travailler avec grep).`);
+  }
+  return out;
 }
 
 export function guardCommand(store: BrainStore, input: HookInput): HookOutput {

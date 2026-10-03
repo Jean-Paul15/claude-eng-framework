@@ -60,6 +60,10 @@ export function planRollback(store: BrainStore, checkpointId: string): RollbackP
   if (!cp) throw new Error(`Checkpoint ${checkpointId} introuvable (voir \`ceng checkpoint list\`).`);
   if (!cp.snapshot) throw new Error(`${cp.id} n'a pas d'instantané git (dépôt absent ou --no-snapshot) : rollback automatique impossible.`);
   const git = new Git(store.paths.root);
+  if (!git.hasCommit(cp.snapshot)) {
+    // Les instantanés sont des références git locales (refs/ceng/…), non poussées : un clone ne les a pas.
+    throw new Error(`L'instantané de ${cp.id} n'existe pas dans ce dépôt (créé sur une autre machine ou un autre clone). Utiliser l'historique git (commits) pour revenir en arrière.`);
+  }
   return { checkpoint: cp, changedFiles: git.filesChangedSince(cp.snapshot), diffStat: git.diffStat(cp.snapshot) };
 }
 

@@ -21,6 +21,7 @@ const securityHeavy = (p: ProjectProfile) => p.riskLevel === 'high' || p.riskLev
 export const SKILLS: AssetSpec[] = [
   { name: 'ceng-orchestrate', when: always, why: 'Protocole de l\'orchestrateur (cœur du framework).' },
   { name: 'ceng-skill-forge', when: always, why: 'Création et amélioration contrôlée des skills.' },
+  { name: 'ceng-setup', when: always, why: 'Installation, mise à jour et diagnostic du framework — voyage avec le dépôt (nouvelle machine, clone).' },
   { name: 'software-engineering', when: always, why: 'Critères de qualité et leurs contre-indications.' },
   { name: 'architecture', when: always, why: 'Jugement architectural proportionné.' },
   { name: 'testing', when: always, why: 'Choix de la stratégie de test.' },

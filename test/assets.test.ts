@@ -43,6 +43,15 @@ describe('assets du cœur', () => {
     }
   });
 
+  it('toutes les skills de core/ (y compris hors catalogue) ont un frontmatter valide', () => {
+    for (const dir of fs.readdirSync(path.join(CORE, 'skills'))) {
+      const file = path.join(CORE, 'skills', dir, 'SKILL.md');
+      const fm = frontmatter(file);
+      assert.equal(fm['name'], dir);
+      assertYamlSafe(file, 'description', fm['description']!);
+    }
+  });
+
   it('aucune skill ne masque une commande intégrée de Claude Code', () => {
     for (const s of SKILLS) assert.ok(!['code-review', 'security-review', 'init', 'simplify', 'review'].includes(s.name), s.name);
   });

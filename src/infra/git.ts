@@ -83,6 +83,10 @@ export class Git {
     }
   }
 
+  hasCommit(sha: string): boolean {
+    return this.git(['cat-file', '-e', `${sha}^{commit}`]).code === 0;
+  }
+
   diffStat(fromCommit: string): string {
     return this.out(['diff', '--stat', fromCommit]) ?? '';
   }

@@ -85,6 +85,22 @@ Ce que `init` écrit dans le projet (jamais dans le code applicatif) :
 - `CLAUDE.md` : un bloc court délimité ;
 - `.gitignore` : exclusion des journaux.
 
+## Pour les agents IA (Claude Code)
+
+Si l'on te demande d'installer ce framework dans un projet, suis la skill
+[`core/skills/ceng-setup/SKILL.md`](core/skills/ceng-setup/SKILL.md). En résumé :
+
+1. `ceng --version`, sinon préfixer les commandes par `npx -y github:Jean-Paul15/claude-eng-framework`.
+2. `init --dry-run` pour voir la détection.
+3. Poser à l'humain, en un seul message, ses choix de risque, d'autonomie, de budget, de parallélisme, l'objectif et
+   s'il veut graphify.
+4. `init --yes --risk … --autonomy … --budget … --parallelism … --goal "…" --install-graphify`.
+5. Montrer les recommandations, puis `doctor`, puis `/ceng-orchestrate`.
+
+Un projet déjà initialisé fonctionne sans installation : la CLI est dans `.ceng/runtime/` et les consignes dans son
+`CLAUDE.md`. Pour rendre cette procédure disponible partout sur une machine :
+`npx skills add Jean-Paul15/claude-eng-framework -s ceng-setup -g -a claude-code -y`.
+
 ## Documentation
 
 | Sujet | Fichier |

@@ -28,6 +28,7 @@ export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy, co
     '- Déléguer : `route <tâche>` donne agent, modèle, effort, revue, gates. Les workers écrivent `.ceng/brain/reports/<tâche>.md` et renvoient un résumé court.',
     '- Terminé = gates requises vertes (`gate run <tâche>`) puis `task done`. Avant une modification risquée : `checkpoint`.',
     '- Légal & gouvernance : licences des dépendances, données personnelles, décisions tracées (ADR) — skill `legal-governance`.',
+    `- Nouvelle machine / clone : rien à installer pour la CLI (\`.ceng/runtime/\` versionné) ; \`${CLI_INVOCATION} doctor\` ; graphe de code absent → \`${CLI_INVOCATION} graph install\` (accord humain) puis \`graph build\` ; mise à jour : \`npx -y github:Jean-Paul15/claude-eng-framework upgrade\`.`,
     '',
     '**Approbation humaine obligatoire** (quelle que soit l\'autonomie) :',
     ...APPROVAL_SUMMARY.map((s) => `- ${s}`),
