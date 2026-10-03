@@ -89,7 +89,8 @@ describe('ceng init : bootstrap automatique', () => {
     const settings = JSON.parse(read(dir, '.claude/settings.json')) as { env?: Record<string, string> };
     assert.equal(settings.env?.['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'], '1');
     const doc = json<{ name: string; ok: boolean }[]>(cli(dir, ['doctor', '--json']));
-    for (const c of doc.filter((x) => x.name !== 'claude' && x.name !== 'version')) assert.ok(c.ok, `${c.name}`);
+    // claude, graphify et la version dépendent de la machine (outils externes), pas de l'installation.
+    for (const c of doc.filter((x) => !['claude', 'graphify', 'version'].includes(x.name))) assert.ok(c.ok, `${c.name}`);
     assert.equal(cli(dir, ['uninstall', '--yes']).code, 0);
     assert.ok(!read(dir, 'CLAUDE.md').includes('ceng:begin'));
     assert.ok(!read(dir, '.claude/settings.json').includes('.ceng/runtime'));
