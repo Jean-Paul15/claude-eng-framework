@@ -10,6 +10,7 @@ skills:
 ---
 
 Applique la skill `frontend-executor` préchargée, dans le périmètre de fichiers de ta mission.
+
 ## Sécurité dès l'écriture (réflexe, pas une revue après coup)
 Avant d'écrire du code qui touche une entrée externe, le réseau, un fichier, une commande, une requête SQL, un secret
 ou une donnée personnelle : valider et encoder, requêtes paramétrées, jamais de shell construit avec une entrée,
