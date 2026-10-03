@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import { classifyCommand, classifyFileWrite, parseDeletion, splitCommand } from '../domain/guardrails.js';
 import { autoApproveDeletion } from '../app/deletion.js';
+import { deferredReason, isUnattended, recordPendingApproval, shouldKeepWorking } from '../app/unattended.js';
 import { matchesAny, normalizePath } from '../domain/globs.js';
 import { resumeBrief } from '../brain/brief.js';
 import type { BrainStore } from '../brain/store.js';
@@ -39,6 +40,16 @@ const OK: HookOutput = { exitCode: 0 };
 const TASK_ID = /\bT-\d{4}\b/;
 const REPORT_MARKER = 'CENG_REPORT';
 const SPAWN_MATCH_WINDOW_MS = 10 * 60_000;
+
+/**
+ * Demande d'approbation humaine. En mode sans humain, personne ne répondrait et la session resterait figée :
+ * l'action est refusée proprement, consignée pour le réveil, et Claude continue autre chose.
+ */
+function askHuman(store: BrainStore, what: string, reason: string): HookOutput {
+  if (!isUnattended()) return preToolDecision('ask', reason);
+  recordPendingApproval(store, what, reason);
+  return preToolDecision('deny', deferredReason(reason));
+}
 
 function preToolDecision(decision: 'deny' | 'ask', reason: string): HookOutput {
   return {
@@ -95,12 +106,12 @@ export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
       return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', ...(onlyDeletions ? { permissionDecision: 'allow', permissionDecisionReason: note } : {}), additionalContext: note } } };
     }
     store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'approval', rule: 'delete', why: check.reason } });
-    return preToolDecision('ask', `Suppression non récupérable automatiquement (${check.reason}) : validation humaine.`);
+    return askHuman(store, command, `Suppression non récupérable automatiquement (${check.reason}) : validation humaine.`);
   }
   store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: verdict.class, rule: verdict.rule } });
   return verdict.class === 'forbidden'
     ? preToolDecision('deny', `Action interdite (${verdict.rule}) : ${verdict.reason} Proposer une alternative sûre ou demander à l'humain d'agir lui-même.`)
-    : preToolDecision('ask', `Approbation humaine requise (${verdict.rule}) : ${verdict.reason}`);
+    : askHuman(store, command, `Approbation humaine requise (${verdict.rule}) : ${verdict.reason}`);
 }
 
 export function guardFile(store: BrainStore, input: HookInput): HookOutput {
@@ -112,7 +123,7 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
   const verdict = classifyFileWrite(rel, config.policy.autonomy);
   if (verdict.class !== 'autonomous') {
     store.log({ type: 'guard.verdict', ...ids(input), data: { file: rel, class: verdict.class, rule: verdict.rule } });
-    return verdict.class === 'forbidden' ? preToolDecision('deny', `${verdict.reason} (${rel})`) : preToolDecision('ask', `${verdict.reason} (${rel})`);
+    return verdict.class === 'forbidden' ? preToolDecision('deny', `${verdict.reason} (${rel})`) : askHuman(store, rel, `${verdict.reason} (${rel})`);
   }
   // Prévention de conflit : un worker ne modifie pas un fichier possédé par une autre tâche en cours.
   if (input.agent_id) {
@@ -223,7 +234,9 @@ export function preCompact(store: BrainStore, input: HookInput): HookOutput {
 }
 
 export function stop(store: BrainStore, input: HookInput): HookOutput {
-  if (input.agent_id || input.stop_hook_active) return OK;
+  if (input.agent_id) return OK;
+  if (isUnattended()) return keepWorkingOrStop(store);
+  if (input.stop_hook_active) return OK;
   const state = store.state();
   if (!state.currentTask || state.editsSinceCheckpoint === 0 || state.stopReminderAt) return OK;
   store.updateState((s) => {
@@ -237,6 +250,22 @@ export function stop(store: BrainStore, input: HookInput): HookOutput {
         `[ceng] ${state.editsSinceCheckpoint} modification(s) sur ${state.currentTask} depuis le dernier checkpoint. ` +
         `Avant de rendre la main : \`${CLI_INVOCATION} checkpoint --task ${state.currentTask} --done "…" --next "…"\` ` +
         '(une session future doit pouvoir reprendre sans cette conversation). Si la tâche est finie : gates puis `task done`.',
+    },
+  };
+}
+
+/** Mode sans humain : relancer l'orchestrateur tant qu'il reste du travail faisable et qu'il progresse. */
+function keepWorkingOrStop(store: BrainStore): HookOutput {
+  const decision = shouldKeepWorking(store);
+  store.log({ type: 'unattended.continue', data: { continue: decision.continue, reason: decision.reason } });
+  if (!decision.continue) return OK;
+  return {
+    exitCode: 0,
+    json: {
+      decision: 'block',
+      reason:
+        `[ceng] MODE SANS HUMAIN : ${decision.reason}. Ne t'arrête pas : checkpoint si besoin, puis \`${CLI_INVOCATION} plan\` et continue la boucle ` +
+        "(protocole ceng-orchestrate). Ce qui exige l'humain : `task block` + passer à une tâche indépendante. Termine seulement quand plus rien n'est faisable.",
     },
   };
 }

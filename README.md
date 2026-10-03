@@ -49,6 +49,7 @@ ceng run                                             # ouvre Claude Code en mode
 | Tu veux… | Tu fais… |
 |---|---|
 | Faire avancer le projet en autonomie | `/ceng-orchestrate` (avec une consigne si tu veux) |
+| Le laisser travailler sans toi (la nuit) | `ceng run --unattended` dans un terminal (voir ci-dessous) |
 | Savoir où en est le projet | demander à Claude « où en est le projet ? », ou `ceng status` |
 | Une petite modification ou une question | parler à Claude normalement : le framework reste actif en arrière-plan |
 | Comprendre pourquoi une décision a été prise | `ceng report`, `ceng log --task T-0004`, `ceng route T-0004` |
@@ -57,6 +58,26 @@ ceng run                                             # ouvre Claude Code en mode
 | Reprendre sur une autre machine | cloner le dépôt et ouvrir Claude : rien à installer (le runtime est dans `.ceng/runtime/`) |
 
 Dans un projet, `ceng` peut toujours être remplacé par `node .ceng/runtime/cli.js`.
+
+### 4. Travailler la nuit, sans toi
+
+```bash
+ceng run --unattended                                   # jusqu'à 10 h, 30 relances
+ceng run --unattended --max-hours 8 --max-budget-usd 20 # avec limites explicites
+```
+
+- **Rien n'attend jamais une réponse.** Une action qui demanderait ton accord (déploiement, push forcé…) est
+  refusée proprement et notée dans `.ceng/brain/pending-approvals.md`. Ses questions y sont aussi, avec l'hypothèse
+  provisoire retenue. Claude passe aux tâches indépendantes.
+- **Pas d'arrêt en cours de route.** Il enchaîne les tâches tant qu'il en reste de faisables et qu'il progresse. Il
+  s'arrête quand tout est fait ou bloqué, ou quand il ne progresse plus.
+- **Les interruptions sont gérées.** Après une limite d'usage ou une surcharge, il attend (15 min par défaut) puis
+  reprend depuis la mémoire du projet.
+- **Au réveil**, ouvre Claude : il te présente via l'invite de questions ce qui attend ta validation, puis applique
+  tes réponses. `ceng report` détaille la nuit.
+
+Lance le mode nuit dans un terminal plutôt que dans une session de Claude Desktop. Une session interactive s'arrête
+sur la moindre invite de permission ; le mode `--unattended` est conçu pour ne jamais en afficher.
 
 ## L'idée en 7 points
 

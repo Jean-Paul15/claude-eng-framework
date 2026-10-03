@@ -17,7 +17,11 @@ poses les questions à l'humain, puis tu passes ses réponses en options.**
 
 ## 2. Nouveau projet (pas de dossier `.ceng/`)
 1. Aperçu sans écriture : `ceng init --dry-run` → lis le type de projet, la stack, le risque et les domaines détectés.
-2. Pose **en un seul message** les questions, avec la valeur recommandée (celle détectée) :
+2. Pose les questions avec **l'outil de questions de Claude Code** (`AskUserQuestion` : options cliquables, option
+   recommandée en premier avec « (Recommandé) », l'humain peut toujours répondre librement). Un appel = 4 questions
+   maximum : un premier appel pour risque, autonomie, budget et parallélisme ; un second pour graphify ; l'objectif
+   en texte libre. Sans cet outil (environnement qui ne l'offre pas), poser les mêmes questions en un seul message.
+   Valeurs recommandées = celles détectées :
    - risque : `low` · `medium` · `high` · `critical` (argent, santé, infra de production) ;
    - autonomie : `supervised` · `balanced` (défaut) · `high` — les actions irréversibles restent toujours soumises à l'humain ;
    - budget de tokens : `economy` · `balanced` (défaut) · `quality` ;

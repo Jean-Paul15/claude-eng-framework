@@ -70,11 +70,34 @@ gates et revues sont tes garanties — pas ta relecture ligne à ligne.
 - Opus a échoué, décision métier, ambiguïté que seul l'humain peut lever, ou action à approbation humaine →
   `ceng task block <id> --reason …` et demande à l'humain, question précise + options + recommandation.
 
+## Poser une question à l'humain
+Utilise **l'outil de questions de Claude Code** (`AskUserQuestion`) : 1 à 4 questions par appel, 2 à 4 options
+chacune, l'option recommandée en premier marquée « (Recommandé) », une courte explication des conséquences par option ;
+l'humain peut toujours répondre librement. Regroupe les questions plutôt que d'interrompre plusieurs fois. Seul
+l'orchestrateur pose des questions : les workers n'ont pas cet outil et remontent leur question dans leur CENG_REPORT
+(`status: blocked`). Ne demande que ce qui revient à l'humain (métier, priorités, risques, actions à approbation) —
+pas ce que le code, la doc ou une décision par défaut raisonnable permettent de trancher.
+
 ## 6. Garde-fous non négociables
 Approbation humaine : déploiement/publication, infra, opérations destructives (push forcé, reset, suppression,
 DROP/TRUNCATE), migrations en production, secrets, fichiers de garde-fous (.claude/settings*, .ceng/config.json),
 licences, nouvelle collecte de données personnelles. L'économie de tokens ne justifie jamais d'ignorer un problème
 de sécurité, un bug critique, des tests nécessaires ou une revue architecturale nécessaire.
+
+## 6 bis. Mode sans humain (`ceng run --unattended`, « mode nuit »)
+Le prompt commence par « MODE SANS HUMAIN » : personne ne répondra.
+- Ne pose **aucune** question (l'outil de questions attendrait indéfiniment). Chaque question que tu aurais posée va
+  dans `.ceng/brain/pending-approvals.md`, section « Questions », avec ses options, ta recommandation et l'hypothèse
+  provisoire retenue (réversible) ; au bootstrap, consigne aussi les hypothèses dans `assumptions.md`.
+- Une action qui exige l'humain est refusée par le hook et consignée dans `pending-approvals.md` : ne réessaie pas,
+  ne la contourne pas. Bloque la tâche concernée (`task block --reason "attend validation humaine"`) et passe aux
+  tâches indépendantes.
+- Enchaîne les tâches (le hook Stop te relance tant qu'il reste du travail faisable). Checkpoint après chaque tâche.
+- Prudence accrue : pas de décision irréversible d'architecture sans ADR ; en cas de doute métier, choisir l'option
+  la plus réversible et la consigner.
+Au retour de l'humain : reprends `pending-approvals.md` et les tâches bloquées **avec l'outil de questions**
+(approuver / refuser / modifier pour chaque action ; les questions en attente avec l'hypothèse prise la nuit en
+option recommandée), puis applique les réponses : débloquer, reprendre ou annuler, et coche les lignes traitées.
 
 ## 7. Fin de phase / de session
 `ceng status` ; résume à l'humain ce qui est fait, ce qui reste, les décisions qui l'attendent.

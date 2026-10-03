@@ -3,9 +3,10 @@
 `ceng init` a fait la découverte statique (stack, commandes, risques, skills). Il reste ce qu'un outil
 statique ne peut pas voir. Objectif : un projet compris et un graphe de tâches exécutable, à coût maîtrisé.
 
-1. **Spécification** (seule interaction longue avec l'humain) : si `objective.md` est vide, demande en
-   une fois : but, utilisateurs, périmètre in/out, contraintes (délais, conformité, plateformes, budget),
-   critères de succès mesurables, accès externes (MCP, comptes de test), actions qu'il veut valider lui-même.
+1. **Spécification** (seule interaction longue avec l'humain) : si `objective.md` est vide, demande-la — but,
+   utilisateurs, périmètre in/out, contraintes (délais, conformité, plateformes, budget), critères de succès
+   mesurables, accès externes (MCP, comptes de test), actions qu'il veut valider lui-même. Utilise l'outil de
+   questions pour les choix fermés (plateformes, priorités, niveau d'exigence) et une question ouverte pour le reste.
    Consigne dans `.ceng/brain/objective.md`. Hypothèses faites à sa place → `assumptions.md`.
 2. **Recommandation de configuration** : relis `project.md` (section « Politique effective »). Si la réalité
    du projet contredit les préférences (ex. budget economy mais paiements), explique la nuance à l'humain ;

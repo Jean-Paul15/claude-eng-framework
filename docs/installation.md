@@ -56,6 +56,7 @@ ceng run --model opus            # forcer le modèle d'entrée
 ceng run --resume                # reprendre la dernière conversation (le Brain suffit de toute façon)
 ceng run --headless --goal "…"   # non interactif (claude -p) : pas d'Agent Teams, actions à approbation refusées
 ceng run --dry-run               # affiche la commande
+ceng run --unattended            # mode nuit : sans humain, relances, limites --max-hours/--max-runs/--max-budget-usd
 ```
 
 Équivalent manuel : ouvrir `claude` dans le projet et taper `/ceng-orchestrate`.

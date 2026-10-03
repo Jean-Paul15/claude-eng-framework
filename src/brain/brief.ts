@@ -61,6 +61,7 @@ export function renderIndex(store: BrainStore): string {
     '## Blocages / échecs',
     ...(blocked.length ? blocked.map((t) => `- ${t.id} ${t.title} — ${t.blockedReason ?? t.attempts.at(-1)?.reason ?? t.status}`) : ['_aucun_']),
     ...(openEsc.length ? ['', `## Escalades ouvertes`, ...openEsc.map((f) => `- escalations/${f}`)] : []),
+    ...(exists(`${p.brain}/pending-approvals.md`) && /- \[ \]/.test(readText(`${p.brain}/pending-approvals.md`) ?? '') ? ['', '## En attente de validation humaine', '- `pending-approvals.md` (actions refusées pendant un travail sans humain)'] : []),
     '',
     '## Récemment terminé',
     ...(recent.length ? recent.map((t) => `- ${t.id} ${t.title}`) : ['_rien encore_']),
@@ -97,6 +98,8 @@ export function resumeBrief(store: BrainStore, source: string): string {
   if (!current && ready.length) parts.push(`Tâches prêtes : ${ready.slice(0, 5).map((t) => `${t.id} ${t.title}`).join(' ; ')}.`);
   const blocked = tasks.filter((t) => t.status === 'blocked');
   if (blocked.length) parts.push(`Bloquées : ${blocked.map((t) => `${t.id} (${t.blockedReason ?? '?'})`).join(' ; ')}.`);
+  const pending = (readText(`${p.brain}/pending-approvals.md`) ?? '').split(/\r?\n/).filter((l) => l.startsWith('- [ ]')).length;
+  if (pending) parts.push(`${pending} action(s) refusée(s) pendant un travail sans humain attendent une validation : présenter .ceng/brain/pending-approvals.md à l'humain dès qu'il est là.`);
   if (tasks.length === 0) parts.push('Aucune tâche : bootstrap nécessaire (objectif → architecture → graphe de tâches) via /ceng-orchestrate.');
   if (source === 'compact') parts.push('Le contexte vient d\'être compacté : relire le rapport de la tâche en cours avant d\'agir.');
   parts.push(`Commandes : \`${CLI_INVOCATION} resume\` (détail), \`task next\`, \`route <id>\`, \`checkpoint\`.`);

@@ -61,6 +61,8 @@ export interface BrainState {
   agentTasks?: Record<string, string>;
   /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
   graphDirty?: boolean;
+  /** Mode sans humain : compteur de relances et détection d'absence de progression. */
+  unattended?: { continues: number; lastSignature: string; stalls: number };
 }
 
 const EMPTY_STATE: BrainState = { editsSinceCheckpoint: 0, sessions: 0 };

@@ -49,6 +49,18 @@ avant de rendre la main (le hook `Stop` le rappelle une fois s'il y a des modifi
 Le brief est borné (6 000 caractères) et la conversation précédente n'est jamais nécessaire. `ceng resume` en
 affiche une version détaillée.
 
+## Travail sans humain (`ceng run --unattended`)
+
+Boucle de relances de `claude -p` avec `--permission-mode auto` et `--permission-prompts none`, ainsi que
+`CENG_UNATTENDED=1` pour les hooks :
+- les actions à approbation (et les questions) sont refusées et consignées dans `pending-approvals.md` : rien n'attend ;
+- le hook `Stop` relance l'orchestrateur tant qu'il reste des tâches faisables. Il s'arrête après 3 relances sans
+  progression ou après 300 relances ;
+- entre deux lancements : attente après une limite d'usage ou une surcharge, arrêt après 2 lancements sans
+  progression, limites en heures, en relances et en budget ;
+- au retour de l'humain, le brief signale les validations en attente et l'orchestrateur les présente via l'outil de
+  questions.
+
 ## Tentatives et escalade
 
 Tentative 1 → échec consigné avec sa cause (`task fail --reason`) → tentative 2 avec une **stratégie différente**
