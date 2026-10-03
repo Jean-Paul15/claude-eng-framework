@@ -6,12 +6,59 @@ il découvre le projet, génère une configuration adaptée, puis transforme une
 avant de déclarer « terminé », et reprend le travail après une interruption sans dépendre de l'historique
 de conversation.
 
+## Démarrage rapide
+
+### 1. Installer (une seule fois par machine)
+
+Prérequis : [Node.js](https://nodejs.org) 22 ou plus récent, git et [Claude Code](https://code.claude.com/docs/en/setup)
+(terminal, Claude Desktop onglet Code, ou web).
+
 ```bash
-ceng init      # découvre le projet, pose la configuration (interactif ou --yes)
-ceng run       # ouvre la session orchestrateur sur le modèle recommandé
+# Apprend à Claude à installer et gérer le framework, dans n'importe quel projet
+npx skills add Jean-Paul15/claude-eng-framework -s ceng-setup -g -a claude-code -y
+
+# Facultatif : rend la commande `ceng` disponible partout
+npm install -g github:Jean-Paul15/claude-eng-framework
 ```
 
-## L'idée en 6 points
+### 2. Démarrer un projet (Claude Desktop ou terminal)
+
+1. **Ouvre le dossier du projet** (vide ou existant) dans Claude Desktop, onglet **Code**, ou lance `claude`
+   dedans. Accepte la confiance du dossier si elle t'est demandée.
+2. **Dis à Claude :** « Installe le framework claude-eng-framework dans ce projet. »
+   Il te pose quelques questions en un seul message (niveau de risque, autonomie, budget, parallélisme, objectif,
+   graphify), installe le framework, te montre ses recommandations et vérifie que tout fonctionne.
+3. **Lance l'orchestrateur avec ton projet :**
+   ```text
+   /ceng-orchestrate Je veux une appli de réservation pour un salon de coiffure, avec paiement en ligne.
+   ```
+   Il pose les questions de cadrage une fois (utilisateurs, périmètre, contraintes, critères de succès), conçoit
+   l'architecture, découpe le travail en tâches et commence.
+4. **Tu suis et tu valides.** Il ne revient vers toi que pour les décisions qui te reviennent et les actions sensibles
+   (déploiement, données de production, licences). Si tu fermes la session, la suivante reprend là où il s'était arrêté.
+
+Sans passer par Claude, l'équivalent en terminal, depuis le dossier du projet :
+
+```bash
+npx github:Jean-Paul15/claude-eng-framework init    # ou `ceng init` si installé globalement
+ceng run                                             # ouvre Claude Code en mode orchestrateur
+```
+
+### 3. Au quotidien
+
+| Tu veux… | Tu fais… |
+|---|---|
+| Faire avancer le projet en autonomie | `/ceng-orchestrate` (avec une consigne si tu veux) |
+| Savoir où en est le projet | demander à Claude « où en est le projet ? », ou `ceng status` |
+| Une petite modification ou une question | parler à Claude normalement : le framework reste actif en arrière-plan |
+| Comprendre pourquoi une décision a été prise | `ceng report`, `ceng log --task T-0004`, `ceng route T-0004` |
+| Vérifier l'installation | `ceng doctor` |
+| Mettre à jour le framework dans le projet | `npx -y github:Jean-Paul15/claude-eng-framework upgrade` |
+| Reprendre sur une autre machine | cloner le dépôt et ouvrir Claude : rien à installer (le runtime est dans `.ceng/runtime/`) |
+
+Dans un projet, `ceng` peut toujours être remplacé par `node .ceng/runtime/cli.js`.
+
+## L'idée en 7 points
 
 1. **Un seul interlocuteur.** Tu parles à la session d'entrée, qui devient l'orchestrateur. Le modèle choisi au
    départ ne limite pas l'exécution : chaque délégation choisit son modèle (Haiku, Sonnet ou Opus) et son niveau
@@ -36,7 +83,7 @@ ceng run       # ouvre la session orchestrateur sur le modèle recommandé
    propres au projet sont générées (Stripe, Flutter, data…). Le framework s'ajuste à partir de son journal
    (`ceng adapt`), avec un échantillon minimal : une expérience isolée ne devient jamais une règle.
 
-## Installation
+## Installation détaillée
 
 Prérequis : Node ≥ 22, git, [Claude Code](https://code.claude.com/docs/en/setup).
 
