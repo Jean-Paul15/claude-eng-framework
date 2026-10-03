@@ -23,3 +23,6 @@ statique ne peut pas voir. Objectif : un projet compris et un graphe de tâches 
 7. **Graphe de tâches** : `ceng task add …` pour chaque livrable, avec dépendances, fichiers, critères,
    domaines. Les fonctionnalités démarrent toutes « pending » : rien n'est fait tant que les gates ne l'ont pas prouvé.
 8. `ceng status`, puis présente le plan à l'humain en 10 lignes max et commence la boucle.
+9. **Projet vide à l'init** (profil `unknown`, peu de skills) : dès que la stack est posée (manifeste, framework,
+   base, CI), lance `ceng upgrade` — la découverte est refaite, les skills/agents pertinents et les commandes des
+   gates sont installés, les préférences de l'humain sont conservées.
