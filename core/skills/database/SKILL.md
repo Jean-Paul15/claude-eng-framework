@@ -9,6 +9,20 @@ description: Conception et évolution de bases de données — schéma, contrain
 Ne jamais supposer qu'une table est vide ou qu'un schéma est connu : compter et échantillonner dans la même session,
 lire l'historique des migrations (seeds/imports passés). Un « seed au cas où » sur une base pleine crée des doublons.
 
+## Si une écriture destructive est partie sur une hypothèse fausse
+**Stop.** Pas de seconde manœuvre pour « rattraper ». Instantané des lignes concernées, comparaison avec les valeurs
+voulues, annulation d'abord de la partie proprement réversible, puis explication claire à l'humain **avant** toute
+autre action.
+
+## Conventions actuelles de la plateforme
+Vérifier ce que l'environnement utilise réellement (variables d'environnement, noms de clés, API) au lieu de supposer
+les noms hérités ; lire le nouveau nom avec repli sur l'ancien. Ex. Supabase : `sb_publishable_…` / `sb_secret_…`
+remplacent `anon` / `service_role`.
+
+## Après une opération structurante
+Relancer les diagnostics disponibles (advisors sécurité et performance de la plateforme, linters SQL, `EXPLAIN` des
+requêtes touchées) et corriger ce qui a été introduit avant de déclarer la tâche terminée.
+
 ## Schéma
 - Les invariants vivent en base : `NOT NULL`, `UNIQUE`, `CHECK`, clés étrangères. L'application seule ne suffit pas.
 - Types exacts : montants en entiers (centimes) ou `numeric`, jamais en flottant ; horodatages avec fuseau.

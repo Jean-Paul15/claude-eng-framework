@@ -18,6 +18,13 @@ Si `docs/CREATIVE_DIRECTION.md` existe, la skill `frontend-executor` prime : on 
 < 100 ms : instantané (aucun indicateur) · ~1 s : état visuel immédiat (bouton actif, optimiste) · > 1 s : indicateur
 explicite, squelette de préférence au spinner · > 10 s : progression et possibilité d'annuler.
 
+## Cohérence et actions destructives
+- Un même type d'interaction (chargement, erreur, confirmation, état vide) se comporte et se présente pareil partout :
+  réutiliser le composant existant, ne pas le réinventer écran par écran.
+- Confirmation explicite avant toute action destructive ou irréversible (avec ce qui sera perdu) ; préférer
+  l'annulation possible (« annuler » pendant quelques secondes, corbeille) à la confirmation seule. Jamais de perte de
+  données silencieuse.
+
 ## Formulaires
 Validation côté client pour l'ergonomie **et** côté serveur pour la sécurité ; messages d'erreur près du champ,
 explicites ; ne jamais perdre la saisie de l'utilisateur ; labels associés.

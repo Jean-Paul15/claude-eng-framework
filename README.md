@@ -134,7 +134,7 @@ appellent la copie locale : `node .ceng/runtime/cli.js <commande>`.
 ## Développement du framework
 
 ```bash
-npm test           # build + 68 tests (domaine, découverte sur 5 projets de démo, installation, cycle de vie, hooks, reprise)
+npm test           # build + 83 tests (domaine, découverte sur 5 projets de démo, installation, cycle de vie, hooks, reprise)
 ```
 
 ## Licence

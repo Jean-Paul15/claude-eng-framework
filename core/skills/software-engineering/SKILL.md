@@ -36,6 +36,12 @@ se modifie et s'audite sans peur.
 Éviter d'emblée : requêtes N+1, I/O dans une boucle, complexité quadratique sur des volumes réalistes, allocations
 inutiles dans les chemins chauds, appels réseau redondants. Dimensionner sur l'échelle réelle du projet.
 
+## Pratiques de la stack réelle
+Appliquer l'idiome et les bonnes pratiques de la technologie effectivement utilisée par le projet (versions de
+`project.md`), pas une pratique générique transposée. En cas de doute sur une API ou un idiome : documentation
+officielle (skill `research`) plutôt que deviner. Choisir la meilleure décision, pas la plus rapide à taper — souvent
+la plus simple qui résout correctement le problème réel, jamais celle qui reporte un problème déjà identifié.
+
 ## Erreurs
 Échouer tôt et explicitement ; ne jamais avaler une exception ; messages compréhensibles avec la cause et l'action
 possible, sans fuite d'information sensible ; distinguer erreurs attendues (validation) et inattendues (bug).

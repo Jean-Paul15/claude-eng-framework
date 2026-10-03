@@ -19,6 +19,14 @@ CLI d'état (jamais d'édition manuelle de tasks.json/state.json) : `node .ceng/
 3. Aucune tâche et objectif vide → **bootstrap** : lis [bootstrap.md](bootstrap.md).
 4. Instruction nouvelle de l'humain (`$ARGUMENTS`) → intègre-la au graphe (nouvelles tâches ou mise à jour de l'objectif).
 
+## Économie bien comprise
+L'économie se mesure sur la tâche entière, pas tour par tour : bien décider une fois (recherche, vérification) coûte
+moins que le cycle correction-après-coup (CI rouge, bug, retour arrière). Le gaspillage, ce sont les détours évitables :
+recherche à l'aveugle au lieu d'un grep ou d'une requête de graphe ciblée ; relire ce qui est déjà en contexte ;
+garder dans la conversation principale une exploration dont seul le résultat compte (→ `ceng-scout`) ; subir une
+étape répétée sans lien avec la tâche (hook, rappel, vérification redondante) au lieu de la signaler et de proposer de
+la rendre conditionnelle.
+
 ## 1. Boucle de travail
 ```
 ceng plan                       → lots prêts + mode (direct / séquentiel / subagents parallèles / team) + routes
