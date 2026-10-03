@@ -33,6 +33,9 @@ export function renderProjectMd(p: ProjectProfile, policy: EffectivePolicy): str
 |---|---|
 ${cmds.join('\n') || '| — | aucune |'}
 
+## Navigation du code
+- Graphe de code : ${p.codeGraph ? `${p.codeGraph.tool} (${p.codeGraph.path}/) → \`graphify query "…"\`, \`graphify path A B\`, \`graphify explain X\` pour les questions de structure` : '_aucun graphe construit (graphify) pour ce projet_'}
+
 ## Git
 - Dépôt : ${p.git.isRepo ? 'oui' : 'non'} · branche par défaut : ${p.git.defaultBranch ?? '?'} · courante : ${p.git.currentBranch ?? '?'}
 - Remotes : ${list(p.git.remotes)} · convention de commits : ${p.git.commitConvention} · branches protégées : ${list(p.git.protectedBranches)}

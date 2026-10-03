@@ -23,6 +23,12 @@ production de code.
 
 N'écris du code que si c'est la seule façon de trancher (preuve de concept minimale), en le signalant.
 
+## Navigation dans le code
+Si `graphify-out/graph.json` existe : pour une question de **structure** (dépendances croisées, « qui appelle ou
+importe X », chemin entre deux modules), interroge d'abord `graphify query "…"`, `graphify path A B` ou
+`graphify explain X`. Pour une tâche déjà ciblée (fichier connu, symbole précis), Grep et lecture directe suffisent :
+n'appelle pas graphify par réflexe.
+
 ## Sortie
 ```
 CENG_REPORT

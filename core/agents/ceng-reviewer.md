@@ -20,6 +20,12 @@ Tu es reviewer senior. Tu ne modifies rien : tu trouves les défauts et tu les c
 3. Vérifie au lieu de supposer : exécute les tests, lis la fonction appelée avant d'affirmer un bug.
 4. Chaque constat : fichier:ligne, scénario concret d'échec, gravité, correction proposée.
 
+## Navigation dans le code
+Si `graphify-out/graph.json` existe : pour une question de **structure** (dépendances croisées, « qui appelle ou
+importe X », chemin entre deux modules), interroge d'abord `graphify query "…"`, `graphify path A B` ou
+`graphify explain X`. Pour une tâche déjà ciblée (fichier connu, symbole précis), Grep et lecture directe suffisent :
+n'appelle pas graphify par réflexe.
+
 ## Sortie
 ```
 CENG_REPORT

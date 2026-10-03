@@ -22,6 +22,9 @@ export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy): s
     `- Profil : ${profile.projectTypes.join(', ')} · ${profile.primaryLanguage ?? '?'} · ${profile.frameworks.slice(0, 6).join(', ') || 'sans framework'} · risque **${policy.riskLevel}**${policy.criticalDomains.length ? ` (critique : ${policy.criticalDomains.join(', ')})` : ''}`,
     `- Politique : budget ${policy.budget} · autonomie ${policy.autonomy} · parallélisme ${policy.parallelism} · orchestrateur ${policy.orchestratorModel}`,
     `- Commandes : ${cmds || 'voir .ceng/config.json'}`,
+    ...(profile.codeGraph
+      ? [`- Graphe de code : \`${profile.codeGraph.path}/\` — questions de structure (dépendances croisées, qui appelle X) → \`graphify query "…"\` d'abord ; grep/lecture ciblée pour le reste.`]
+      : []),
     '- Déléguer : `route <tâche>` donne agent, modèle, effort, revue, gates. Les workers écrivent `.ceng/brain/reports/<tâche>.md` et renvoient un résumé court.',
     '- Terminé = gates requises vertes (`gate run <tâche>`) puis `task done`. Avant une modification risquée : `checkpoint`.',
     '- Légal & gouvernance : licences des dépendances, données personnelles, décisions tracées (ADR) — skill `legal-governance`.',

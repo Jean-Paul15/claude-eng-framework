@@ -10,7 +10,11 @@ statique ne peut pas voir. Objectif : un projet compris et un graphe de tâches 
 2. **Recommandation de configuration** : relis `project.md` (section « Politique effective »). Si la réalité
    du projet contredit les préférences (ex. budget economy mais paiements), explique la nuance à l'humain ;
    ne change `.ceng/config.json` qu'avec son accord (fichier de gouvernance).
-3. **Compréhension de l'existant** (projet non vide) : délègue à `ceng-scout` une cartographie ciblée
+3. **Compréhension de l'existant** (projet non vide) : si un graphe de code existe (`graphify-out/graph.json`,
+   signalé dans `project.md`), commence par `graphify query`/`path`/`explain` — la source la moins chère pour
+   l'architecture. Grand projet existant (centaines de fichiers source) sans graphe et `graphify` installé : propose à
+   l'humain de le construire une fois (`/graphify`, coût LLM ponctuel ; `--update` ensuite) — jamais sans son accord.
+   Sinon, délègue à `ceng-scout` une cartographie ciblée
    (points d'entrée, modules, flux principaux, zones fragiles). Rédige `architecture.md` (vue d'ensemble,
    invariants) et complète « Constat de l'orchestrateur » dans `project.md`. Ne lis pas tout le repo toi-même.
 4. **Skills projet en brouillon** (`.claude/skills/*` avec `ceng-status: draft`) : pour celles qui

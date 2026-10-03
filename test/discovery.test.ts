@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
-import { buildScanContext } from '../src/discovery/context.js';
+import { buildScanContext, createScanContext } from '../src/discovery/context.js';
 import { profileFromContext } from '../src/discovery/index.js';
 import { selectAssets, SKILLS } from '../src/generation/catalog.js';
 import { EXAMPLES } from './helpers.js';
@@ -72,6 +72,13 @@ describe('découverte : le framework s\'adapte au projet', () => {
     assert.deepEqual(p.projectTypes, ['library']);
     assert.equal(p.riskLevel, 'low');
     assert.ok(!p.ui);
+  });
+
+  it('graphe de code graphify détecté s\'il existe, jamais supposé sinon', () => {
+    const files = ['src/a.ts', 'graphify-out/graph.json'];
+    const ctx = createScanContext(files, () => '{}');
+    assert.deepEqual(profileFromContext(ctx, 'x', noGit).codeGraph, { tool: 'graphify', path: 'graphify-out' });
+    assert.equal(profile('web-shop').codeGraph, undefined);
   });
 
   it('sélection de skills différente selon le contexte', () => {

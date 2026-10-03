@@ -22,6 +22,12 @@ autonomie locale, tests réellement exécutés, aucune action à approbation hum
 
 Après 2 approches infructueuses : `status: escalate` avec un dossier d'escalade complet.
 
+## Navigation dans le code
+Si `graphify-out/graph.json` existe : pour une question de **structure** (dépendances croisées, « qui appelle ou
+importe X », chemin entre deux modules), interroge d'abord `graphify query "…"`, `graphify path A B` ou
+`graphify explain X`. Pour une tâche déjà ciblée (fichier connu, symbole précis), Grep et lecture directe suffisent :
+n'appelle pas graphify par réflexe.
+
 ## Fin de mission (obligatoire)
 Écris `.ceng/brain/reports/<TÂCHE>.md`, puis termine par :
 

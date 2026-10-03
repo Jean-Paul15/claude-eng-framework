@@ -66,10 +66,17 @@ export function profileFromContext(ctx: ScanContext, name: string, git: GitInfo)
     riskLevel: 'medium',
     commands: detectCommands(ctx, packageManagers),
     versions: pickVersions(ctx, frameworks),
+    ...detectCodeGraph(ctx),
     truncatedScan: ctx.truncated,
   };
   profile.riskLevel = inferRisk(profile);
   return profile;
+}
+
+/** Graphe de code existant. On ne le construit jamais à l'init (coût LLM) : on le signale seulement. */
+export function detectCodeGraph(ctx: ScanContext): Pick<ProjectProfile, 'codeGraph'> {
+  const graph = ctx.files.find((f) => /(^|\/)graphify-out\/graph\.json$/.test(f));
+  return graph ? { codeGraph: { tool: 'graphify', path: graph.slice(0, -'/graph.json'.length) } } : {};
 }
 
 function pickVersions(ctx: ScanContext, frameworks: readonly string[]): Record<string, string> {

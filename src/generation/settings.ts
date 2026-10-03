@@ -66,6 +66,8 @@ export function frameworkPermissions(autonomy: Autonomy): Required<Pick<NonNulla
   const allow = [
     'Bash(node .ceng/runtime/cli.js *)', 'Bash(git status *)', 'Bash(git diff *)', 'Bash(git log *)',
     'Read(./.ceng/**)', 'Edit(./.ceng/brain/**)',
+    // Requêtes en lecture seule sur un graphe de code existant (graphify), sans coût LLM.
+    'Bash(graphify query *)', 'Bash(graphify path *)', 'Bash(graphify explain *)',
   ];
   if (autonomy !== 'supervised') allow.push('Bash(git add *)', 'Bash(git commit *)', 'Bash(git checkout -b *)', 'Bash(git switch -c *)');
   return { allow, ask, deny };

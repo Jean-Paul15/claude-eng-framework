@@ -59,5 +59,7 @@ export interface ProjectProfile {
   riskLevel: RiskLevel;
   commands: Commands;
   versions: Record<string, string>;
+  /** Graphe de code déjà construit (ex. graphify-out/graph.json) : à interroger pour les questions de structure. */
+  codeGraph?: { tool: string; path: string };
   truncatedScan: boolean;
 }
