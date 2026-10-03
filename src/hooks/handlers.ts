@@ -6,6 +6,7 @@ import type { BrainStore } from '../brain/store.js';
 import { createCheckpoint } from '../app/checkpoints.js';
 import { completionCheck } from '../app/tasks.js';
 import { CLI_INVOCATION } from '../brain/paths.js';
+import { refreshIfNeeded } from '../app/codegraph.js';
 
 /**
  * Gestionnaires de hooks Claude Code. Chaque gestionnaire reçoit l'entrée JSON du hook et renvoie
@@ -146,9 +147,10 @@ export function fileEdited(store: BrainStore, input: HookInput): HookOutput {
   const raw = String(input.tool_input?.['file_path'] ?? input.tool_input?.['notebook_path'] ?? '');
   if (!raw) return OK;
   const rel = relativeToProject(store, raw);
-  if (rel.startsWith('.ceng/')) return OK;
+  if (rel.startsWith('.ceng/') || rel.startsWith('graphify-out/')) return OK;
   const state = store.updateState((s) => {
     s.editsSinceCheckpoint += 1;
+    s.graphDirty = true;
   });
   const taskId = (input.agent_id && state.agentTasks?.[input.agent_id]) || state.currentTask;
   store.log({ type: 'file.edited', ...ids(input), ...(taskId ? { taskId } : {}), data: { file: rel, tool: input.tool_name } });
@@ -231,6 +233,14 @@ export function taskCompleted(store: BrainStore, input: HookInput): HookOutput {
   return { exitCode: 2, stderr: `[ceng] ${id} : gates requises non satisfaites (${check.missing.join(', ')}). Lancer \`${CLI_INVOCATION} gate run ${id}\` puis \`task done\`.` };
 }
 
+/** Graphe de code : construction/mise à jour en arrière-plan (sans LLM). Hook asynchrone, jamais bloquant. */
+export function graphRefresh(store: BrainStore, input: HookInput): HookOutput {
+  const trigger = input.hook_event_name === 'SessionStart' ? 'session-start' : 'turn-end';
+  const decision = refreshIfNeeded(store, trigger);
+  if (decision.action !== 'none') store.log({ type: 'graph.refresh', ...ids(input), data: { action: decision.action, reason: decision.reason } });
+  return OK;
+}
+
 export function sessionEnd(store: BrainStore, input: HookInput): HookOutput {
   store.log({ type: 'session.end', ...ids(input), data: { reason: input['reason'] ?? null } });
   return OK;
@@ -258,4 +268,5 @@ export const HANDLERS: Record<string, (store: BrainStore, input: HookInput) => H
   'stop-failure': stopFailure,
   'task-completed': taskCompleted,
   'session-end': sessionEnd,
+  'graph-refresh': graphRefresh,
 };

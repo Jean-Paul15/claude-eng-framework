@@ -29,7 +29,10 @@ ceng run       # ouvre la session orchestrateur sur le modèle recommandé
 5. **« Terminé » doit être prouvé.** Les quality gates sont sélectionnées selon le risque et exécutées avec les
    vraies commandes du projet. Une tâche ne passe `done` que si ses gates requises sont vertes, ou si une dérogation
    est explicitement justifiée et journalisée.
-6. **Une adaptation qui ne devient jamais un dogme.** Seules les skills pertinentes sont installées, et des skills
+6. **Un graphe de code toujours à jour.** Le graphe [graphify](https://github.com/Graphify-Labs/graphify) est construit à
+   l'init et mis à jour automatiquement en arrière-plan, sans coût IA. Les agents l'interrogent pour les questions
+   d'architecture au lieu de relire le code.
+7. **Une adaptation qui ne devient jamais un dogme.** Seules les skills pertinentes sont installées, et des skills
    propres au projet sont générées (Stripe, Flutter, data…). Le framework s'ajuste à partir de son journal
    (`ceng adapt`), avec un échantillon minimal : une expérience isolée ne devient jamais une règle.
 

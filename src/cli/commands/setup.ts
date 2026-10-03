@@ -11,6 +11,8 @@ import { exists, readJson, readText, sha256, writeJsonAtomic, writeTextAtomic } 
 import { run } from '../../infra/exec.js';
 import { Prompter, type Choice } from '../../infra/prompt.js';
 import { BrainStore } from '../../brain/store.js';
+import { graphDisabledByEnv, graphifyAvailable } from '../../app/codegraph.js';
+import { graphEnabledFlag, setupGraphAtInit } from './graph.js';
 import { bool, out, parse, str, UsageError, type Parsed } from '../args.js';
 
 const PREF_FLAGS = {
@@ -112,7 +114,7 @@ function summarizeActions(report: InstallReport): string[] {
 }
 
 export async function initCommand(argv: string[], mode: 'init' | 'upgrade' = 'init'): Promise<void> {
-  const p = parse(argv, { yes: { type: 'boolean', short: 'y' }, 'dry-run': { type: 'boolean' }, goal: { type: 'string' }, dir: { type: 'string' }, ...PREF_FLAGS });
+  const p = parse(argv, { yes: { type: 'boolean', short: 'y' }, 'dry-run': { type: 'boolean' }, goal: { type: 'string' }, dir: { type: 'string' }, 'code-graph': { type: 'string' }, 'install-graphify': { type: 'boolean' }, ...PREF_FLAGS });
   if (bool(p, 'help')) {
     process.stdout.write(`ceng ${mode} [--dir <projet>] [--yes] [--dry-run] [--goal "…"] [--risk …] [--autonomy …] [--budget …] [--parallelism …] …\n`);
     return;
@@ -145,10 +147,23 @@ export async function initCommand(argv: string[], mode: 'init' | 'upgrade' = 'in
       prompter.close();
     }
   }
+  let codeGraph = graphEnabledFlag(str(p, 'code-graph'));
+  let installGraph = bool(p, 'install-graphify');
+  if (interactive && codeGraph !== false && !graphDisabledByEnv() && !graphifyAvailable(root)) {
+    const prompter = new Prompter();
+    try {
+      installGraph = await prompter.confirm('Installer graphify (paquet Python graphifyy) pour un graphe de code construit et mis à jour automatiquement, sans coût IA ?', true);
+      if (!installGraph) codeGraph = false;
+    } finally {
+      prompter.close();
+    }
+  }
   const goal = str(p, 'goal');
-  const report = install({ projectRoot: root, preferences: prefs, ...(goal ? { goal } : {}), dryRun: bool(p, 'dry-run'), profile });
+  const report = install({ projectRoot: root, preferences: prefs, ...(goal ? { goal } : {}), dryRun: bool(p, 'dry-run'), profile, ...(codeGraph !== undefined ? { codeGraph } : {}) });
+  const graphNotes = setupGraphAtInit(root, { enabled: report.config.codeGraph?.enabled ?? false, install: installGraph, dryRun: bool(p, 'dry-run') });
   const next = bool(p, 'dry-run') ? '' : `\n\nÉtape suivante : \`ceng run\` (ou ouvrir Claude Code dans ce dossier et taper /ceng-orchestrate).`;
-  out(p, summarize(report, bool(p, 'dry-run')) + next, report);
+  const graphText = graphNotes.length ? `\n\nGraphe de code :\n${graphNotes.map((n) => `  • ${n}`).join('\n')}` : '';
+  out(p, summarize(report, bool(p, 'dry-run')) + graphText + next, { ...report, graphNotes });
 }
 
 export function profileCommand(argv: string[]): void {
@@ -183,6 +198,10 @@ export function doctorCommand(argv: string[]): void {
     if (fw && manifest) add('version', manifest.frameworkVersion === fw.version, `projet ${manifest.frameworkVersion} / framework ${fw.version}${manifest.frameworkVersion !== fw.version ? ' → `ceng upgrade`' : ''}`);
     const teams = settings?.env?.['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] === '1';
     add('agent-teams', config.policy.parallelism !== 'teams' || teams, config.policy.parallelism === 'teams' ? (teams ? 'activées' : 'demandées mais variable absente') : 'non utilisées (politique)');
+    if (config.codeGraph?.enabled) {
+      const has = graphifyAvailable(root);
+      add('graphify', has, has ? (exists(path.join(root, 'graphify-out', 'graph.json')) ? 'graphe présent, mis à jour automatiquement' : 'installé ; graphe pas encore construit → `ceng graph build`') : 'graphe activé mais graphify absent → `ceng graph install`');
+    }
     const gitignore = readText(path.join(root, '.gitignore')) ?? '';
     add('gitignore', gitignore.includes('.ceng/logs/'), '.ceng/logs/ exclu du dépôt');
   }

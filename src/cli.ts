@@ -7,11 +7,12 @@ import { runCommand } from './cli/commands/run.js';
 import { conflictsCommand, gateCommand, planCommand, routeCommand, taskCommand } from './cli/commands/work.js';
 import { adaptCommand, checkpointCommand, decisionCommand, escalateCommand, learnCommand, logCommand, reportCommand, resumeCommand, rollbackCommand, skillCommand, statusCommand } from './cli/commands/memory.js';
 import { runHook } from './hooks/run.js';
+import { graphCommand } from './cli/commands/graph.js';
 
 const HELP = `ceng — framework d'ingénierie autonome pour Claude Code
 
 Installation & lancement
-  init [--yes] [--dry-run] [--goal "…"] [--risk|--autonomy|--budget|--parallelism …]   Découvre le projet et installe le framework
+  init [--yes] [--dry-run] [--goal "…"] [--risk|--autonomy|--budget|--parallelism …] [--code-graph on|off] [--install-graphify]
   run [--goal "…"] [--model opus|sonnet] [--headless] [--resume] [--dry-run]          Ouvre la session orchestrateur
   upgrade | doctor | profile | uninstall --yes [--purge]
 
@@ -31,6 +32,9 @@ Mémoire & reprise
 
 Observabilité & amélioration
   log [--task id] [--type prefix] [--tail n] · report · adapt [--apply] · learn add|list|promote · skill new <nom>
+
+Graphe de code (graphify, sans coût IA)
+  graph status|install|build|enable|disable   Construit et maintenu automatiquement par les hooks
 
 Options communes : --json (sortie machine), --dir <projet>`;
 
@@ -71,6 +75,7 @@ export async function main(argv: string[]): Promise<void> {
     case 'adapt': return adaptCommand(rest);
     case 'learn': return learnCommand(rest);
     case 'skill': return skillCommand(rest);
+    case 'graph': return graphCommand(rest);
     case 'hook': {
       const chunks: Buffer[] = [];
       if (!process.stdin.isTTY) for await (const c of process.stdin) chunks.push(c as Buffer);

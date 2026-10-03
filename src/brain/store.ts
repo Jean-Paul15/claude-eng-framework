@@ -18,6 +18,8 @@ export interface FrameworkConfig {
   policy: EffectivePolicy;
   commands: Commands;
   gateTimeoutMinutes: number;
+  /** Graphe de code graphify maintenu automatiquement (mode code, sans LLM). */
+  codeGraph?: { enabled: boolean };
   installedSkills: string[];
   installedAgents: string[];
   createdAt: string;
@@ -57,6 +59,8 @@ export interface BrainState {
   pendingSpawns?: { taskId: string; agentType: string; model?: string; at: string }[];
   /** agent_id (fourni par Claude Code aux hooks) → tâche travaillée. */
   agentTasks?: Record<string, string>;
+  /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
+  graphDirty?: boolean;
 }
 
 const EMPTY_STATE: BrainState = { editsSinceCheckpoint: 0, sessions: 0 };

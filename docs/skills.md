@@ -51,6 +51,20 @@ Une skill projet est créée **une seule fois** et appartient ensuite au projet 
 4. `ceng adapt` signale les skills jamais utilisées. On peut alors passer leur visibilité en `name-only` via
    `skillOverrides` dans `.claude/settings.local.json`.
 
+## Graphe de code (graphify)
+
+- `ceng init` construit le graphe du code (`graphify extract --code-only`) : analyse syntaxique locale, **aucun appel
+  IA, aucun coût**, quelques secondes. Si graphify est absent, init propose de l'installer (paquet Python `graphifyy`
+  via uv, pipx ou pip ; `--install-graphify` en non interactif).
+- Les hooks le tiennent à jour **automatiquement et en arrière-plan** (`graphify update`) : au début de chaque session
+  (le code a pu changer hors de Claude), à la fin de chaque tour et à la fin de chaque agent s'il y a eu des
+  modifications. Aucune latence ajoutée, verrou contre les mises à jour simultanées, journal dans `.ceng/logs/graphify.log`.
+- Usage au jugement : les agents interrogent le graphe (`graphify query/path/explain/affected/god-nodes`, autorisés
+  sans prompt) pour les questions de structure, et utilisent grep pour les tâches ciblées.
+- `ceng graph status|install|build|enable|disable`. `graphify-out/` est local (dans `.gitignore`).
+- L'enrichissement sémantique (documentation, images, liens inférés via `/graphify`) utilise un LLM : il reste une
+  action volontaire.
+
 ## MCP
 
 - La découverte lit `.mcp.json` et liste les serveurs dans `project.md`, pour que l'orchestrateur sache quelles

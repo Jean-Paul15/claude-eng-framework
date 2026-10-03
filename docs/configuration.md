@@ -41,6 +41,11 @@ Elles sont détectées depuis le projet : scripts npm, uv/poetry/pip, go, cargo,
 composer, dotnet, Makefile. Elles sont modifiables dans `commands`, et la valeur éditée à la main prime sur la
 détection lors d'un `upgrade`. Une gate sans commande vaut `skipped` (non bloquante) et est signalée.
 
+## Graphe de code
+
+`"codeGraph": { "enabled": true }` (défaut). Flag d'init `--code-graph on|off`, puis `ceng graph enable|disable`.
+Voir [skills.md](skills.md#graphe-de-code-graphify).
+
 ## Ajustements appris
 
 `.ceng/adaptive.json` est écrit par `ceng adapt --apply`. Il contient `maxParallel`, `reviewBump` par type de tâche,

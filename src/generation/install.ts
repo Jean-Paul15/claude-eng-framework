@@ -55,6 +55,8 @@ export interface InstallOptions {
   dryRun?: boolean;
   profile?: ProjectProfile;
   interactiveTeamsPossible?: boolean;
+  /** Activer le graphe de code graphify (défaut : conserver le choix précédent, sinon activé). */
+  codeGraph?: boolean;
 }
 
 export type ActionKind = 'create' | 'update' | 'keep-user-version' | 'skip' | 'backup';
@@ -154,7 +156,7 @@ function walkFiles(dir: string, rel = ''): string[] {
   return out;
 }
 
-const GITIGNORE_BLOCK = ['# claude-eng-framework (journaux et sauvegardes locales)', '.ceng/logs/', '.ceng/backups/', '.ceng/upgrade-conflicts/', '.ceng/brain/*.lock'];
+const GITIGNORE_BLOCK = ['# claude-eng-framework (journaux et sauvegardes locales)', '.ceng/logs/', '.ceng/backups/', '.ceng/upgrade-conflicts/', '.ceng/brain/*.lock', 'graphify-out/'];
 
 export function install(opts: InstallOptions): InstallReport {
   const fw = locateFramework();
@@ -210,6 +212,7 @@ export function install(opts: InstallOptions): InstallReport {
     // Les commandes ajustées à la main par l'utilisateur priment sur la détection.
     commands: { ...profile.commands, ...(previousConfig?.commands ?? {}) },
     gateTimeoutMinutes: previousConfig?.gateTimeoutMinutes ?? 15,
+    codeGraph: { enabled: opts.codeGraph ?? previousConfig?.codeGraph?.enabled ?? true },
     installedSkills: [...skillSel.selected.map((s) => s.name), ...generated.map((g) => g.name)],
     installedAgents: agentSel.selected.map((a) => a.name),
     createdAt: previousConfig?.createdAt ?? new Date().toISOString(),
@@ -229,9 +232,14 @@ export function install(opts: InstallOptions): InstallReport {
   const settingsPath = path.join(root, '.claude', 'settings.json');
   const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: policy.autonomy, parallelism: policy.parallelism });
   w.generated('.claude/settings.json', `${JSON.stringify(merged, null, 2)}\n`, 'hooks + règles de permission (fusion non destructive)');
-  w.generated('CLAUDE.md', upsertBlock(readText(path.join(root, 'CLAUDE.md')), renderBlock(profile, policy)), 'bloc ceng (pointeurs compacts)');
+  w.generated('CLAUDE.md', upsertBlock(readText(path.join(root, 'CLAUDE.md')), renderBlock(profile, policy, config.codeGraph?.enabled ?? false)), 'bloc ceng (pointeurs compacts)');
   const gi = readText(path.join(root, '.gitignore')) ?? '';
-  if (!gi.includes('.ceng/logs/')) w.generated('.gitignore', `${gi.replace(/\s*$/, '')}${gi ? '\n\n' : ''}${GITIGNORE_BLOCK.join('\n')}\n`, 'exclure journaux et sauvegardes');
+  const giLines = new Set(gi.split(/\r?\n/).map((l) => l.trim()));
+  const missing = GITIGNORE_BLOCK.slice(1).filter((l) => !giLines.has(l));
+  if (missing.length) {
+    const header = giLines.has(GITIGNORE_BLOCK[0]!) ? [] : [GITIGNORE_BLOCK[0]!];
+    w.generated('.gitignore', `${gi.replace(/\s*$/, '')}${gi ? '\n\n' : ''}${[...header, ...missing].join('\n')}\n`, 'exclure journaux, sauvegardes et graphe local');
+  }
 
   if (!opts.dryRun) {
     writeJsonAtomic(paths.manifest, w.newManifest);

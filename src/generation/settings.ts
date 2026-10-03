@@ -31,7 +31,7 @@ const hook = (event: string, extra: Partial<HookHandler> = {}): HookHandler => (
 
 export function frameworkHooks(): Record<string, HookGroup[]> {
   return {
-    SessionStart: [{ matcher: 'startup|resume|clear|compact', hooks: [hook('session-start')] }],
+    SessionStart: [{ matcher: 'startup|resume|clear|compact', hooks: [hook('session-start'), hook('graph-refresh', { async: true, timeout: 15 })] }],
     PreToolUse: [
       { matcher: 'Bash|PowerShell', hooks: [hook('guard-command')] },
       { matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [hook('guard-file')] },
@@ -42,9 +42,9 @@ export function frameworkHooks(): Record<string, HookGroup[]> {
       { matcher: 'Skill', hooks: [hook('skill-used', { async: true, timeout: 10 })] },
     ],
     SubagentStart: [{ hooks: [hook('subagent-start', { timeout: 10 })] }],
-    SubagentStop: [{ hooks: [hook('subagent-stop')] }],
+    SubagentStop: [{ hooks: [hook('subagent-stop'), hook('graph-refresh', { async: true, timeout: 15 })] }],
     PreCompact: [{ hooks: [hook('pre-compact', { timeout: 60 })] }],
-    Stop: [{ hooks: [hook('stop')] }],
+    Stop: [{ hooks: [hook('stop'), hook('graph-refresh', { async: true, timeout: 15 })] }],
     StopFailure: [{ hooks: [hook('stop-failure', { timeout: 10 })] }],
     TaskCompleted: [{ hooks: [hook('task-completed')] }],
     SessionEnd: [{ hooks: [hook('session-end', { timeout: 5 })] }],
@@ -67,7 +67,7 @@ export function frameworkPermissions(autonomy: Autonomy): Required<Pick<NonNulla
     'Bash(node .ceng/runtime/cli.js *)', 'Bash(git status *)', 'Bash(git diff *)', 'Bash(git log *)',
     'Read(./.ceng/**)', 'Edit(./.ceng/brain/**)',
     // Requêtes en lecture seule sur un graphe de code existant (graphify), sans coût LLM.
-    'Bash(graphify query *)', 'Bash(graphify path *)', 'Bash(graphify explain *)',
+    'Bash(graphify query *)', 'Bash(graphify path *)', 'Bash(graphify explain *)', 'Bash(graphify affected *)', 'Bash(graphify god-nodes *)',
   ];
   if (autonomy !== 'supervised') allow.push('Bash(git add *)', 'Bash(git commit *)', 'Bash(git checkout -b *)', 'Bash(git switch -c *)');
   return { allow, ask, deny };

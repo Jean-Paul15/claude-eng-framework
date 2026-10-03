@@ -59,7 +59,7 @@ export interface CliResult {
 
 export function cli(cwd: string, args: string[], input?: string): CliResult {
   try {
-    const stdout = execFileSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', stdio: 'pipe', input: input ?? '', env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '' } });
+    const stdout = execFileSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', stdio: 'pipe', input: input ?? '', env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '', CENG_NO_CODE_GRAPH: process.env['CENG_NO_CODE_GRAPH'] ?? '1' } });
     return { code: 0, stdout, stderr: '' };
   } catch (err) {
     const e = err as { status?: number; stdout?: string; stderr?: string };
@@ -74,7 +74,7 @@ export function json<T>(r: CliResult): T {
 export function runtimeHook(projectDir: string, event: string, payload: unknown): CliResult {
   const runner = path.join(projectDir, '.ceng', 'runtime', 'hooks', 'run.js');
   try {
-    const stdout = execFileSync(process.execPath, [runner, event], { cwd: projectDir, encoding: 'utf8', stdio: 'pipe', input: JSON.stringify(payload), env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir } });
+    const stdout = execFileSync(process.execPath, [runner, event], { cwd: projectDir, encoding: 'utf8', stdio: 'pipe', input: JSON.stringify(payload), env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir, CENG_NO_CODE_GRAPH: process.env['CENG_NO_CODE_GRAPH'] ?? '1' } });
     return { code: 0, stdout, stderr: '' };
   } catch (err) {
     const e = err as { status?: number; stdout?: string; stderr?: string };

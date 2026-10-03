@@ -20,6 +20,7 @@ l'utilisateur sont conservés.
 | `StopFailure` | `stop-failure` | enregistre l'interruption (`rate_limit`, `overloaded`…) pour la reprise |
 | `TaskCompleted` | `task-completed` | Agent Teams : refuse (exit 2) la complétion d'une tâche `T-xxxx` dont les gates requises manquent |
 | `SessionEnd` | `session-end` | journalise la fin |
+| `SessionStart`, `Stop`, `SubagentStop` (async) | `graph-refresh` | graphe de code graphify : construit s'il manque, mis à jour en arrière-plan si des fichiers ont changé (début de session, fin de tour, fin d'agent) — mode code, sans coût IA, verrou anti-chevauchement |
 
 Tester un hook à la main :
 

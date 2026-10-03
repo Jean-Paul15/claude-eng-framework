@@ -58,6 +58,8 @@ describe('ceng init : bootstrap automatique', () => {
     assert.equal(cli(dir, ['upgrade']).code, 0);
     assert.equal(read(dir, '.claude/settings.json'), first);
     assert.equal(read(dir, 'CLAUDE.md').split('ceng:begin').length, 2, 'un seul bloc ceng');
+    assert.equal(read(dir, '.gitignore').split('.ceng/logs/').length, 2, 'gitignore sans doublon');
+    assert.ok(read(dir, '.gitignore').includes('graphify-out/'));
   });
 
   it('préserve une skill modifiée par l\'utilisateur lors d\'un upgrade', () => {

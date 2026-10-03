@@ -7,7 +7,7 @@ export const BEGIN = '<!-- ceng:begin (généré par claude-eng-framework — mo
 export const END = '<!-- ceng:end -->';
 
 /** Bloc court injecté dans CLAUDE.md : des pointeurs, pas un manuel (CLAUDE.md est chargé à chaque session). */
-export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy): string {
+export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy, codeGraph = false): string {
   const cmds = Object.entries(profile.commands)
     .filter(([k, v]) => v && ['build', 'typecheck', 'lint', 'unit', 'e2e'].includes(k))
     .map(([k, v]) => `${k}: \`${v}\``)
@@ -22,8 +22,8 @@ export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy): s
     `- Profil : ${profile.projectTypes.join(', ')} · ${profile.primaryLanguage ?? '?'} · ${profile.frameworks.slice(0, 6).join(', ') || 'sans framework'} · risque **${policy.riskLevel}**${policy.criticalDomains.length ? ` (critique : ${policy.criticalDomains.join(', ')})` : ''}`,
     `- Politique : budget ${policy.budget} · autonomie ${policy.autonomy} · parallélisme ${policy.parallelism} · orchestrateur ${policy.orchestratorModel}`,
     `- Commandes : ${cmds || 'voir .ceng/config.json'}`,
-    ...(profile.codeGraph
-      ? [`- Graphe de code : \`${profile.codeGraph.path}/\` — questions de structure (dépendances croisées, qui appelle X) → \`graphify query "…"\` d'abord ; grep/lecture ciblée pour le reste.`]
+    ...(codeGraph || profile.codeGraph
+      ? [`- Graphe de code : \`${profile.codeGraph?.path ?? 'graphify-out'}/\` (mis à jour automatiquement) — questions de structure (dépendances croisées, qui appelle X) → \`graphify query "…"\` d'abord ; grep/lecture ciblée pour le reste.`]
       : []),
     '- Déléguer : `route <tâche>` donne agent, modèle, effort, revue, gates. Les workers écrivent `.ceng/brain/reports/<tâche>.md` et renvoient un résumé court.',
     '- Terminé = gates requises vertes (`gate run <tâche>`) puis `task done`. Avant une modification risquée : `checkpoint`.',

@@ -19,6 +19,8 @@ ceng init                  # interactif
 ceng init --yes            # valeurs recommandées par la découverte
 ceng init --dry-run        # montre ce qui serait écrit, n'écrit rien
 ceng init --yes --risk critical --budget economy --parallelism teams --goal "API de facturation"
+ceng init --yes --install-graphify      # installe graphify si absent et construit le graphe de code
+ceng init --yes --code-graph off        # sans graphe de code
 ```
 
 Questions posées en mode interactif (ce sont des préférences de départ, pas des contraintes) : niveau de risque,

@@ -9,7 +9,7 @@ export const EVENT_TYPES = [
   'gate.result', 'checkpoint', 'rollback',
   'escalation.opened', 'escalation.resolved',
   'decision.recorded', 'learning.recorded', 'adaptation.applied', 'conflict.detected', 'skill.used',
-  'team.chartered',
+  'team.chartered', 'graph.refresh',
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
