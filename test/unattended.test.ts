@@ -33,9 +33,10 @@ describe('mode sans humain (nuit)', () => {
     assert.match(pending, /- \[ \] .*git push --force/);
   });
 
-  it('hors mode nuit, la même action demande l\'humain normalement', () => {
+  it('hors mode nuit, la même action est soumise à l\'humain via l\'invite', () => {
     const out = JSON.parse(runtimeHook(dir, 'guard-command', { tool_name: 'Bash', tool_input: { command: 'git push --force origin main' } }).stdout);
-    assert.equal(out.hookSpecificOutput.permissionDecision, 'ask');
+    assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
+    assert.match(out.hookSpecificOutput.permissionDecisionReason, /Approuver R-\d{4}/);
   });
 
   it('le hook Stop relance tant qu\'il reste du travail, puis s\'arrête faute de progression', () => {

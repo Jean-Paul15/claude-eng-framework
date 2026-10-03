@@ -9,6 +9,12 @@
 | **Suppression récupérable** | `rm`, `rm -r`, `Remove-Item -Recurse`, `del`, `git rm` sur des fichiers du projet (y compris ceux que Claude vient de créer et qui ne servent plus) | hook : **instantané git automatique juste avant** (fichiers non suivis compris), puis suppression **sans demander**. Elle reste annulable avec `ceng rollback <CP> --apply`. L'humain est sollicité seulement si rien ne peut être sauvegardé : hors du projet ou racine, fichiers ignorés par git (ex. `.env`), fichiers du framework (`.ceng/brain`, `.claude/`…), cibles avec joker ou variable, projet sans git |
 | **Autonome** | tout le reste : lecture, édition du code, tests, commits locaux, push sur une branche non protégée (hors autonomie supervisée), suppression de `node_modules`/`dist`/… | permissions normales |
 
+**Comment l'humain approuve** : par l'invite de questions de Claude Code (« Approuver R-xxxx » / « Refuser R-xxxx »),
+qui peut expirer, et non par une boîte de permission qui figerait la session. Le hook `PostToolUse` lit la réponse
+réelle et crée une autorisation à usage unique, limitée à cette action exacte et valable 30 min. Claude ne peut pas
+s'auto-approuver. Si l'invite expire sans réponse, la session bascule en mode sans humain : refus consignés dans
+`pending-approvals.md`, aucune attente.
+
 Ces catégories ne sont **jamais** assouplies par le niveau d'autonomie. Un agent ne peut pas desserrer ses propres
 garde-fous : les fichiers de configuration des garde-fous sont eux-mêmes protégés.
 

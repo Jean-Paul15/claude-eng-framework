@@ -76,6 +76,17 @@ ceng run --unattended --max-hours 8 --max-budget-usd 20 # avec limites explicite
 - **Au réveil**, ouvre Claude : il te présente via l'invite de questions ce qui attend ta validation, puis applique
   tes réponses. `ceng report` détaille la nuit.
 
+**Sans même lancer le mode nuit**, une session normale bascule toute seule. Chaque validation (approuver une action,
+choisir une direction) passe par l'invite de questions de Claude Code, qui peut expirer : réglage utilisateur
+`askUserQuestionTimeout` à `10m`, le maximum de Claude Code. Le reste du fonctionnement :
+- **Tu réponds** : seule ta réponse réelle autorise l'action, et une seule fois.
+- **L'invite expire sans réponse** : le projet passe en mode sans humain. Les demandes sont consignées, les questions
+  de direction prennent la recommandation de Claude comme décision provisoire, et le travail continue.
+- **Tu réécris** : les invites reviennent, et tu peux changer de trajectoire. Chaque décision provisoire est tracée
+  (ADR), précédée d'un point de restauration, et gardée réversible.
+
+Désactivable avec `ceng init --presence off`, qui rétablit les boîtes de permission natives.
+
 Lance le mode nuit dans un terminal plutôt que dans une session de Claude Desktop. Une session interactive s'arrête
 sur la moindre invite de permission ; le mode `--unattended` est conçu pour ne jamais en afficher.
 

@@ -61,11 +61,14 @@ describe('suppressions : récupérables donc sans frein', () => {
     fs.writeFileSync(path.join(dir, 'config/.env'), 'SECRET=1\n');
     fs.writeFileSync(path.join(dir, 'config/app.toml'), 'a = 1\n');
     const ignored = guard('rm -rf config');
-    assert.equal(ignored?.permissionDecision, 'ask');
+    assert.equal(ignored?.permissionDecision, 'deny');
+    assert.match(ignored?.permissionDecisionReason ?? '', /AskUserQuestion/);
     assert.match(ignored?.permissionDecisionReason ?? '', /ignorés par git/);
-    assert.equal(guard('rm -rf ../autre-projet')?.permissionDecision, 'ask');
-    assert.equal(guard('rm -rf .ceng/brain')?.permissionDecision, 'ask');
-    assert.equal(guard('rm -rf app/*')?.permissionDecision, 'ask');
+    for (const c of ['rm -rf ../autre-projet', 'rm -rf .ceng/brain', 'rm -rf app/*']) {
+      const o = guard(c);
+      assert.equal(o?.permissionDecision, 'deny', c);
+      assert.match(o?.permissionDecisionReason ?? '', /Approuver R-\d{4}/, c);
+    }
   });
 
   it('commande mixte : instantané pris mais pas d\'« allow » global (les autres segments suivent les permissions normales)', () => {

@@ -119,7 +119,8 @@ describe('cycle de vie complet', () => {
     const deny = JSON.parse(runtimeHook(dir, 'guard-command', { tool_name: 'Bash', tool_input: { command: 'cat .env' } }).stdout);
     assert.equal(deny.hookSpecificOutput.permissionDecision, 'deny');
     const ask = JSON.parse(runtimeHook(dir, 'guard-command', { tool_name: 'Bash', tool_input: { command: 'git reset --hard HEAD~3' } }).stdout);
-    assert.equal(ask.hookSpecificOutput.permissionDecision, 'ask');
+    assert.equal(ask.hookSpecificOutput.permissionDecision, 'deny');
+    assert.match(ask.hookSpecificOutput.permissionDecisionReason, /AskUserQuestion/);
     assert.equal(runtimeHook(dir, 'guard-command', { tool_name: 'Bash', tool_input: { command: 'pytest -q' } }).stdout, '');
   });
 

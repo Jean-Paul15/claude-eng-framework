@@ -86,9 +86,11 @@ de sécurité, un bug critique, des tests nécessaires ou une revue architectura
 
 ## 6 bis. Mode sans humain (`ceng run --unattended`, « mode nuit »)
 Le prompt commence par « MODE SANS HUMAIN » : personne ne répondra.
-- Ne pose **aucune** question (l'outil de questions attendrait indéfiniment). Chaque question que tu aurais posée va
-  dans `.ceng/brain/pending-approvals.md`, section « Questions », avec ses options, ta recommandation et l'hypothèse
-  provisoire retenue (réversible) ; au bootstrap, consigne aussi les hypothèses dans `assumptions.md`.
+- Ne pose **aucune** question bloquante. Une question de direction prend **ta recommandation** comme **décision
+  provisoire** : checkpoint juste avant, ADR « PROVISOIRE : … » qui liste ce qui en dépend, choix isolé si cela ne coûte
+  presque rien (interface, configuration, module unique) pour qu'un changement ultérieur reste local. La question est
+  consignée dans `.ceng/brain/pending-approvals.md` (le hook le fait si tu utilises l'outil de questions).
+  Au bootstrap, consigne aussi les hypothèses dans `assumptions.md`.
 - Une action qui exige l'humain est refusée par le hook et consignée dans `pending-approvals.md` : ne réessaie pas,
   ne la contourne pas. Bloque la tâche concernée (`task block --reason "attend validation humaine"`) et passe aux
   tâches indépendantes.
@@ -100,6 +102,10 @@ sous forme de liste à lire : une décision par question (approuver / refuser / 
 l'hypothèse prise la nuit en option recommandée), par lots de 4 maximum. Applique chaque réponse (débloquer, reprendre,
 annuler) et coche la ligne. Une décision ignorée reste non cochée : elle sera reproposée. Si l'humain demande à revoir
 les décisions en attente (« montre-moi les décisions », « reprends l'invite »), repose-les de la même façon.
+**Changement de trajectoire** : si l'humain choisit une autre option qu'une décision provisoire, évalue l'impact
+(tâches et fichiers qui en dépendent, d'après l'ADR et `ceng log`), présente le coût en une phrase, puis soit rollback
+au checkpoint de la décision (peu de travail dépendant), soit tâches d'adaptation dans le graphe ; mets l'ADR à jour
+(« remplacée par … »). Une décision gardée telle quelle passe de PROVISOIRE à acceptée.
 
 ## 7. Fin de phase / de session
 `ceng status` ; résume à l'humain ce qui est fait, ce qui reste, les décisions qui l'attendent.

@@ -20,6 +20,8 @@ export interface FrameworkConfig {
   gateTimeoutMinutes: number;
   /** Graphe de code graphify maintenu automatiquement (mode code, sans LLM). */
   codeGraph?: { enabled: boolean };
+  /** Absent après N minutes sans message (0 = jamais de bascule automatique). */
+  presence?: { enabled: boolean };
   installedSkills: string[];
   installedAgents: string[];
   createdAt: string;
@@ -63,6 +65,16 @@ export interface BrainState {
   graphDirty?: boolean;
   /** Mode sans humain : compteur de relances et détection d'absence de progression. */
   unattended?: { continues: number; lastSignature: string; stalls: number };
+  /** Dernier message de l'humain (hook UserPromptSubmit) : base de la détection d'absence. */
+  lastHumanAt?: string;
+  /** Une question a expiré sans réponse après le dernier message : l'humain est absent. */
+  humanAwaySignalAt?: string;
+  /** Session dans laquelle l'orchestrateur a été lancé : elle continue seule si l'humain s'absente. */
+  autopilotSessionId?: string;
+  /** Demandes de validation ouvertes (posées via l'invite de questions). */
+  approvalRequests?: { id: string; key: string; what: string; reason: string; at: string }[];
+  /** Autorisations à usage unique issues des réponses de l'humain. */
+  grants?: { requestId: string; key: string; expiresAt: string }[];
 }
 
 const EMPTY_STATE: BrainState = { editsSinceCheckpoint: 0, sessions: 0 };

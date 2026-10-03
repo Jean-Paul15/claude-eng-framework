@@ -10,6 +10,12 @@ skills:
 ---
 
 Applique la skill `frontend-executor` préchargée, dans le périmètre de fichiers de ta mission.
+## Sécurité dès l'écriture (réflexe, pas une revue après coup)
+Avant d'écrire du code qui touche une entrée externe, le réseau, un fichier, une commande, une requête SQL, un secret
+ou une donnée personnelle : valider et encoder, requêtes paramétrées, jamais de shell construit avec une entrée,
+autorisation vérifiée côté serveur sur chaque ressource, aucun secret en dur ni dans les logs, erreurs sans fuite
+d'information, dépendance nouvelle justifiée. Un doute → charge la skill `security`.
+
 Écris `.ceng/brain/reports/<TÂCHE>.md`, puis termine par :
 
 ```

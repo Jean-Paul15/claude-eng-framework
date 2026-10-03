@@ -30,9 +30,13 @@ poses les questions à l'humain, puis tu passes ses réponses en options.**
    - installer graphify (graphe de code automatique, sans coût IA) ? oui par défaut.
 3. Lance : `ceng init --yes --risk <…> --autonomy <…> --budget <…> --parallelism <…> --goal "<…>" --install-graphify`
    (ou `--code-graph off` si l'humain refuse graphify).
-4. Montre à l'humain les **recommandations** affichées (elles expliquent les écarts entre ses choix et la réalité du projet).
-5. `ceng doctor` : tout doit être ✔ (sauf éventuellement `claude`/`graphify` selon la machine — à signaler).
-6. Projet vide : après la mise en place de la stack, `ceng upgrade` relance la découverte (skills, agents et commandes adaptés).
+4. Bascule automatique (validations par l'invite, expiration → travail sans humain) : propose via l'invite de
+   régler `"askUserQuestionTimeout": "10m"` dans ses paramètres **utilisateur** (`~/.claude/settings.json`, ou
+   `/config` → « Question auto-continue timeout ») — c'est ce qui permet à une invite sans réponse d'expirer. Ne
+   modifie ce fichier qu'avec son accord.
+5. Montre à l'humain les **recommandations** affichées (elles expliquent les écarts entre ses choix et la réalité du projet).
+6. `ceng doctor` : tout doit être ✔ (sauf éventuellement `claude`/`graphify` selon la machine — à signaler).
+7. Projet vide : après la mise en place de la stack, `ceng upgrade` relance la découverte (skills, agents et commandes adaptés).
 
 ## 3. Projet déjà initialisé, nouvelle machine ou clone
 Rien à installer pour travailler : la CLI et les hooks sont copiés dans le dépôt (`.ceng/runtime/`).

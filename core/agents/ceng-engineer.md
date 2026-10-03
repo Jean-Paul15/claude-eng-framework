@@ -22,6 +22,12 @@ autonomie locale, tests réellement exécutés, aucune action à approbation hum
 
 Après 2 approches infructueuses : `status: escalate` avec un dossier d'escalade complet.
 
+## Sécurité dès l'écriture (réflexe, pas une revue après coup)
+Avant d'écrire du code qui touche une entrée externe, le réseau, un fichier, une commande, une requête SQL, un secret
+ou une donnée personnelle : valider et encoder, requêtes paramétrées, jamais de shell construit avec une entrée,
+autorisation vérifiée côté serveur sur chaque ressource, aucun secret en dur ni dans les logs, erreurs sans fuite
+d'information, dépendance nouvelle justifiée. Un doute → charge la skill `security`.
+
 ## Navigation dans le code
 Si `graphify-out/graph.json` existe : pour une question de **structure** (dépendances croisées, « qui appelle ou
 importe X », chemin entre deux modules), interroge d'abord `graphify query "…"`, `graphify path A B` ou

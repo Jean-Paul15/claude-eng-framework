@@ -114,7 +114,7 @@ function summarizeActions(report: InstallReport): string[] {
 }
 
 export async function initCommand(argv: string[], mode: 'init' | 'upgrade' = 'init'): Promise<void> {
-  const p = parse(argv, { yes: { type: 'boolean', short: 'y' }, 'dry-run': { type: 'boolean' }, goal: { type: 'string' }, dir: { type: 'string' }, 'code-graph': { type: 'string' }, 'install-graphify': { type: 'boolean' }, ...PREF_FLAGS });
+  const p = parse(argv, { yes: { type: 'boolean', short: 'y' }, 'dry-run': { type: 'boolean' }, goal: { type: 'string' }, dir: { type: 'string' }, 'code-graph': { type: 'string' }, 'install-graphify': { type: 'boolean' }, presence: { type: 'string' }, ...PREF_FLAGS });
   if (bool(p, 'help')) {
     process.stdout.write(`ceng ${mode} [--dir <projet>] [--yes] [--dry-run] [--goal "…"] [--risk …] [--autonomy …] [--budget …] [--parallelism …] …\n`);
     return;
@@ -159,7 +159,9 @@ export async function initCommand(argv: string[], mode: 'init' | 'upgrade' = 'in
     }
   }
   const goal = str(p, 'goal');
-  const report = install({ projectRoot: root, preferences: prefs, ...(goal ? { goal } : {}), dryRun: bool(p, 'dry-run'), profile, ...(codeGraph !== undefined ? { codeGraph } : {}) });
+  const presenceRaw = str(p, 'presence');
+  if (presenceRaw !== undefined && !['on', 'off'].includes(presenceRaw)) throw new UsageError('--presence : on|off');
+  const report = install({ projectRoot: root, preferences: prefs, ...(goal ? { goal } : {}), dryRun: bool(p, 'dry-run'), profile, ...(codeGraph !== undefined ? { codeGraph } : {}), ...(presenceRaw !== undefined ? { presence: presenceRaw === 'on' } : {}) });
   const graphNotes = setupGraphAtInit(root, { enabled: report.config.codeGraph?.enabled ?? false, install: installGraph, dryRun: bool(p, 'dry-run') });
   const next = bool(p, 'dry-run') ? '' : `\n\nÉtape suivante : \`ceng run\` (ou ouvrir Claude Code dans ce dossier et taper /ceng-orchestrate).`;
   const graphText = graphNotes.length ? `\n\nGraphe de code :\n${graphNotes.map((n) => `  • ${n}`).join('\n')}` : '';

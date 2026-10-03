@@ -57,6 +57,8 @@ export interface InstallOptions {
   interactiveTeamsPossible?: boolean;
   /** Activer le graphe de code graphify (défaut : conserver le choix précédent, sinon activé). */
   codeGraph?: boolean;
+  /** Validations par l'invite de questions avec bascule automatique en mode sans humain (défaut : activé). */
+  presence?: boolean;
 }
 
 export type ActionKind = 'create' | 'update' | 'keep-user-version' | 'skip' | 'backup';
@@ -213,6 +215,7 @@ export function install(opts: InstallOptions): InstallReport {
     commands: { ...profile.commands, ...(previousConfig?.commands ?? {}) },
     gateTimeoutMinutes: previousConfig?.gateTimeoutMinutes ?? 15,
     codeGraph: { enabled: opts.codeGraph ?? previousConfig?.codeGraph?.enabled ?? true },
+    presence: { enabled: opts.presence ?? previousConfig?.presence?.enabled ?? true },
     installedSkills: [...skillSel.selected.map((s) => s.name), ...generated.map((g) => g.name)],
     installedAgents: agentSel.selected.map((a) => a.name),
     createdAt: previousConfig?.createdAt ?? new Date().toISOString(),

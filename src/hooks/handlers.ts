@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import { classifyCommand, classifyFileWrite, parseDeletion, splitCommand } from '../domain/guardrails.js';
 import { autoApproveDeletion } from '../app/deletion.js';
 import { deferredReason, isUnattended, recordPendingApproval, shouldKeepWorking } from '../app/unattended.js';
+import { actionKey, applyAnswers, askViaInvite, consumeGrant, isHumanAway, markAutopilot, markHumanActive, markHumanAway, openRequest, presenceEnabled } from '../app/presence.js';
 import { matchesAny, normalizePath } from '../domain/globs.js';
 import { resumeBrief } from '../brain/brief.js';
 import type { BrainStore } from '../brain/store.js';
@@ -42,13 +43,25 @@ const REPORT_MARKER = 'CENG_REPORT';
 const SPAWN_MATCH_WINDOW_MS = 10 * 60_000;
 
 /**
- * Demande d'approbation humaine. En mode sans humain, personne ne répondrait et la session resterait figée :
- * l'action est refusée proprement, consignée pour le réveil, et Claude continue autre chose.
+ * Demande d'approbation humaine, toujours par l'invite de questions (qui peut expirer) :
+ *  - autorisation déjà donnée par l'humain pour cette action exacte -> autorisée (usage unique) ;
+ *  - humain absent (invite expirée, mode nuit) -> refus propre, consigné pour son retour ; Claude continue ;
+ *  - sinon -> refus avec la consigne de poser la question via AskUserQuestion (identifiant R-xxxx).
+ * Bascule désactivable (`presence.enabled: false`) : on retombe alors sur la boîte de permission native.
  */
-function askHuman(store: BrainStore, what: string, reason: string): HookOutput {
-  if (!isUnattended()) return preToolDecision('ask', reason);
-  recordPendingApproval(store, what, reason);
-  return preToolDecision('deny', deferredReason(reason));
+function askHuman(store: BrainStore, input: HookInput, what: string, reason: string): HookOutput {
+  const key = actionKey(String(input.tool_name ?? ''), input.tool_input);
+  const grant = consumeGrant(store, key);
+  if (grant) {
+    store.log({ type: 'guard.verdict', ...ids(input), data: { class: 'approved-by-human', request: grant.requestId } });
+    return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `[ceng] Approuvé par l'humain (${grant.requestId}).` } } };
+  }
+  if (isHumanAway(store)) {
+    recordPendingApproval(store, what, reason);
+    return preToolDecision('deny', deferredReason(reason));
+  }
+  if (!presenceEnabled(store)) return preToolDecision('ask', reason);
+  return preToolDecision('deny', askViaInvite(openRequest(store, key, what, reason)));
 }
 
 function preToolDecision(decision: 'deny' | 'ask', reason: string): HookOutput {
@@ -106,12 +119,12 @@ export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
       return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', ...(onlyDeletions ? { permissionDecision: 'allow', permissionDecisionReason: note } : {}), additionalContext: note } } };
     }
     store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'approval', rule: 'delete', why: check.reason } });
-    return askHuman(store, command, `Suppression non récupérable automatiquement (${check.reason}) : validation humaine.`);
+    return askHuman(store, input, command, `Suppression non récupérable automatiquement (${check.reason}) : validation humaine.`);
   }
   store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: verdict.class, rule: verdict.rule } });
   return verdict.class === 'forbidden'
     ? preToolDecision('deny', `Action interdite (${verdict.rule}) : ${verdict.reason} Proposer une alternative sûre ou demander à l'humain d'agir lui-même.`)
-    : askHuman(store, command, `Approbation humaine requise (${verdict.rule}) : ${verdict.reason}`);
+    : askHuman(store, input, command, `Approbation humaine requise (${verdict.rule}) : ${verdict.reason}`);
 }
 
 export function guardFile(store: BrainStore, input: HookInput): HookOutput {
@@ -123,7 +136,7 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
   const verdict = classifyFileWrite(rel, config.policy.autonomy);
   if (verdict.class !== 'autonomous') {
     store.log({ type: 'guard.verdict', ...ids(input), data: { file: rel, class: verdict.class, rule: verdict.rule } });
-    return verdict.class === 'forbidden' ? preToolDecision('deny', `${verdict.reason} (${rel})`) : askHuman(store, rel, `${verdict.reason} (${rel})`);
+    return verdict.class === 'forbidden' ? preToolDecision('deny', `${verdict.reason} (${rel})`) : askHuman(store, input, rel, `${verdict.reason} (${rel})`);
   }
   // Prévention de conflit : un worker ne modifie pas un fichier possédé par une autre tâche en cours.
   if (input.agent_id) {
@@ -199,6 +212,7 @@ export function fileEdited(store: BrainStore, input: HookInput): HookOutput {
 export function skillUsed(store: BrainStore, input: HookInput): HookOutput {
   const skill = String(input.tool_input?.['skill'] ?? input.tool_input?.['name'] ?? '');
   if (skill) store.log({ type: 'skill.used', ...ids(input), data: { skill } });
+  if (skill === 'ceng-orchestrate' && !input.agent_id) markAutopilot(store, input.session_id);
   return OK;
 }
 
@@ -236,6 +250,8 @@ export function preCompact(store: BrainStore, input: HookInput): HookOutput {
 export function stop(store: BrainStore, input: HookInput): HookOutput {
   if (input.agent_id) return OK;
   if (isUnattended()) return keepWorkingOrStop(store);
+  // Session d'orchestration : le travail continue sans attendre l'humain (il peut interrompre ou écrire à tout moment).
+  if (input.session_id && store.state().autopilotSessionId === input.session_id) return keepWorkingOrStop(store);
   if (input.stop_hook_active) return OK;
   const state = store.state();
   if (!state.currentTask || state.editsSinceCheckpoint === 0 || state.stopReminderAt) return OK;
@@ -298,6 +314,68 @@ export function graphRefresh(store: BrainStore, input: HookInput): HookOutput {
   return OK;
 }
 
+/** UserPromptSubmit : l'humain est là (base de la détection d'absence) ; /ceng-orchestrate active le pilote automatique. */
+export function userPrompt(store: BrainStore, input: HookInput): HookOutput {
+  markHumanActive(store, String(input['prompt'] ?? ''), input.session_id);
+  return OK;
+}
+
+/**
+ * PermissionRequest (avant l'affichage d'une boîte de permission, y compris celles de Claude Code lui-même).
+ * Ces boîtes n'expirent jamais : on les remplace par l'invite de questions (qui expire), sauf si la bascule est désactivée.
+ */
+export function permissionRequest(store: BrainStore, input: HookInput): HookOutput {
+  if (!presenceEnabled(store) && !isUnattended()) return OK;
+  const ti = input.tool_input ?? {};
+  const key = actionKey(String(input.tool_name ?? ''), ti);
+  const decide = (behavior: 'allow' | 'deny', message?: string): HookOutput => ({
+    exitCode: 0,
+    json: { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior, ...(message ? { message } : {}) } } },
+  });
+  if (consumeGrant(store, key)) return decide('allow');
+  const what = `${input.tool_name ?? 'outil'} ${String(ti['command'] ?? ti['file_path'] ?? ti['url'] ?? '').slice(0, 160)}`.trim();
+  if (isHumanAway(store)) {
+    const reason = "Permission requise alors que l'humain est absent";
+    recordPendingApproval(store, what, reason);
+    return decide('deny', deferredReason(reason));
+  }
+  return decide('deny', askViaInvite(openRequest(store, key, what, 'permission Claude Code')));
+}
+
+/**
+ * PreToolUse sur AskUserQuestion, humain absent : la question n'attend pas. Claude applique SA recommandation comme
+ * décision provisoire (tracée, checkpointée, gardée réversible) ; la question sera reposée au retour de l'humain.
+ */
+export function askQuestion(store: BrainStore, input: HookInput): HookOutput {
+  if (!isHumanAway(store)) return OK;
+  const questions = (input.tool_input?.['questions'] as { question?: string; options?: { label?: string }[] }[] | undefined) ?? [];
+  const chosen: string[] = [];
+  for (const q of questions) {
+    const labels = (q.options ?? []).map((o) => o.label ?? '').filter(Boolean);
+    const recommended = labels.find((l) => /recommand/i.test(l)) ?? labels[0] ?? 'option la plus réversible';
+    chosen.push(recommended);
+    recordPendingApproval(store, `QUESTION : ${q.question ?? '?'}${labels.length ? ` [${labels.join(' | ')}]` : ''} → provisoire : ${recommended}`, 'Question posée pendant une absence');
+  }
+  return preToolDecision(
+    'deny',
+    `[ceng] Humain absent : question mise en file, à lui reposer à son retour. Applique ta recommandation comme DÉCISION PROVISOIRE (${chosen.join(' ; ')}) : ` +
+      `\`${CLI_INVOCATION} checkpoint --done "avant décision provisoire" --next "…"\`, puis \`${CLI_INVOCATION} decision add --title "PROVISOIRE : …" …\` ` +
+      '(préciser ce qui en dépend), garde le choix isolé si cela ne coûte presque rien (interface, configuration), et continue.',
+  );
+}
+
+/**
+ * PostToolUse sur AskUserQuestion : lit la réponse RÉELLE de l'humain (« Approuver R-xxxx » -> autorisation à usage
+ * unique) ; une invite fermée par expiration (askUserQuestionTimeout) signale son absence.
+ */
+export function questionAnswered(store: BrainStore, input: HookInput): HookOutput {
+  const response = JSON.stringify(input['tool_response'] ?? '');
+  const { approved, refused } = applyAnswers(store, response);
+  if (approved.length || refused.length) store.log({ type: 'guard.verdict', ...ids(input), data: { class: 'human-answer', approved, refused } });
+  if (/away from (the |your )?keyboard|may be away|timed? ?out|auto-continue/i.test(response)) markHumanAway(store);
+  return OK;
+}
+
 export function sessionEnd(store: BrainStore, input: HookInput): HookOutput {
   store.log({ type: 'session.end', ...ids(input), data: { reason: input['reason'] ?? null } });
   return OK;
@@ -326,4 +404,8 @@ export const HANDLERS: Record<string, (store: BrainStore, input: HookInput) => H
   'task-completed': taskCompleted,
   'session-end': sessionEnd,
   'graph-refresh': graphRefresh,
+  'user-prompt': userPrompt,
+  'permission-request': permissionRequest,
+  'question-answered': questionAnswered,
+  'ask-question': askQuestion,
 };
