@@ -8,7 +8,7 @@ l'utilisateur sont conservés.
 | Événement Claude Code | Gestionnaire | Rôle |
 |---|---|---|
 | `SessionStart` (startup/resume/clear/compact) | `session-start` | injecte le brief de reprise (`additionalContext`), compte les sessions |
-| `PreToolUse` Bash/PowerShell | `guard-command` | classe la commande : `deny` (interdit) / `ask` (approbation) / rien |
+| `PreToolUse` Bash/PowerShell | `guard-command` | classe la commande : `deny` (interdit) / `ask` (approbation) / rien ; **suppression de fichiers** : instantané automatique puis `allow` si elle est récupérable, sinon `ask` |
 | `PreToolUse` Edit/Write/MultiEdit/NotebookEdit | `guard-file` | secrets et `.git/` refusés ; gouvernance, CI et infra soumises à approbation ; **interdit à un worker d'éditer un fichier possédé par une autre tâche en cours** |
 | `PreToolUse` Agent | `agent-spawn` | journalise la délégation (type d'agent, modèle, tâche, arrière-plan, taille du brief), mémorise la tâche en attente |
 | `SubagentStart` | `subagent-start` | relie `agent_id` à la tâche (FIFO par type d'agent) |

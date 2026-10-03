@@ -14,6 +14,8 @@ export interface Verdict {
   class: ActionClass;
   reason: string;
   rule?: string;
+  /** Présent quand la seule raison d'approbation est une suppression de fichiers (rendue récupérable par le hook). */
+  deletion?: Deletion;
 }
 
 interface Rule {
@@ -45,21 +47,38 @@ const APPROVAL: Rule[] = [
   { id: 'sudo', pattern: /(^|[;&|]\s*)sudo\b/, reason: 'Élévation de privilèges.' },
   { id: 'gh-destructive', pattern: /\bgh\s+(repo\s+(delete|archive|edit\s+.*--visibility)|release\s+(create|delete)|secret\s+set|api\s+.*-X\s*DELETE)\b/, reason: 'Action GitHub irréversible ou sensible.' },
   { id: 'secrets-mgmt', pattern: /\b(vault\s+(write|delete|kv\s+(put|delete))|aws\s+secretsmanager\s+(put|delete|create)|gcloud\s+secrets\s+(create|delete|versions\s+add))\b/, reason: 'Gestion de secrets.' },
-  { id: 'rm-recursive', pattern: /\b(rm\s+-[a-zA-Z]*r[a-zA-Z]*|Remove-Item\b.*-Recurse|rmdir\s+\/s)\b/i, reason: 'Suppression récursive.' },
   { id: 'kill-all', pattern: /\b(killall|pkill\s+-9|taskkill\s+\/f\s+\/im)\b/i, reason: 'Arrêt de processus en masse.' },
 ];
 
 /** Répertoires régénérables dont la suppression récursive est sans risque. */
 const REGENERABLE_DIRS = ['node_modules', 'dist', 'build', 'out', '.next', '.nuxt', '.turbo', 'coverage', 'target', '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.dart_tool', '.gradle', 'tmp', '.tmp', '.cache', '.parcel-cache', '.svelte-kit', '.ceng/tmp'];
 
-function isRegenerableRm(command: string): boolean {
-  const m = command.match(/\brm\s+-[a-zA-Z]+\s+(.+)$/) ?? command.match(/Remove-Item\s+(?:-\w+\s+)*([^-\s][^\s]*)/i);
-  if (!m) return false;
-  const targets = m[1]!.split(/\s+/).filter((t) => t && !t.startsWith('-'));
-  return targets.length > 0 && targets.every((t) => {
-    const clean = normalizePath(t.replace(/["']/g, '')).replace(/\/$/, '');
-    return REGENERABLE_DIRS.some((d) => clean === d || clean.endsWith(`/${d}`));
-  });
+export interface Deletion {
+  targets: string[];
+  recursive: boolean;
+}
+
+const DELETE_COMMANDS = /^(rm|unlink|rmdir|rd|del|erase|Remove-Item|ri)$/i;
+
+/**
+ * Reconnaît une suppression de fichiers et en extrait les cibles (rm, unlink, rmdir, del, Remove-Item, git rm).
+ * Renvoie null si le segment n'est pas une suppression.
+ */
+export function parseDeletion(segment: string): Deletion | null {
+  const tokens = segment.trim().split(/\s+/).map((t) => t.replace(/^["']|["']$/g, '')).filter(Boolean);
+  let args: string[];
+  if (tokens[0] === 'git' && tokens[1] === 'rm') args = tokens.slice(2);
+  else if (tokens[0] && DELETE_COMMANDS.test(tokens[0])) args = tokens.slice(1);
+  else return null;
+  const flags = args.filter((a) => a.startsWith('-') || /^\/[a-z]$/i.test(a));
+  const recursive = flags.some((f) => /^-[a-zA-Z]*r/i.test(f) || /^-recurse$/i.test(f) || /^\/s$/i.test(f)) || /^(rmdir|rd)$/i.test(tokens[0]!);
+  const targets = args.filter((a) => !flags.includes(a) && !/^-(path|literalpath)$/i.test(a));
+  return targets.length ? { targets, recursive } : null;
+}
+
+export function isRegenerablePath(target: string): boolean {
+  const clean = normalizePath(target).replace(/\/$/, '');
+  return REGENERABLE_DIRS.some((d) => clean === d || clean.endsWith(`/${d}`) || clean.includes(`/${d}/`) || clean.startsWith(`${d}/`));
 }
 
 function protectedPush(command: string, protectedBranches: readonly string[]): boolean {
@@ -92,23 +111,42 @@ function readsSecretFile(segment: string): boolean {
   return tokens.slice(1).some((t) => !t.startsWith('-') && isSecretPath(t));
 }
 
+/**
+ * Évalue TOUS les segments d'une commande composée et renvoie le verdict le plus restrictif :
+ * interdit > approbation > suppression (approbation levable par instantané) > autonome.
+ */
 export function classifyCommand(command: string, ctx: CommandContext): Verdict {
   const whole = command.trim();
   for (const r of FORBIDDEN) if (r.pattern.test(whole)) return { class: 'forbidden', reason: r.reason, rule: r.id };
+  const approvals: Verdict[] = [];
+  const deletions: Deletion[] = [];
   for (const segment of splitCommand(whole)) {
     for (const piece of segment.split('|')) {
       if (readsSecretFile(piece.trim())) return { class: 'forbidden', reason: "Lecture ou copie d'un fichier de secrets.", rule: 'read-secrets' };
     }
     for (const r of FORBIDDEN) if (r.pattern.test(segment)) return { class: 'forbidden', reason: r.reason, rule: r.id };
-    for (const r of APPROVAL) {
-      if (!r.pattern.test(segment)) continue;
-      if (r.id === 'rm-recursive' && isRegenerableRm(segment)) continue;
-      return { class: 'approval', reason: r.reason, rule: r.id };
+    const deletion = parseDeletion(segment);
+    if (deletion) {
+      const remaining = deletion.targets.filter((t) => !isRegenerablePath(t));
+      if (remaining.some(isSecretPath)) approvals.push({ class: 'approval', reason: 'Suppression d\'un fichier de secrets (non sauvegardable).', rule: 'delete-secret' });
+      else if (remaining.length) deletions.push({ targets: remaining, recursive: deletion.recursive });
+      continue;
     }
+    const rule = APPROVAL.find((r) => r.pattern.test(segment));
+    if (rule) approvals.push({ class: 'approval', reason: rule.reason, rule: rule.id });
     if (/\bgit\s+push\b/.test(segment)) {
-      if (ctx.autonomy === 'supervised') return { class: 'approval', reason: 'Autonomie supervisée : tout push est validé par un humain.', rule: 'git-push-supervised' };
-      if (protectedPush(segment, ctx.protectedBranches)) return { class: 'approval', reason: 'Push direct sur une branche protégée.', rule: 'git-push-protected' };
+      if (ctx.autonomy === 'supervised') approvals.push({ class: 'approval', reason: 'Autonomie supervisée : tout push est validé par un humain.', rule: 'git-push-supervised' });
+      else if (protectedPush(segment, ctx.protectedBranches)) approvals.push({ class: 'approval', reason: 'Push direct sur une branche protégée.', rule: 'git-push-protected' });
     }
+  }
+  if (approvals.length) return approvals[0]!;
+  if (deletions.length) {
+    return {
+      class: 'approval',
+      reason: 'Suppression de fichiers : autorisée automatiquement si un instantané peut la rendre récupérable.',
+      rule: 'delete',
+      deletion: { targets: deletions.flatMap((d) => d.targets), recursive: deletions.some((d) => d.recursive) },
+    };
   }
   return { class: 'autonomous', reason: 'Aucune règle de risque ne s\'applique.' };
 }

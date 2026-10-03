@@ -1,5 +1,6 @@
 import * as path from 'node:path';
-import { classifyCommand, classifyFileWrite } from '../domain/guardrails.js';
+import { classifyCommand, classifyFileWrite, parseDeletion, splitCommand } from '../domain/guardrails.js';
+import { autoApproveDeletion } from '../app/deletion.js';
 import { matchesAny, normalizePath } from '../domain/globs.js';
 import { resumeBrief } from '../brain/brief.js';
 import type { BrainStore } from '../brain/store.js';
@@ -83,6 +84,19 @@ export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
   const protectedBranches = store.profile()?.git.protectedBranches ?? ['main', 'master'];
   const verdict = classifyCommand(command, { autonomy: config.policy.autonomy, protectedBranches });
   if (verdict.class === 'autonomous') return OK;
+  // Suppression de fichiers : pas de frein si elle peut être rendue récupérable (instantané pris juste avant).
+  if (verdict.rule === 'delete' && verdict.deletion) {
+    const check = autoApproveDeletion(store, verdict.deletion.targets, input.cwd);
+    if (check.ok) {
+      store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'autonomous', rule: 'delete-with-snapshot', checkpoint: check.checkpointId } });
+      const note = `[ceng] Suppression autorisée : instantané ${check.checkpointId} pris avant (annulable : \`${CLI_INVOCATION} rollback ${check.checkpointId} --apply\`).`;
+      // « allow » seulement si la commande n'est QUE des suppressions ; sinon les permissions normales s'appliquent au reste.
+      const onlyDeletions = splitCommand(command).every((s) => parseDeletion(s) !== null);
+      return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', ...(onlyDeletions ? { permissionDecision: 'allow', permissionDecisionReason: note } : {}), additionalContext: note } } };
+    }
+    store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'approval', rule: 'delete', why: check.reason } });
+    return preToolDecision('ask', `Suppression non récupérable automatiquement (${check.reason}) : validation humaine.`);
+  }
   store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: verdict.class, rule: verdict.rule } });
   return verdict.class === 'forbidden'
     ? preToolDecision('deny', `Action interdite (${verdict.rule}) : ${verdict.reason} Proposer une alternative sûre ou demander à l'humain d'agir lui-même.`)

@@ -83,6 +83,11 @@ export class Git {
     }
   }
 
+  /** Fichiers ignorés par git sous un chemin (non capturés par un instantané). */
+  ignoredFiles(rel: string): string[] {
+    return (this.out(['ls-files', '--others', '--ignored', '--exclude-standard', '--', rel]) ?? '').split(/\r?\n/).filter(Boolean);
+  }
+
   hasCommit(sha: string): boolean {
     return this.git(['cat-file', '-e', `${sha}^{commit}`]).code === 0;
   }
