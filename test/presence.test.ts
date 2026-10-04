@@ -50,6 +50,11 @@ describe('invite de questions et bascule automatique en mode sans humain', () =>
     assert.equal(hook('permission-request', npmInstall).hookSpecificOutput!.decision!.behavior, 'allow');
   });
 
+  it('la permission de l\'invite de questions elle-même n\'est jamais interceptée (sinon boucle infinie)', () => {
+    const question = { tool_name: 'AskUserQuestion', tool_input: { questions: [{ question: 'Timeout ?' }] } };
+    assert.equal(hook('permission-request', question).hookSpecificOutput, undefined);
+  });
+
   it('invite expirée sans réponse : bascule en mode sans humain (rien n\'est plus affiché, tout est consigné)', () => {
     hook('question-answered', { tool_name: 'AskUserQuestion', tool_response: 'The user may be away from their keyboard; proceed on your own judgment.' });
     const out = hook('guard-command', forcePush).hookSpecificOutput!;

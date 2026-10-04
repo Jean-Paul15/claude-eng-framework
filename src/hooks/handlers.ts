@@ -335,8 +335,10 @@ export function userPrompt(store: BrainStore, input: HookInput): HookOutput {
 /**
  * PermissionRequest (avant l'affichage d'une boîte de permission, y compris celles de Claude Code lui-même).
  * Ces boîtes n'expirent jamais : on les remplace par l'invite de questions (qui expire), sauf si la bascule est désactivée.
+ * L'invite elle-même n'est jamais interceptée : la refuser renverrait vers… l'invite (boucle infinie).
  */
 export function permissionRequest(store: BrainStore, input: HookInput): HookOutput {
+  if (input.tool_name === 'AskUserQuestion') return OK;
   if (!presenceEnabled(store) && !isUnattended()) return OK;
   const ti = input.tool_input ?? {};
   const key = actionKey(String(input.tool_name ?? ''), ti);
