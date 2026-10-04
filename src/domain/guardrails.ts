@@ -36,6 +36,7 @@ const FORBIDDEN: Rule[] = [
 ];
 
 const APPROVAL: Rule[] = [
+  { id: 'secrets-allow', pattern: /\b(cli\.js|ceng)\s+secrets\s+(allow|grant)\b/, reason: 'Autoriser l\'accès à un fichier de secrets : décision humaine.' },
   { id: 'git-force-push', pattern: /\bgit\s+push\b.*(\s--force(-with-lease)?\b|\s-f\b|\s\+\S+)/, reason: 'Push forcé : réécrit un historique partagé.' },
   { id: 'git-discard', pattern: /\bgit\s+(reset\s+--hard\b|clean\s+-[a-zA-Z]*f[a-zA-Z]*|checkout\s+(--\s+)?\.(\s|$)|restore\s+(--\S+\s+)*\.(\s|$)|stash\s+(drop|clear)\b|branch\s+-D\b)/, reason: 'Peut détruire du travail non commité ou une branche.' },
   { id: 'git-history-rewrite', pattern: /\bgit\s+(rebase|filter-branch|filter-repo|commit\s+--amend)\b/, reason: 'Réécriture d\'historique.' },
@@ -95,6 +96,8 @@ function protectedPush(command: string, protectedBranches: readonly string[]): b
 export interface CommandContext {
   autonomy: Autonomy;
   protectedBranches: readonly string[];
+  /** Fichiers de secrets explicitement autorisés par l'humain (`ceng secrets allow`). */
+  allowedSecrets?: readonly string[];
 }
 
 /** Découpe une commande composée en segments (&&, ||, ;, |, retours ligne) pour évaluer chacun. */
@@ -105,10 +108,10 @@ export function splitCommand(command: string): string[] {
 const SECRET_READERS = /^(cat|less|more|head|tail|type|Get-Content|gc|bat|xxd|od|strings|base64|cp|copy|scp|rsync|Copy-Item|sed|awk|grep|rg|nl|tac)$/i;
 
 /** Lecture/copie d'un fichier de secrets (exceptions : .env.example & co). */
-function readsSecretFile(segment: string): boolean {
+function readsSecretFile(segment: string, allowed: readonly string[] = []): boolean {
   const tokens = segment.split(/[\s|<>]+/).map((t) => t.replace(/^["']|["']$/g, '')).filter(Boolean);
   if (tokens.length < 2 || !SECRET_READERS.test(tokens[0]!)) return false;
-  return tokens.slice(1).some((t) => !t.startsWith('-') && isSecretPath(t));
+  return tokens.slice(1).some((t) => !t.startsWith('-') && isSecretPath(t, allowed));
 }
 
 /**
@@ -122,13 +125,13 @@ export function classifyCommand(command: string, ctx: CommandContext): Verdict {
   const deletions: Deletion[] = [];
   for (const segment of splitCommand(whole)) {
     for (const piece of segment.split('|')) {
-      if (readsSecretFile(piece.trim())) return { class: 'forbidden', reason: "Lecture ou copie d'un fichier de secrets.", rule: 'read-secrets' };
+      if (readsSecretFile(piece.trim(), ctx.allowedSecrets)) return { class: 'forbidden', reason: "Lecture ou copie d'un fichier de secrets.", rule: 'read-secrets' };
     }
     for (const r of FORBIDDEN) if (r.pattern.test(segment)) return { class: 'forbidden', reason: r.reason, rule: r.id };
     const deletion = parseDeletion(segment);
     if (deletion) {
       const remaining = deletion.targets.filter((t) => !isRegenerablePath(t));
-      if (remaining.some(isSecretPath)) approvals.push({ class: 'approval', reason: 'Suppression d\'un fichier de secrets (non sauvegardable).', rule: 'delete-secret' });
+      if (remaining.some((t) => isSecretPath(t, ctx.allowedSecrets))) approvals.push({ class: 'approval', reason: 'Suppression d\'un fichier de secrets (non sauvegardable).', rule: 'delete-secret' });
       else if (remaining.length) deletions.push({ targets: remaining, recursive: deletion.recursive });
       continue;
     }
@@ -164,19 +167,28 @@ const GOVERNANCE_FILES = [
 const CI_FILES = ['.github/workflows/**', '.gitlab-ci.yml', '.circleci/**', 'azure-pipelines.yml', 'Jenkinsfile', 'bitbucket-pipelines.yml'];
 const INFRA_FILES = ['**/*.tf', '**/*.tfvars', 'k8s/**', 'kubernetes/**', 'helm/**', '**/Chart.yaml'];
 
-export function classifyFileWrite(path: string, autonomy: Autonomy): Verdict {
+export function classifyFileWrite(path: string, autonomy: Autonomy, allowedSecrets: readonly string[] = []): Verdict {
   const p = normalizePath(path);
   if (matchesAny(p, GIT_INTERNALS)) return { class: 'forbidden', reason: 'Modification directe des internes git.', rule: 'git-internals' };
-  if (matchesAny(p, SECRET_FILES) && !matchesAny(p, SECRET_FILE_EXCEPTIONS)) return { class: 'forbidden', reason: 'Fichier de secrets : jamais écrit par un agent.', rule: 'secret-file' };
+  if (isSecretPath(p, allowedSecrets)) return { class: 'forbidden', reason: 'Fichier de secrets : jamais écrit par un agent.', rule: 'secret-file' };
   if (matchesAny(p, GOVERNANCE_FILES)) return { class: 'approval', reason: 'Fichier de gouvernance/garde-fous ou de licence : validation humaine.', rule: 'governance-file' };
   if (matchesAny(p, CI_FILES) && autonomy !== 'high') return { class: 'approval', reason: 'Pipeline CI/CD : impact sur la chaîne de livraison.', rule: 'ci-file' };
   if (matchesAny(p, INFRA_FILES) && autonomy !== 'high') return { class: 'approval', reason: 'Définition d\'infrastructure.', rule: 'infra-file' };
   return { class: 'autonomous', reason: 'Fichier de travail ordinaire.' };
 }
 
-export function isSecretPath(path: string): boolean {
+/** Fichier de secrets, sauf exemples (.env.example…) et fichiers explicitement autorisés par l'humain. */
+export function isSecretPath(path: string, allowed: readonly string[] = []): boolean {
   const p = normalizePath(path);
+  if (allowed.length && matchesAny(p, allowed.map(normalizePath))) return false;
   return matchesAny(p, SECRET_FILES) && !matchesAny(p, SECRET_FILE_EXCEPTIONS);
+}
+
+/** Lecture d'un fichier par l'outil Read de Claude Code (garde utilisée quand des secrets sont autorisés). */
+export function classifyFileRead(path: string, allowedSecrets: readonly string[] = []): Verdict {
+  return isSecretPath(path, allowedSecrets)
+    ? { class: 'forbidden', reason: 'Fichier de secrets non autorisé (seuls les fichiers autorisés par l\'humain via `ceng secrets allow` sont lisibles).', rule: 'read-secrets' }
+    : { class: 'autonomous', reason: 'Lecture ordinaire.' };
 }
 
 /** Tableau lisible des catégories, injecté dans le contexte et la documentation. */

@@ -216,6 +216,7 @@ export function install(opts: InstallOptions): InstallReport {
     gateTimeoutMinutes: previousConfig?.gateTimeoutMinutes ?? 15,
     codeGraph: { enabled: opts.codeGraph ?? previousConfig?.codeGraph?.enabled ?? true },
     presence: { enabled: opts.presence ?? previousConfig?.presence?.enabled ?? true },
+    secrets: { allow: previousConfig?.secrets?.allow ?? [] },
     installedSkills: [...skillSel.selected.map((s) => s.name), ...generated.map((g) => g.name)],
     installedAgents: agentSel.selected.map((a) => a.name),
     createdAt: previousConfig?.createdAt ?? new Date().toISOString(),
@@ -233,7 +234,7 @@ export function install(opts: InstallOptions): InstallReport {
 
   // 6. Intégration Claude Code : settings.json (fusion), CLAUDE.md (bloc), .gitignore
   const settingsPath = path.join(root, '.claude', 'settings.json');
-  const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: policy.autonomy, parallelism: policy.parallelism });
+  const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: policy.autonomy, parallelism: policy.parallelism, allowedSecrets: previousConfig?.secrets?.allow ?? [] });
   w.generated('.claude/settings.json', `${JSON.stringify(merged, null, 2)}\n`, 'hooks + règles de permission (fusion non destructive)');
   w.generated('CLAUDE.md', upsertBlock(readText(path.join(root, 'CLAUDE.md')), renderBlock(profile, policy, config.codeGraph?.enabled ?? false)), 'bloc ceng (pointeurs compacts)');
   const gi = readText(path.join(root, '.gitignore')) ?? '';

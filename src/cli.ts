@@ -8,6 +8,7 @@ import { conflictsCommand, gateCommand, planCommand, routeCommand, taskCommand }
 import { adaptCommand, checkpointCommand, decisionCommand, escalateCommand, learnCommand, logCommand, reportCommand, resumeCommand, rollbackCommand, skillCommand, statusCommand } from './cli/commands/memory.js';
 import { runHook } from './hooks/run.js';
 import { graphCommand } from './cli/commands/graph.js';
+import { secretsCommand } from './cli/commands/secrets.js';
 
 const HELP = `ceng — framework d'ingénierie autonome pour Claude Code
 
@@ -76,6 +77,7 @@ export async function main(argv: string[]): Promise<void> {
     case 'learn': return learnCommand(rest);
     case 'skill': return skillCommand(rest);
     case 'graph': return graphCommand(rest);
+    case 'secrets': return secretsCommand(rest);
     case 'hook': {
       const chunks: Buffer[] = [];
       if (!process.stdin.isTTY) for await (const c of process.stdin) chunks.push(c as Buffer);

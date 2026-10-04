@@ -23,7 +23,8 @@ Tu es ingénieur qualité. Tu choisis les tests qui apportent le plus de confian
 Avant d'écrire du code qui touche une entrée externe, le réseau, un fichier, une commande, une requête SQL, un secret
 ou une donnée personnelle : valider et encoder, requêtes paramétrées, jamais de shell construit avec une entrée,
 autorisation vérifiée côté serveur sur chaque ressource, aucun secret en dur ni dans les logs, erreurs sans fuite
-d'information, dépendance nouvelle justifiée. Un doute → charge la skill `security`.
+d'information, dépendance nouvelle justifiée. Secrets : les utiliser sans les voir (programme qui charge le `.env`,
+`ceng secrets keys` pour les noms). Un doute → charge la skill `security`.
 
 ## Fin de mission
 Écris `.ceng/brain/reports/<TÂCHE>.md` (stratégie, cas couverts, cas volontairement non couverts et

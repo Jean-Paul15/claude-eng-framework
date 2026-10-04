@@ -22,6 +22,8 @@ export interface FrameworkConfig {
   codeGraph?: { enabled: boolean };
   /** Absent après N minutes sans message (0 = jamais de bascule automatique). */
   presence?: { enabled: boolean };
+  /** Fichiers de secrets que l'humain autorise l'agent à lire/écrire (clés de test ou de développement). */
+  secrets?: { allow: string[] };
   installedSkills: string[];
   installedAgents: string[];
   createdAt: string;

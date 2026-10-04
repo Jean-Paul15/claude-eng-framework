@@ -30,6 +30,11 @@ Se poser la question **avant** d'écrire la première ligne, pas en relecture.
 - **Courses / TOCTOU** : opérations atomiques en base, verrous, idempotence.
 
 ## Secrets
+**Les utiliser sans les voir** : lancer le programme qui les charge lui-même (`npm run dev`, `pytest`,
+`node --env-file=.env …`, `dotenv`), jamais `cat`/`printenv`. Pour savoir ce qui est configuré :
+`node .ceng/runtime/cli.js secrets keys .env` (noms des variables, jamais les valeurs). Si un secret doit vraiment
+être lu ou édité (clé de test), demander à l'humain de l'autoriser (`ceng secrets allow <fichier>`, via l'invite) —
+jamais de secrets de production dans le contexte.
 Jamais lus, affichés, journalisés ni commités. Variables d'environnement / gestionnaire de secrets ; `.env.example`
 sans valeurs. Le framework bloque la lecture des fichiers de secrets et scanne le diff (gate `secrets`).
 

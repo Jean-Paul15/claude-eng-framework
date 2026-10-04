@@ -1,4 +1,5 @@
 import type { Autonomy, Parallelism } from '../domain/types.js';
+import { globToRegExp, normalizePath } from '../domain/globs.js';
 
 /**
  * Génération et fusion NON destructive de `.claude/settings.json`.
@@ -86,6 +87,15 @@ const isFrameworkHandler = (h: HookHandler) => h.command.includes('.ceng/runtime
 export interface MergeOptions {
   autonomy: Autonomy;
   parallelism: Parallelism;
+  /** Secrets autorisés : les règles natives qui les bloqueraient sont retirées, une garde Read les remplace. */
+  allowedSecrets?: readonly string[];
+}
+
+/** Une règle native `Read(./x)` / `Edit(./x)` couvre-t-elle un fichier autorisé ? (deny l'emporterait sur tout) */
+function ruleCoversAllowed(rule: string, allowed: readonly string[]): boolean {
+  const m = rule.match(/^(?:Read|Edit)\(\.\/(.+)\)$/);
+  if (!m) return false;
+  return allowed.some((a) => globToRegExp(m[1]!).test(normalizePath(a)) || normalizePath(a) === m[1]);
 }
 
 export function mergeSettings(existing: ClaudeSettings | undefined, opts: MergeOptions): ClaudeSettings {
@@ -97,6 +107,11 @@ export function mergeSettings(existing: ClaudeSettings | undefined, opts: MergeO
     ask: union(base.permissions?.ask, perms.ask),
     deny: union(base.permissions?.deny, perms.deny),
   };
+  const allowed = opts.allowedSecrets ?? [];
+  if (allowed.length) {
+    // Les règles du framework qui bloqueraient un secret autorisé sont retirées (celles de l'utilisateur restent).
+    base.permissions.deny = base.permissions.deny!.filter((r) => !(perms.deny.includes(r) && ruleCoversAllowed(r, allowed)));
+  }
   // Les hooks du framework sont remplacés à chaque init/upgrade ; ceux de l'utilisateur sont conservés tels quels.
   const hooks: Record<string, HookGroup[]> = {};
   for (const [event, groups] of Object.entries(base.hooks ?? {})) {
@@ -106,6 +121,7 @@ export function mergeSettings(existing: ClaudeSettings | undefined, opts: MergeO
     if (kept.length) hooks[event] = kept;
   }
   for (const [event, groups] of Object.entries(frameworkHooks())) hooks[event] = [...(hooks[event] ?? []), ...groups];
+  if (allowed.length) hooks['PreToolUse'] = [...(hooks['PreToolUse'] ?? []), { matcher: 'Read', hooks: [hook('guard-read', { timeout: 10 })] }];
   base.hooks = hooks;
   if (opts.parallelism === 'teams') base.env = { ...(base.env ?? {}), CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: base.env?.['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] ?? '1' };
   return base;

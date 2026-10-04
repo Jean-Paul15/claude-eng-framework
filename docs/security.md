@@ -47,6 +47,17 @@ Le scan de secrets (gate intégrée) et la redaction des journaux sont actifs en
   par tâche.
 - L'agent **détecte, documente et escalade** ; les décisions légales appartiennent à l'humain.
 
+## Secrets : utiliser sans voir, autoriser explicitement
+
+- **Par défaut**, Claude utilise les secrets sans les voir : il lance les programmes qui chargent le `.env`
+  eux-mêmes. `ceng secrets keys .env` lui montre les noms des variables et leur état (définie ou vide), jamais les
+  valeurs.
+- **Autorisation explicite** : `ceng secrets allow .env.development`, puis `ceng secrets revoke …`. Seul l'humain
+  peut l'accorder ; une tentative de l'agent passe par l'invite d'approbation. Le framework retire alors la règle
+  native qui bloquait ce fichier, et une garde sur la lecture maintient la protection de tous les autres. Les noms
+  qui évoquent la production (`prod`, `production`, `live`) exigent `--i-understand-production`.
+- Ce que Claude lit entre dans le contexte du modèle : réserver l'autorisation aux clés de test ou de développement.
+
 ## Ce que le framework ne journalise pas
 
 Contenu de fichiers, prompts complets (seulement leur longueur), valeurs de secrets (redaction systématique :

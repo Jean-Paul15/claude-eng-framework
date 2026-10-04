@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { classifyCommand, classifyFileWrite, parseDeletion, splitCommand } from '../domain/guardrails.js';
+import { classifyCommand, classifyFileRead, classifyFileWrite, parseDeletion, splitCommand } from '../domain/guardrails.js';
 import { autoApproveDeletion } from '../app/deletion.js';
 import { deferredReason, isUnattended, recordPendingApproval, shouldKeepWorking } from '../app/unattended.js';
 import { actionKey, applyAnswers, askViaInvite, consumeGrant, isHumanAway, markAutopilot, markHumanActive, markHumanAway, openRequest, presenceEnabled } from '../app/presence.js';
@@ -106,7 +106,7 @@ export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
   if (!command) return OK;
   const config = store.config();
   const protectedBranches = store.profile()?.git.protectedBranches ?? ['main', 'master'];
-  const verdict = classifyCommand(command, { autonomy: config.policy.autonomy, protectedBranches });
+  const verdict = classifyCommand(command, { autonomy: config.policy.autonomy, protectedBranches, allowedSecrets: config.secrets?.allow ?? [] });
   if (verdict.class === 'autonomous') return OK;
   // Suppression de fichiers : pas de frein si elle peut être rendue récupérable (instantané pris juste avant).
   if (verdict.rule === 'delete' && verdict.deletion) {
@@ -133,7 +133,7 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
   const rel = relativeToProject(store, raw);
   if (rel.startsWith('..')) return OK; // hors projet : laissé aux permissions natives
   const config = store.config();
-  const verdict = classifyFileWrite(rel, config.policy.autonomy);
+  const verdict = classifyFileWrite(rel, config.policy.autonomy, config.secrets?.allow ?? []);
   if (verdict.class !== 'autonomous') {
     store.log({ type: 'guard.verdict', ...ids(input), data: { file: rel, class: verdict.class, rule: verdict.rule } });
     return verdict.class === 'forbidden' ? preToolDecision('deny', `${verdict.reason} (${rel})`) : askHuman(store, input, rel, `${verdict.reason} (${rel})`);
@@ -154,6 +154,18 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
     }
   }
   return OK;
+}
+
+/** PreToolUse sur Read (installé seulement quand des secrets sont autorisés) : les autres secrets restent illisibles. */
+export function guardRead(store: BrainStore, input: HookInput): HookOutput {
+  const raw = String(input.tool_input?.['file_path'] ?? '');
+  if (!raw) return OK;
+  const rel = relativeToProject(store, raw);
+  if (rel.startsWith('..')) return OK;
+  const verdict = classifyFileRead(rel, store.config().secrets?.allow ?? []);
+  if (verdict.class === 'autonomous') return OK;
+  store.log({ type: 'guard.verdict', ...ids(input), data: { file: rel, class: verdict.class, rule: verdict.rule } });
+  return preToolDecision('deny', `${verdict.reason} (${rel})`);
 }
 
 export function agentSpawn(store: BrainStore, input: HookInput): HookOutput {
@@ -417,6 +429,7 @@ export const HANDLERS: Record<string, (store: BrainStore, input: HookInput) => H
   'task-completed': taskCompleted,
   'session-end': sessionEnd,
   'graph-refresh': graphRefresh,
+  'guard-read': guardRead,
   'user-prompt': userPrompt,
   'permission-request': permissionRequest,
   'question-answered': questionAnswered,
