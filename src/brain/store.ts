@@ -63,6 +63,8 @@ export interface BrainState {
   pendingSpawns?: { taskId: string; agentType: string; model?: string; at: string }[];
   /** agent_id (fourni par Claude Code aux hooks) → tâche travaillée. */
   agentTasks?: Record<string, string>;
+  /** Sous-agents démarrés et pas encore terminés : id d'agent → tâche. */
+  runningAgents?: Record<string, string>;
   /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
   graphDirty?: boolean;
   /** Mode sans humain : compteur de relances et détection d'absence de progression. */

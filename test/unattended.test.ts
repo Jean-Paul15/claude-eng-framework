@@ -49,6 +49,15 @@ describe('mode sans humain (nuit)', () => {
     assert.ok(stopped, 'arrêt après plusieurs relances sans progression');
   });
 
+  it('ne relance pas quand tout le travail faisable est chez des sous-agents en cours', () => {
+    for (const [id, agent] of [['T-0001', 'agent-a'], ['T-0002', 'agent-b']] as const) {
+      assert.equal(cli(dir, ['task', 'start', id]).code, 0);
+      hook('agent-spawn', { tool_name: 'Agent', tool_input: { subagent_type: 'ceng-builder', description: `${id} travail`, prompt: `Tâche ${id}` } });
+      hook('subagent-start', { agent_id: agent, agent_type: 'ceng-builder' });
+    }
+    assert.equal(hook('stop', {}).stdout, '', 'attendre la fin des sous-agents sans relance');
+  });
+
   it('s\'arrête quand plus rien n\'est faisable', () => {
     assert.equal(cli(dir, ['task', 'block', 'T-0001', '--reason', 'attend validation humaine']).code, 0);
     assert.equal(cli(dir, ['task', 'block', 'T-0002', '--reason', 'attend validation humaine']).code, 0);

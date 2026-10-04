@@ -62,6 +62,14 @@ export function shouldKeepWorking(store: BrainStore): ContinueDecision {
     return { continue: false, reason: tasks.length === 0 ? 'aucune tâche' : 'plus aucune tâche faisable (terminées ou bloquées)' };
   }
   const state = store.state();
+  // Tout ce qui est faisable est déjà confié à des sous-agents en cours : la fin de l'un d'eux réveillera
+  // l'orchestrateur. Le relancer maintenant ne ferait que consommer des tokens à attendre.
+  const delegated = new Set(Object.values(state.runningAgents ?? {}));
+  const allDelegated = inProgress.length > 0 && inProgress.every((t) => delegated.has(t.id));
+  const atCapacity = delegated.size >= Math.max(1, store.config().policy.maxParallel);
+  if (allDelegated && (ready.length === 0 || atCapacity)) {
+    return { continue: false, reason: 'travail en cours chez des sous-agents ; leur fin relancera l\'orchestrateur' };
+  }
   const u = state.unattended ?? { continues: 0, lastSignature: '', stalls: 0 };
   const signature = progressSignature(store);
   const stalls = signature === u.lastSignature ? u.stalls + 1 : 0;

@@ -201,6 +201,7 @@ export function subagentStart(store: BrainStore, input: HookInput): HookOutput {
       pending.splice(i, 1);
       s.pendingSpawns = pending;
       s.agentTasks = { ...(s.agentTasks ?? {}), [input.agent_id!]: taskId };
+      s.runningAgents = { ...(s.runningAgents ?? {}), [input.agent_id!]: taskId };
     }
   });
   store.log({ type: 'agent.spawn', ...ids(input), ...(taskId ? { taskId } : {}), data: { phase: 'started' } });
@@ -234,6 +235,13 @@ export function subagentStop(store: BrainStore, input: HookInput): HookOutput {
   const message = String(input.last_assistant_message ?? '');
   const hasReport = message.includes(REPORT_MARKER);
   store.log({ type: 'agent.stop', ...ids(input), ...(taskId ? { taskId } : {}), data: { hasReport } });
+  if (input.agent_id && store.state().runningAgents?.[input.agent_id]) {
+    store.updateState((s) => {
+      const running = { ...(s.runningAgents ?? {}) };
+      delete running[input.agent_id!];
+      s.runningAgents = running;
+    });
+  }
   if (!agentType.startsWith('ceng-') || hasReport || input.stop_hook_active) return OK;
   store.log({ type: 'agent.report-missing', ...ids(input), ...(taskId ? { taskId } : {}) });
   return {
