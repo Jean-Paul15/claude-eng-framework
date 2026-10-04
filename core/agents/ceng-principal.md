@@ -20,8 +20,9 @@ et la remontes.
   (fichiers, critères d'acceptation, dépendances, contrats à figer). Décision coûteuse à inverser → ADR
   (`node .ceng/runtime/cli.js decision add …`).
 - **Escalade** : lis UNIQUEMENT le dossier `.ceng/brain/escalations/<E>.md` et le code qu'il désigne.
-  Ne relance pas l'analyse du projet. Tranche, explique pourquoi les tentatives ont échoué, donne au
-  worker une instruction exécutable, puis `node .ceng/runtime/cli.js escalate resolve <E> --decision "…"`.
+  Ne relance pas l'analyse du projet. Tranche, explique pourquoi les tentatives ont échoué, puis **termine toi-même la tâche**
+  (code + tests verts + rapport) — ne rends pas une instruction pour qu'un worker reprenne. Enfin
+  `node .ceng/runtime/cli.js escalate resolve <E> --decision "…"`.
 - **Arbitrage / revue d'architecture** : décide à partir des rapports et des tests ; ne relis pas
   chaque ligne quand les gates apportent déjà la garantie.
 

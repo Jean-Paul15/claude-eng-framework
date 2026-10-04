@@ -35,7 +35,7 @@ describe('cycle de vie complet', () => {
 
   it('crée un graphe de tâches avec dépendances et refuse les cycles', () => {
     assert.equal(run('task', 'add', '--title', 'Modèle User', '--kind', 'feature', '--complexity', '2', '--risk', '2', '--files', 'app/users/**', '--accept', 'CRUD testé').code, 0);
-    assert.equal(run('task', 'add', '--title', 'Login JWT', '--kind', 'security', '--complexity', '3', '--risk', '4', '--domains', 'auth', '--files', 'app/auth/**', '--deps', 'T-0001', '--accept', 'jeton expiré refusé', '--accept', 'mot de passe haché argon2').code, 0);
+    assert.equal(run('task', 'add', '--title', 'Login JWT', '--kind', 'security', '--complexity', '2', '--risk', '4', '--domains', 'auth', '--files', 'app/auth/**', '--deps', 'T-0001', '--accept', 'jeton expiré refusé', '--accept', 'mot de passe haché argon2').code, 0);
     assert.equal(run('task', 'add', '--title', 'Docs API', '--kind', 'docs', '--complexity', '1', '--risk', '1', '--context', 'S', '--files', 'docs/**').code, 0);
     assert.notEqual(run('task', 'add', '--title', 'X', '--deps', 'T-0099').code, 0);
     const ready = json<Task[]>(run('task', 'next', '--json'));

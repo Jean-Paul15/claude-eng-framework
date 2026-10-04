@@ -89,9 +89,7 @@ export function routeTask(task: Task, ctx: RoutingContext): RouteDecision {
   // ---- Implémenteur
   const chosen = chooseImplementer(task, ctx, { critical, escalateNow, reasons });
   // Un agent Opus qui conçoit implémente aussi : une direction relue puis recodée par un autre agent double le coût.
-  // Le seul plancher « domaine critique » garde un worker (revue Opus séparée) ; une vraie question de conception, non.
-  const opusImplements = needsOpusDesign && designTriggers.some((t) => t !== 'domaine critique non trivial');
-  const implementer: RouteDecision['implementer'] = opusImplements && chosen.model !== 'opus'
+  const implementer: RouteDecision['implementer'] = needsOpusDesign && chosen.model !== 'opus'
     ? { agent: task.kind === 'design' ? chosen.agent : 'ceng-principal', model: 'opus', effort: a.ambiguity >= 5 || a.architecturalImpact >= 5 ? 'xhigh' : 'high' }
     : chosen;
 
@@ -305,7 +303,7 @@ function buildPhases(task: Task, ctx: RoutingContext, f: PhaseFlags): Phase[] {
   } else if (f.security && a.risk >= 4) {
     push({ step: 'threat-model', agent: 'ceng-security', model: 'sonnet', effort: 'high', why: 'Risque élevé sur surface sensible : check-list de menaces.' });
   }
-  if (f.needsOpusDesign) {
+  if (f.needsOpusDesign && f.implementer.model !== 'opus') {
     push({ step: 'design', agent: 'ceng-principal', model: 'opus', effort: a.ambiguity >= 5 || a.architecturalImpact >= 5 ? 'xhigh' : 'high', why: 'Décision de conception/architecture puis implémentation par le même agent (ADR si structurant).' });
   }
   if (f.testStrategy.testFirst) {
@@ -314,7 +312,7 @@ function buildPhases(task: Task, ctx: RoutingContext, f: PhaseFlags): Phase[] {
   if (f.executor === 'direct') {
     push({ step: 'implement', agent: 'orchestrator', model: orch, effort: f.implementer.effort, why: 'Exécution directe.' });
   } else {
-    push({ step: 'implement', agent: f.implementer.agent, model: f.implementer.model, effort: f.implementer.effort, why: 'Worker d\'exécution.' });
+    push({ step: 'implement', agent: f.implementer.agent, model: f.implementer.model, effort: f.implementer.effort, why: f.needsOpusDesign ? 'Opus conçoit et implémente dans la même session (pas de direction seule).' : 'Worker d\'exécution.' });
   }
   if (f.testStrategy.types.length > 0) {
     push({ step: 'test', agent: f.executor === 'direct' ? 'orchestrator' : f.implementer.agent, model: f.executor === 'direct' ? orch : f.implementer.model, effort: 'low', why: `Exécuter : ${f.testStrategy.types.join(', ')}.` });

@@ -70,8 +70,8 @@ gates et revues sont tes garanties — pas ta relecture ligne à ligne.
 
 ## 5. Escalade et blocage
 - Worker `status: escalate` ou route `escalate.required` → `ceng escalate <id> --problem … --tried … --decision …`
-  puis délègue à `ceng-principal` (Opus) avec **uniquement** le fichier d'escalade. Ensuite le worker reprend
-  (SendMessage à son ID si disponible, sinon nouveau worker avec la décision).
+  puis délègue à `ceng-principal` (Opus) avec **uniquement** le fichier d'escalade : il tranche **et termine la tâche
+  lui-même** (code, tests, rapport), exactement comme un worker. Pas de retour au worker Sonnet avec une instruction.
 - Opus a échoué, décision métier, ambiguïté que seul l'humain peut lever, ou action à approbation humaine →
   `ceng task block <id> --reason …` et demande à l'humain, question précise + options + recommandation.
 

@@ -29,9 +29,7 @@ describe('routage de modèles et d\'exécution', () => {
 
   it('forte ambiguïté : Opus conçoit puis implémente lui-même (pas de direction seule)', () => {
     const r = route(task('T-0001', { assessment: { complexity: 4, risk: 3, ambiguity: 5, architecturalImpact: 4 } }));
-    const design = r.phases.find((p) => p.step === 'design');
-    assert.equal(design?.agent, 'ceng-principal');
-    assert.equal(design?.model, 'opus');
+    assert.ok(!r.phases.some((p) => p.step === 'design'), 'pas de phase de direction séparée');
     assert.equal(r.implementer.model, 'opus');
     assert.equal(r.implementer.agent, 'ceng-principal');
     assert.equal(r.phases.find((p) => p.step === 'implement')?.agent, 'ceng-principal');
@@ -39,8 +37,8 @@ describe('routage de modèles et d\'exécution', () => {
 
   it('budget economy : relève les seuils d\'Opus hors domaine critique', () => {
     const t = task('T-0001', { assessment: { complexity: 3, risk: 2, ambiguity: 4 } });
-    assert.ok(route(t, policy({ budget: 'balanced' })).phases.some((p) => p.step === 'design'));
-    assert.ok(!route(t, policy({ budget: 'economy' })).phases.some((p) => p.step === 'design'));
+    assert.equal(route(t, policy({ budget: 'balanced' })).implementer.model, 'opus');
+    assert.notEqual(route(t, policy({ budget: 'economy' })).implementer.model, 'opus');
   });
 
   it('budget economy + paiements : les planchers critiques s\'appliquent malgré l\'économie', () => {
