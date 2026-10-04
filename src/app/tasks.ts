@@ -77,7 +77,10 @@ export function createTask(store: BrainStore, input: NewTaskInput): Task {
 
 export function routeAndStore(store: BrainStore, id: string): Task {
   const config = store.config();
-  const hasCreativeDirection = exists(`${store.paths.root}/docs/CREATIVE_DIRECTION.md`);
+  // Direction créative = une tâche design terminée (le design system vit dans le code), ou l'ancien document.
+  const hasCreativeDirection =
+    store.tasks().some((t) => t.kind === 'design' && t.status === 'done') ||
+    exists(`${store.paths.root}/docs/CREATIVE_DIRECTION.md`);
   const overrides = store.overrides();
   const task = store.updateTasks((tasks) => {
     const t = tasks.find((x) => x.id === id.toUpperCase());

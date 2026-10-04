@@ -84,10 +84,16 @@ export function routeTask(task: Task, ctx: RoutingContext): RouteDecision {
   if (critical && a.complexity >= 3) designTriggers.push('domaine critique non trivial');
   if (ctx.overrides?.opusDesignKinds?.includes(task.kind) && a.complexity >= 3) designTriggers.push(`adaptation : les tâches « ${task.kind} » escaladent souvent`);
   const needsOpusDesign = designTriggers.length > 0 && task.kind !== 'chore' && task.kind !== 'docs';
-  if (needsOpusDesign) reasons.push(`Conception confiée à Opus (${designTriggers.join(', ')}) ; l'implémentation reste chez un worker.`);
+  if (needsOpusDesign) reasons.push(`Conception confiée à Opus (${designTriggers.join(', ')}) ; le même agent implémente (pas de direction seule).`);
 
   // ---- Implémenteur
-  const implementer = chooseImplementer(task, ctx, { critical, escalateNow, reasons });
+  const chosen = chooseImplementer(task, ctx, { critical, escalateNow, reasons });
+  // Un agent Opus qui conçoit implémente aussi : une direction relue puis recodée par un autre agent double le coût.
+  // Le seul plancher « domaine critique » garde un worker (revue Opus séparée) ; une vraie question de conception, non.
+  const opusImplements = needsOpusDesign && designTriggers.some((t) => t !== 'domaine critique non trivial');
+  const implementer: RouteDecision['implementer'] = opusImplements && chosen.model !== 'opus'
+    ? { agent: task.kind === 'design' ? chosen.agent : 'ceng-principal', model: 'opus', effort: a.ambiguity >= 5 || a.architecturalImpact >= 5 ? 'xhigh' : 'high' }
+    : chosen;
 
   // ---- Exécuteur : direct quand déléguer coûte plus que faire
   const executor = chooseExecutor(task, ctx, implementer.model, needsOpusDesign, reasons);

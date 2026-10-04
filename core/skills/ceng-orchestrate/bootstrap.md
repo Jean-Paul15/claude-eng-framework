@@ -24,8 +24,8 @@ statique ne peut pas voir. Objectif : un projet compris et un graphe de tâches 
    « Recherche à compléter », puis mets à jour la skill (skill `ceng-skill-forge`).
 5. **Architecture cible** (projet neuf ou évolution majeure) : si l'ambiguïté ou l'impact sont élevés, délègue
    la conception à `ceng-principal` (Opus) → ADR + implémentation par ce même agent (découpage seulement si le travail dépasse une session). Sinon décide toi-même, simplement.
-6. **Produit avec UI** : si une direction créative est nécessaire et absente (`docs/CREATIVE_DIRECTION.md`),
-   crée une tâche `--kind design` routée vers `ceng-creative-director` avant toute tâche UI.
+6. **Produit avec UI** : si aucune direction créative n'existe, crée une tâche `--kind design` routée vers
+   `ceng-creative-director` : elle **code** le design system et les premiers écrans (pas de documents de référence).
 7. **Graphe de tâches** : `ceng task add …` pour chaque livrable, avec dépendances, fichiers, critères,
    domaines. Les fonctionnalités démarrent toutes « pending » : rien n'est fait tant que les gates ne l'ont pas prouvé.
 8. `ceng status`, puis présente le plan à l'humain en 10 lignes max et commence la boucle.

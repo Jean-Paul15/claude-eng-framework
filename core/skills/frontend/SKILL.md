@@ -5,7 +5,7 @@ description: Ingénierie frontend (web et mobile) — composants, état, chargem
 
 # Frontend
 
-Si `docs/CREATIVE_DIRECTION.md` existe, la skill `frontend-executor` prime : on n'invente pas le design.
+Si une direction créative existe (module de design system + ADR, ou `docs/CREATIVE_DIRECTION.md` sur un ancien projet), la skill `frontend-executor` prime : on n'invente pas le design.
 
 ## Composants
 - Réutiliser les composants et tokens existants avant d'en créer ; un composant = une responsabilité.

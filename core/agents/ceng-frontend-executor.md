@@ -1,6 +1,6 @@
 ---
 name: ceng-frontend-executor
-description: Ingénieur frontend qui implémente l'interface en suivant strictement la direction créative existante (docs/CREATIVE_DIRECTION.md, DESIGN_SYSTEM.md, MOTION_SYSTEM.md, UX_PRINCIPLES.md, FRONTEND_GUIDELINES.md). N'invente pas le design.
+description: Ingénieur frontend qui implémente l'interface en suivant strictement la direction créative existante (module de design system du code et ADR de direction créative). N'invente pas le design.
 model: sonnet
 effort: medium
 color: green

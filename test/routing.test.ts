@@ -27,13 +27,14 @@ describe('routage de modèles et d\'exécution', () => {
     assert.ok(!r.phases.some((p) => p.model === 'opus'));
   });
 
-  it('forte ambiguïté : conception Opus, implémentation Sonnet (Opus ne code pas)', () => {
+  it('forte ambiguïté : Opus conçoit puis implémente lui-même (pas de direction seule)', () => {
     const r = route(task('T-0001', { assessment: { complexity: 4, risk: 3, ambiguity: 5, architecturalImpact: 4 } }));
     const design = r.phases.find((p) => p.step === 'design');
     assert.equal(design?.agent, 'ceng-principal');
     assert.equal(design?.model, 'opus');
-    assert.equal(r.implementer.model, 'sonnet');
-    assert.equal(r.implementer.agent, 'ceng-engineer');
+    assert.equal(r.implementer.model, 'opus');
+    assert.equal(r.implementer.agent, 'ceng-principal');
+    assert.equal(r.phases.find((p) => p.step === 'implement')?.agent, 'ceng-principal');
   });
 
   it('budget economy : relève les seuils d\'Opus hors domaine critique', () => {
