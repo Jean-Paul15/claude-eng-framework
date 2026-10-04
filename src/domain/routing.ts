@@ -300,7 +300,7 @@ function buildPhases(task: Task, ctx: RoutingContext, f: PhaseFlags): Phase[] {
     push({ step: 'threat-model', agent: 'ceng-security', model: 'sonnet', effort: 'high', why: 'Risque élevé sur surface sensible : check-list de menaces.' });
   }
   if (f.needsOpusDesign) {
-    push({ step: 'design', agent: 'ceng-principal', model: 'opus', effort: a.ambiguity >= 5 || a.architecturalImpact >= 5 ? 'xhigh' : 'high', why: 'Décision de conception/architecture ; produit un plan et éventuellement un ADR.' });
+    push({ step: 'design', agent: 'ceng-principal', model: 'opus', effort: a.ambiguity >= 5 || a.architecturalImpact >= 5 ? 'xhigh' : 'high', why: 'Décision de conception/architecture puis implémentation par le même agent (ADR si structurant).' });
   }
   if (f.testStrategy.testFirst) {
     push({ step: 'test-design', agent: f.executor === 'direct' ? 'orchestrator' : f.implementer.agent, model: f.executor === 'direct' ? orch : f.implementer.model, effort: f.implementer.effort, why: f.testStrategy.flow });

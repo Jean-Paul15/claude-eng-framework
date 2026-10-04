@@ -23,7 +23,7 @@ statique ne peut pas voir. Objectif : un projet compris et un graphe de tâches 
    conditionnent les premières tâches, délègue à `ceng-researcher` la vérification des points de la section
    « Recherche à compléter », puis mets à jour la skill (skill `ceng-skill-forge`).
 5. **Architecture cible** (projet neuf ou évolution majeure) : si l'ambiguïté ou l'impact sont élevés, délègue
-   la conception à `ceng-principal` (Opus) → ADR + découpage. Sinon décide toi-même, simplement.
+   la conception à `ceng-principal` (Opus) → ADR + implémentation par ce même agent (découpage seulement si le travail dépasse une session). Sinon décide toi-même, simplement.
 6. **Produit avec UI** : si une direction créative est nécessaire et absente (`docs/CREATIVE_DIRECTION.md`),
    crée une tâche `--kind design` routée vers `ceng-creative-director` avant toute tâche UI.
 7. **Graphe de tâches** : `ceng task add …` pour chaque livrable, avec dépendances, fichiers, critères,

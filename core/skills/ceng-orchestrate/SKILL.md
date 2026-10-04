@@ -58,6 +58,11 @@ via `ceng decision add` si c'est structurant).
 - Une phase `design`/`architecture-review` → `ceng-principal` (Opus) ; `threat-model`/`security-review` → `ceng-security` ; `review` → `ceng-reviewer` ; `understand` → `ceng-scout` (Haiku).
 - Recherche externe seulement si la décision en dépend (API récente, version, vulnérabilité, service cloud) → `ceng-researcher`.
 
+**Un agent puissant implémente, il ne dirige pas seulement.** Quand une phase est confiée à Opus (`ceng-principal`,
+`ceng-creative-director`), le brief demande la décision **et** son implémentation complète (code, tests, rapport).
+Ne crée pas une tâche « direction » suivie d'une tâche « implémentation » pour un autre agent : une seule tâche.
+Exception : décision qui revient à l'humain → l'agent s'arrête et la remonte.
+
 ## 4. Contexte : ne lis pas ce que les workers ont lu
 Tu reçois des blocs `CENG_REPORT` courts ; le détail est dans `.ceng/brain/reports/<id>.md`. N'ouvre un
 rapport ou le code produit que si une décision l'exige (conflit, échec, revue critique). Les tests,
