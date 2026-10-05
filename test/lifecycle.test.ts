@@ -70,8 +70,12 @@ describe('cycle de vie complet', () => {
   it('hooks : un worker ne peut pas éditer un fichier possédé par une autre tâche en cours', () => {
     assert.equal(run('task', 'unblock', 'T-0003').code, 0);
     assert.equal(run('task', 'start', 'T-0003').code, 0);
-    const r = runtimeHook(dir, 'guard-file', { agent_id: 'agent-a', agent_type: 'ceng-builder', tool_name: 'Edit', tool_input: { file_path: path.join(dir, 'docs/api.md') } });
-    const out = JSON.parse(r.stdout) as { hookSpecificOutput: { permissionDecision: string } };
+    const edit = () => runtimeHook(dir, 'guard-file', { agent_id: 'agent-a', agent_type: 'ceng-builder', tool_name: 'Edit', tool_input: { file_path: path.join(dir, 'docs/api.md') } });
+    // T-0003 « en cours » mais sans agent vivant : ses fichiers ne sont pas verrouillés.
+    assert.equal(edit().stdout, '');
+    // Un sous-agent travaille réellement sur T-0003 : le fichier est protégé.
+    runtimeHook(dir, 'agent-spawn', { session_id: 's1', tool_name: 'Agent', tool_input: { subagent_type: 'ceng-builder', model: 'sonnet', description: 'T-0003 Doc API', prompt: 'Tâche T-0003 — Doc API' } });
+    const out = JSON.parse(edit().stdout) as { hookSpecificOutput: { permissionDecision: string } };
     assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
   });
 

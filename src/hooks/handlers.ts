@@ -12,6 +12,7 @@ import type { BrainStore } from '../brain/store.js';
 import { createCheckpoint } from '../app/checkpoints.js';
 import { completionCheck } from '../app/tasks.js';
 import { CLI_INVOCATION } from '../brain/paths.js';
+import { currentDelegation } from '../app/delegation.js';
 import { graphDisabledByEnv, graphifyAvailable, refreshIfNeeded } from '../app/codegraph.js';
 
 /**
@@ -159,7 +160,11 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
       const tasks = store.tasks();
       const mine = tasks.find((t) => t.id === myTask);
       const inMyScope = mine && mine.files.length > 0 && matchesAny(rel, mine.files);
-      const owner = tasks.find((t) => t.id !== myTask && t.status === 'in_progress' && t.files.length > 0 && matchesAny(rel, t.files));
+      // Seule une tâche réellement en cours de travail (un sous-agent actif la porte) bloque : une tâche restée
+      // « in_progress » sans agent vivant (agent arrêté, session interrompue) ne doit jamais verrouiller ses fichiers.
+      const inProgress = tasks.filter((t) => t.status === 'in_progress');
+      const active = currentDelegation(store, inProgress).tasks;
+      const owner = inProgress.find((t) => t.id !== myTask && active.has(t.id) && t.files.length > 0 && matchesAny(rel, t.files));
       if (owner && !inMyScope) {
         store.log({ type: 'conflict.detected', ...ids(input), taskId: myTask, data: { file: rel, owner: owner.id, prevented: true } });
         return preToolDecision('deny', `${rel} appartient à la tâche en cours ${owner.id}. Ne pas l'éditer : décrire le changement nécessaire dans ton rapport (ou message au propriétaire en Agent Team).`);
