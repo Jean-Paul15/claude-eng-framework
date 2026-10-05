@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { reconcile } from '../domain/policy.js';
-import type { Preferences } from '../domain/types.js';
+import type { Preferences, Stage } from '../domain/types.js';
 import { discover } from '../discovery/index.js';
 import type { ProjectProfile } from '../discovery/profile.js';
 import { exists, readJson, readText, sha256, writeJsonAtomic, writeTextAtomic, ensureDir } from '../infra/fs.js';
@@ -59,6 +59,8 @@ export interface InstallOptions {
   codeGraph?: boolean;
   /** Validations par l'invite de questions avec bascule automatique en mode sans humain (défaut : activé). */
   presence?: boolean;
+  /** Stade du projet (défaut : celui de la configuration précédente, sinon `production`). */
+  stage?: Stage;
 }
 
 export type ActionKind = 'create' | 'update' | 'keep-user-version' | 'skip' | 'backup';
@@ -213,6 +215,7 @@ export function install(opts: InstallOptions): InstallReport {
     policy,
     // Les commandes ajustées à la main par l'utilisateur priment sur la détection.
     commands: { ...profile.commands, ...(previousConfig?.commands ?? {}) },
+    stage: opts.stage ?? previousConfig?.stage ?? 'production',
     gateTimeoutMinutes: previousConfig?.gateTimeoutMinutes ?? 15,
     codeGraph: { enabled: opts.codeGraph ?? previousConfig?.codeGraph?.enabled ?? true },
     presence: { enabled: opts.presence ?? previousConfig?.presence?.enabled ?? true },
@@ -236,7 +239,7 @@ export function install(opts: InstallOptions): InstallReport {
   const settingsPath = path.join(root, '.claude', 'settings.json');
   const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: policy.autonomy, parallelism: policy.parallelism, allowedSecrets: previousConfig?.secrets?.allow ?? [] });
   w.generated('.claude/settings.json', `${JSON.stringify(merged, null, 2)}\n`, 'hooks + règles de permission (fusion non destructive)');
-  w.generated('CLAUDE.md', upsertBlock(readText(path.join(root, 'CLAUDE.md')), renderBlock(profile, policy, config.codeGraph?.enabled ?? false)), 'bloc ceng (pointeurs compacts)');
+  w.generated('CLAUDE.md', upsertBlock(readText(path.join(root, 'CLAUDE.md')), renderBlock(profile, policy, config.codeGraph?.enabled ?? false, config.stage)), 'bloc ceng (pointeurs compacts)');
   const gi = readText(path.join(root, '.gitignore')) ?? '';
   const giLines = new Set(gi.split(/\r?\n/).map((l) => l.trim()));
   const missing = GITIGNORE_BLOCK.slice(1).filter((l) => !giLines.has(l));

@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import type { FrameworkEvent } from '../domain/events.js';
 import type { Learning } from '../domain/learning.js';
 import { redactDeep } from '../domain/secrets.js';
-import type { AdaptiveOverrides, EffectivePolicy, Preferences, Task } from '../domain/types.js';
+import type { AdaptiveOverrides, EffectivePolicy, Preferences, Stage, Task } from '../domain/types.js';
 import type { Commands, ProjectProfile } from '../discovery/profile.js';
 import { appendLine, exists, readJson, readJsonLines, writeJsonAtomic } from '../infra/fs.js';
 import { withLock } from '../infra/lock.js';
@@ -17,6 +17,8 @@ export interface FrameworkConfig {
   preferences: Preferences;
   policy: EffectivePolicy;
   commands: Commands;
+  /** Stade du projet : `prototype` (aucun utilisateur réel : actions récupérables sans validation) ou `production` (défaut). */
+  stage?: Stage;
   gateTimeoutMinutes: number;
   /** Graphe de code graphify maintenu automatiquement (mode code, sans LLM). */
   codeGraph?: { enabled: boolean };
@@ -55,8 +57,8 @@ export interface BrainState {
   lastCheckpoint?: CheckpointRecord;
   interruption?: Interruption;
   editsSinceCheckpoint: number;
-  /** Anti-boucle du hook Stop : un seul rappel par cycle de travail. */
-  stopReminderAt?: string;
+  /** Dernier rappel (non bloquant) de checkpoint volontaire affiché par le hook Stop : au plus un toutes les 2 h. */
+  checkpointReminderAt?: string;
   sessions: number;
   lastSessionAt?: string;
   /** Délégations annoncées (hook PreToolUse/Agent) en attente d'un SubagentStart pour lier agent ↔ tâche. */
@@ -80,9 +82,9 @@ export interface BrainState {
   /** Dernier numéro de demande de validation attribué : les identifiants R-xxxx ne sont jamais réutilisés. */
   approvalSeq?: number;
   /** Demandes de validation ouvertes (posées via l'invite de questions). */
-  approvalRequests?: { id: string; key: string; what: string; reason: string; at: string }[];
-  /** Autorisations à usage unique issues des réponses de l'humain. */
-  grants?: { requestId: string; key: string; what?: string; expiresAt: string }[];
+  approvalRequests?: { id: string; key: string; what: string; reason: string; at: string; once?: boolean }[];
+  /** Autorisations issues des réponses de l'humain : 30 min pour la même action, ou usage unique (`once`, opération destructive). */
+  grants?: { requestId: string; key: string; what?: string; expiresAt: string; once?: boolean }[];
   /** Autorisation déjà consommée par PreToolUse, encore valable pour la boîte de permission de la MÊME exécution. */
   handoffs?: { key: string; requestId: string; expiresAt: string }[];
   /** Refus de l'humain : l'action refusée n'est pas redemandée tant qu'il n'a pas écrit de nouveau message. */

@@ -9,6 +9,7 @@ import { adaptCommand, checkpointCommand, decisionCommand, escalateCommand, lear
 import { runHook } from './hooks/run.js';
 import { graphCommand } from './cli/commands/graph.js';
 import { secretsCommand } from './cli/commands/secrets.js';
+import { configCommand } from './cli/commands/config.js';
 
 const HELP = `ceng — framework d'ingénierie autonome pour Claude Code
 
@@ -33,6 +34,10 @@ Mémoire & reprise
 
 Observabilité & amélioration
   log [--task id] [--type prefix] [--tail n] · report · adapt [--apply] · learn add|list|promote · skill new <nom>
+
+Commandes de gates
+  config detect [--apply]    Commandes recommandées pour la vraie pile du projet ; --apply les écrit dans .ceng/config.json (validation humaine)
+  config stage [prototype|production]   Stade du projet : prototype = sans validation pour ce qui est récupérable (changement : validation humaine)
 
 Graphe de code (graphify, sans coût IA)
   graph status|install|build|enable|disable   Construit et maintenu automatiquement par les hooks
@@ -78,6 +83,7 @@ export async function main(argv: string[]): Promise<void> {
     case 'skill': return skillCommand(rest);
     case 'graph': return graphCommand(rest);
     case 'secrets': return secretsCommand(rest);
+    case 'config': return configCommand(rest);
     case 'hook': {
       const chunks: Buffer[] = [];
       if (!process.stdin.isTTY) for await (const c of process.stdin) chunks.push(c as Buffer);

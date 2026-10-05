@@ -1,14 +1,16 @@
 import * as path from 'node:path';
-import { classifyCommand, classifyFileRead, classifyFileWrite, parseDeletion, splitCommand } from '../domain/guardrails.js';
+import { classifyCommand, classifyFileRead, classifyFileWrite, isSingleUseCommand, parseDeletion, splitCommand, type CommandContext } from '../domain/guardrails.js';
+import type { ShellKind } from '../domain/shell.js';
+import { Git } from '../infra/git.js';
 import { autoApproveDeletion } from '../app/deletion.js';
 import { deferredReason, isUnattended, recordPendingApproval, shouldKeepWorking } from '../app/unattended.js';
 import { isHumanAway, markAutopilot, markHumanActive, markHumanAnswered, markHumanAway, presenceEnabled } from '../app/presence.js';
-import { actionKey, answerFeedback, applyAnswers, askViaInvite, clearRefusals, consumeGrant, consumeHandoff, findRefusal, openRequest, refusedMessage } from '../app/approvals.js';
+import { actionKey, answerFeedback, applyAnswers, askViaInvite, clearRefusals, consumeGrant, consumeHandoff, findRefusal, openRequest, refusedMessage, shellOf } from '../app/approvals.js';
 import { isTimeout } from '../domain/answers.js';
 import { removeOrphanTemps } from '../infra/fs.js';
 import { matchesAny, normalizePath } from '../domain/globs.js';
 import { resumeBrief } from '../brain/brief.js';
-import type { BrainStore } from '../brain/store.js';
+import type { BrainStore, CheckpointRecord } from '../brain/store.js';
 import { createCheckpoint } from '../app/checkpoints.js';
 import { completionCheck } from '../app/tasks.js';
 import { CLI_INVOCATION } from '../brain/paths.js';
@@ -48,13 +50,14 @@ const SPAWN_MATCH_WINDOW_MS = 10 * 60_000;
 
 /**
  * Demande d'approbation humaine, toujours par l'invite de questions (qui peut expirer) :
- *  - autorisation déjà donnée par l'humain pour cette action exacte -> autorisée (usage unique) ;
+ *  - autorisation déjà donnée par l'humain pour cette même action -> autorisée (30 min, relances comprises ; usage unique
+ *    pour une opération destructive : `once`) ;
  *  - action refusée par l'humain -> bloquée sans reposer la question (jusqu'à son prochain message) ;
  *  - humain absent (invite expirée, mode nuit) -> refus propre, consigné pour son retour ; Claude continue ;
  *  - sinon -> refus avec la consigne de poser la question via AskUserQuestion (identifiant unique R-xxxx).
  * Bascule désactivable (`presence.enabled: false`) : on retombe alors sur la boîte de permission native.
  */
-function askHuman(store: BrainStore, input: HookInput, what: string, reason: string): HookOutput {
+function askHuman(store: BrainStore, input: HookInput, what: string, reason: string, once: boolean): HookOutput {
   const key = actionKey(String(input.tool_name ?? ''), input.tool_input);
   const grant = consumeGrant(store, key);
   if (grant) {
@@ -68,7 +71,51 @@ function askHuman(store: BrainStore, input: HookInput, what: string, reason: str
     return preToolDecision('deny', deferredReason(reason));
   }
   if (!presenceEnabled(store)) return preToolDecision('ask', reason);
-  return preToolDecision('deny', askViaInvite(openRequest(store, key, what, reason)));
+  return preToolDecision('deny', askViaInvite(openRequest(store, key, what, reason, once)));
+}
+
+/** Stade du projet (défaut : production — garde-fous complets). */
+const stageOf = (store: BrainStore) => store.config().stage ?? 'production';
+
+/**
+ * Contexte de classification d'une commande. Au stade prototype, il dit si le dépôt est partagé (un remote existe) et sur quelle
+ * branche on est (pour un push forcé) ; ces lectures git ne sont faites que dans ce cas.
+ */
+function commandContext(store: BrainStore, input: HookInput, command: string, shell: ShellKind): CommandContext {
+  const config = store.config();
+  const protectedBranches = [...(store.profile()?.git.protectedBranches ?? ['main', 'master'])];
+  const ctx: CommandContext = { autonomy: config.policy.autonomy, protectedBranches, allowedSecrets: config.secrets?.allow ?? [], shell, stage: config.stage ?? 'production', projectRoot: store.paths.root, ...(input.cwd ? { cwd: input.cwd } : {}) };
+  if (ctx.stage === 'prototype' && /\bpush\b/.test(command)) {
+    const git = new Git(store.paths.root);
+    const defaultBranch = git.defaultBranch();
+    if (defaultBranch && !protectedBranches.includes(defaultBranch)) protectedBranches.push(defaultBranch);
+    const branch = git.currentBranch();
+    return { ...ctx, sharedRepo: git.remotes().length > 0, ...(branch ? { currentBranch: branch } : {}) };
+  }
+  return ctx;
+}
+
+/** Règles dont la perte de travail local est rattrapée par un instantané pris juste avant (stade prototype). */
+const SNAPSHOT_BEFORE = new Set(['git-discard', 'git-history-rewrite']);
+
+/**
+ * Stade prototype : l'action aurait demandé une validation, elle passe. Elle est journalisée, et un instantané (annulable par
+ * `ceng rollback`) est pris avant ce qui peut détruire du travail local.
+ */
+function allowInPrototype(store: BrainStore, input: HookInput, freed: readonly string[], what: string): HookOutput {
+  let snapshot = '';
+  if (freed.some((f) => SNAPSHOT_BEFORE.has(f))) {
+    try {
+      const state = store.state();
+      const cp = createCheckpoint(store, { done: `Instantané automatique avant ${freed.join(', ')} (stade prototype) : ${what}`.slice(0, 300), next: state.lastCheckpoint?.next ?? 'continuer la tâche en cours', auto: true });
+      if (cp.snapshot) snapshot = ` Instantané ${cp.id} pris avant (annulable : \`${CLI_INVOCATION} rollback ${cp.id} --apply\`).`;
+    } catch {
+      // l'instantané est un filet : son échec ne bloque pas un prototype
+    }
+  }
+  store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'autonomous', rule: 'prototype', freed: [...freed] } });
+  const note = `[ceng] Stade prototype : ${freed.join(', ')} sans validation (journalisé).${snapshot}`;
+  return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: note } } };
 }
 
 function preToolDecision(decision: 'deny' | 'ask', reason: string): HookOutput {
@@ -97,8 +144,14 @@ export function sessionStart(store: BrainStore, input: HookInput): HookOutput {
   });
   removeOrphanTemps(store.paths.brain);
   store.log({ type: 'session.start', ...(input.session_id ? { sessionId: input.session_id } : {}), data: { source } });
-  const brief = [resumeBrief(store, source), ...machineWarnings(store)].join('\n');
+  const brief = [resumeBrief(store, source), ...stageNotes(store), ...machineWarnings(store)].join('\n');
   return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: brief } } };
+}
+
+/** Au stade prototype, l'orchestrateur doit savoir que les validations courantes sont levées (et ce qui reste soumis à l'humain). */
+function stageNotes(store: BrainStore): string[] {
+  if (stageOf(store) !== 'prototype') return [];
+  return [`Stade : PROTOTYPE (aucun utilisateur réel) — migrations, déploiements, suppressions, push et fichiers de garde-fous passent sans validation (journalisé ; instantané avant suppression/reset, annulable par \`${CLI_INVOCATION} rollback\`). Restent soumis à l'humain : secrets, suppression hors du dépôt, push forcé sur une branche protégée d'un dépôt partagé, publication, infrastructure. Passage en production : \`${CLI_INVOCATION} config stage production\`.`];
 }
 
 /**
@@ -114,14 +167,15 @@ function machineWarnings(store: BrainStore): string[] {
   return out;
 }
 
+/** Suppression que même le stade prototype ne laisse pas passer : hors du projet, internes git, mémoire du framework. */
+const UNRECOVERABLE_DELETION = /hors du projet|racine du projet|: \.git(\/|$)|: \.ceng\/brain/;
+
 export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
   const command = String(input.tool_input?.['command'] ?? '');
   if (!command) return OK;
-  const config = store.config();
-  const protectedBranches = store.profile()?.git.protectedBranches ?? ['main', 'master'];
-  const shell = input.tool_name === 'PowerShell' ? 'powershell' : 'bash';
-  const verdict = classifyCommand(command, { autonomy: config.policy.autonomy, protectedBranches, allowedSecrets: config.secrets?.allow ?? [], shell });
-  if (verdict.class === 'autonomous') return OK;
+  const shell = shellOf(String(input.tool_name ?? ''));
+  const verdict = classifyCommand(command, commandContext(store, input, command, shell));
+  if (verdict.class === 'autonomous') return verdict.freed?.length ? allowInPrototype(store, input, verdict.freed, command) : OK;
   // Suppression de fichiers : pas de frein si elle peut être rendue récupérable (instantané pris juste avant).
   if (verdict.rule === 'delete' && verdict.deletion) {
     const check = autoApproveDeletion(store, verdict.deletion.targets, input.cwd);
@@ -133,12 +187,13 @@ export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
       return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', ...(onlyDeletions ? { permissionDecision: 'allow', permissionDecisionReason: note } : {}), additionalContext: note } } };
     }
     store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'approval', rule: 'delete', why: check.reason } });
-    return askHuman(store, input, command, `Suppression non récupérable automatiquement (${check.reason}) : validation humaine.`);
+    if (stageOf(store) === 'prototype' && !UNRECOVERABLE_DELETION.test(check.reason)) return allowInPrototype(store, input, ['delete', ...(verdict.freed ?? [])], `${command} (non annulable : ${check.reason})`);
+    return askHuman(store, input, command, `Suppression non récupérable automatiquement (${check.reason}) : validation humaine.`, true);
   }
   store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: verdict.class, rule: verdict.rule } });
   return verdict.class === 'forbidden'
     ? preToolDecision('deny', `Action interdite (${verdict.rule}) : ${verdict.reason} Proposer une alternative sûre ou demander à l'humain d'agir lui-même.`)
-    : askHuman(store, input, command, `Approbation humaine requise (${verdict.rule}) : ${verdict.reason}`);
+    : askHuman(store, input, command, `Approbation humaine requise (${verdict.rule}) : ${verdict.reason}`, isSingleUseCommand(command, shell));
 }
 
 export function guardFile(store: BrainStore, input: HookInput): HookOutput {
@@ -147,10 +202,11 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
   const rel = relativeToProject(store, raw);
   if (rel.startsWith('..')) return OK; // hors projet : laissé aux permissions natives
   const config = store.config();
-  const verdict = classifyFileWrite(rel, config.policy.autonomy, config.secrets?.allow ?? []);
+  const verdict = classifyFileWrite(rel, config.policy.autonomy, config.secrets?.allow ?? [], config.stage ?? 'production');
   if (verdict.class !== 'autonomous') {
     store.log({ type: 'guard.verdict', ...ids(input), data: { file: rel, class: verdict.class, rule: verdict.rule } });
-    return verdict.class === 'forbidden' ? preToolDecision('deny', `${verdict.reason} (${rel})`) : askHuman(store, input, rel, `${verdict.reason} (${rel})`);
+    // Un fichier de gouvernance (garde-fous, licence…) : chaque modification est une décision, jamais une autorisation réutilisable.
+    return verdict.class === 'forbidden' ? preToolDecision('deny', `${verdict.reason} (${rel})`) : askHuman(store, input, rel, `${verdict.reason} (${rel})`, verdict.rule === 'governance-file');
   }
   // Prévention de conflit : un worker ne modifie pas un fichier possédé par une autre tâche en cours.
   if (input.agent_id) {
@@ -171,7 +227,8 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
       }
     }
   }
-  return OK;
+  // Stade prototype : fichier de garde-fous, CI ou infra modifiable sans validation (la règle `ask` native est levée aussi).
+  return verdict.freed?.length ? allowInPrototype(store, input, verdict.freed, rel) : OK;
 }
 
 /** PreToolUse sur Read (installé seulement quand des secrets sont autorisés) : les autres secrets restent illisibles. */
@@ -234,8 +291,10 @@ export function fileEdited(store: BrainStore, input: HookInput): HookOutput {
   if (!raw) return OK;
   const rel = relativeToProject(store, raw);
   if (rel.startsWith('.ceng/') || rel.startsWith('graphify-out/')) return OK;
+  // Seules les modifications de la session principale comptent pour le checkpoint de fin de tour : celles des
+  // sous-agents (souvent en arrière-plan) ne sont pas le travail de ce tour. Le graphe de code, lui, voit tout.
   const state = store.updateState((s) => {
-    s.editsSinceCheckpoint += 1;
+    if (!input.agent_id) s.editsSinceCheckpoint += 1;
     s.graphDirty = true;
   });
   const taskId = (input.agent_id && state.agentTasks?.[input.agent_id]) || state.currentTask;
@@ -291,25 +350,62 @@ export function preCompact(store: BrainStore, input: HookInput): HookOutput {
   return OK;
 }
 
+/** Rappel de checkpoint volontaire : au plus un toutes les 2 h, et seulement si aucun n'a été pris depuis 2 h. */
+const REMINDER_INTERVAL_MS = 2 * 3_600_000;
+const DEFAULT_NEXT = 'Relire .ceng/brain/INDEX.md et la tâche en cours';
+
+/**
+ * Fin de tour de la session principale. Le travail du tour est protégé sans rien demander à personne : un checkpoint
+ * AUTOMATIQUE silencieux (récit + instantané git) est pris s'il y a eu des modifications. Le hook ne bloque jamais pour
+ * un checkpoint ; il peut seulement, au plus toutes les 2 h, rappeler (message non bloquant) qu'aucun checkpoint
+ * VOLONTAIRE — celui qui dit vraiment « fait / prochaine étape » — n'a été pris depuis 2 h.
+ */
 export function stop(store: BrainStore, input: HookInput): HookOutput {
   if (input.agent_id) return OK;
+  const edits = autoCheckpoint(store);
   if (isUnattended()) return keepWorkingOrStop(store);
   // Session d'orchestration : le travail continue sans attendre l'humain (il peut interrompre ou écrire à tout moment).
   if (input.session_id && store.state().autopilotSessionId === input.session_id) return keepWorkingOrStop(store);
-  if (input.stop_hook_active) return OK;
-  const state = store.state();
-  if (!state.currentTask || state.editsSinceCheckpoint === 0 || state.stopReminderAt) return OK;
+  return edits > 0 ? voluntaryCheckpointReminder(store) : OK;
+}
+
+/** Checkpoint automatique de fin de tour ; renvoie le nombre de modifications couvertes (0 : rien à protéger ou échec). */
+function autoCheckpoint(store: BrainStore): number {
+  const edits = store.state().editsSinceCheckpoint;
+  if (edits <= 0) return 0;
+  try {
+    createCheckpoint(store, {
+      done: `Checkpoint automatique en fin de tour (${edits} fichier${edits > 1 ? 's' : ''})`,
+      next: lastVoluntaryCheckpoint(store)?.next ?? DEFAULT_NEXT,
+      auto: true,
+    });
+    return edits;
+  } catch (err) {
+    // La fin de tour ne doit jamais échouer à cause de la sauvegarde : l'échec est consigné, le compteur reste pour le tour suivant.
+    store.log({ type: 'checkpoint', data: { auto: true, failed: String((err as Error).message).slice(0, 200) } });
+    return 0;
+  }
+}
+
+function lastVoluntaryCheckpoint(store: BrainStore): CheckpointRecord | undefined {
+  return store.checkpoints().reverse().find((c) => !c.auto);
+}
+
+function voluntaryCheckpointReminder(store: BrainStore): HookOutput {
+  const now = Date.now();
+  const last = lastVoluntaryCheckpoint(store);
+  if (last && now - Date.parse(last.at) < REMINDER_INTERVAL_MS) return OK;
+  const reminded = store.state().checkpointReminderAt;
+  if (reminded && now - Date.parse(reminded) < REMINDER_INTERVAL_MS) return OK;
   store.updateState((s) => {
-    s.stopReminderAt = new Date().toISOString();
+    s.checkpointReminderAt = new Date(now).toISOString();
   });
   return {
     exitCode: 0,
     json: {
-      decision: 'block',
-      reason:
-        `[ceng] ${state.editsSinceCheckpoint} modification(s) sur ${state.currentTask} depuis le dernier checkpoint. ` +
-        `Avant de rendre la main : \`${CLI_INVOCATION} checkpoint --task ${state.currentTask} --done "…" --next "…"\` ` +
-        '(une session future doit pouvoir reprendre sans cette conversation). Si la tâche est finie : gates puis `task done`.',
+      systemMessage:
+        '[ceng] Aucun checkpoint volontaire depuis plus de 2 h (le travail est sauvegardé par des checkpoints automatiques). ' +
+        `À la fin d'une étape : \`${CLI_INVOCATION} checkpoint --done "…" --next "…"\` — la reprise saura ainsi quoi faire ensuite.`,
     },
   };
 }
@@ -387,7 +483,17 @@ export function permissionRequest(store: BrainStore, input: HookInput): HookOutp
     recordPendingApproval(store, what, reason);
     return decide('deny', deferredReason(reason));
   }
-  return decide('deny', askViaInvite(openRequest(store, key, what, 'permission Claude Code')));
+  return decide('deny', askViaInvite(openRequest(store, key, what, 'permission Claude Code', isSingleUsePermission(store, input))));
+}
+
+/** Une autorisation de boîte native est à usage unique pour une opération destructive ou un fichier de gouvernance. */
+function isSingleUsePermission(store: BrainStore, input: HookInput): boolean {
+  const ti = input.tool_input ?? {};
+  if (typeof ti['command'] === 'string') return isSingleUseCommand(ti['command'], shellOf(String(input.tool_name ?? '')));
+  const file = String(ti['file_path'] ?? ti['notebook_path'] ?? '');
+  if (!file) return false;
+  const rel = relativeToProject(store, file);
+  return !rel.startsWith('..') && classifyFileWrite(rel, store.config().policy.autonomy, store.config().secrets?.allow ?? []).rule === 'governance-file';
 }
 
 /**

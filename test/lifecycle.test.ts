@@ -154,14 +154,18 @@ describe('cycle de vie complet', () => {
     assert.match(ctx, /écrire le test d'expiration/);
   });
 
-  it('PreCompact : checkpoint automatique ; Stop : rappel unique de checkpoint', () => {
+  it('PreCompact : checkpoint automatique ; Stop : checkpoint automatique silencieux, jamais bloquant', () => {
     assert.equal(runtimeHook(dir, 'pre-compact', { trigger: 'auto' }).code, 0);
     const cps = json<{ auto: boolean }[]>(run('checkpoint', 'list', '--json'));
     assert.ok(cps.some((c) => c.auto));
     runtimeHook(dir, 'file-edited', { tool_name: 'Edit', tool_input: { file_path: path.join(dir, 'app/auth/routes.py') } });
-    const first = runtimeHook(dir, 'stop', {});
-    assert.equal(JSON.parse(first.stdout).decision, 'block');
-    assert.equal(runtimeHook(dir, 'stop', {}).stdout, '', 'pas de boucle');
+    const stopped = runtimeHook(dir, 'stop', {});
+    assert.ok(!stopped.stdout.includes('"block"'), 'la fin de tour ne bloque jamais pour un checkpoint');
+    const last = json<{ auto: boolean; done: string; next: string }[]>(run('checkpoint', 'list', '--json')).at(-1)!;
+    assert.ok(last.auto);
+    assert.match(last.done, /^Checkpoint automatique en fin de tour \(1 fichier\)$/);
+    assert.equal(last.next, 'écrire le test d\'expiration', 'la prochaine étape du dernier checkpoint volontaire est reprise');
+    assert.equal(runtimeHook(dir, 'stop', {}).stdout, '', 'rien à protéger : silence');
   });
 
   it('rollback non destructif : sauvegarde l\'état courant puis restaure', () => {

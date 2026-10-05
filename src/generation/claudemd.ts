@@ -1,5 +1,5 @@
 import { APPROVAL_SUMMARY } from '../domain/guardrails.js';
-import type { EffectivePolicy } from '../domain/types.js';
+import type { EffectivePolicy, Stage } from '../domain/types.js';
 import type { ProjectProfile } from '../discovery/profile.js';
 import { CLI_INVOCATION } from '../brain/paths.js';
 
@@ -7,7 +7,7 @@ export const BEGIN = '<!-- ceng:begin (généré par claude-eng-framework — mo
 export const END = '<!-- ceng:end -->';
 
 /** Bloc court injecté dans CLAUDE.md : des pointeurs, pas un manuel (CLAUDE.md est chargé à chaque session). */
-export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy, codeGraph = false): string {
+export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy, codeGraph = false, stage: Stage = 'production'): string {
   const cmds = Object.entries(profile.commands)
     .filter(([k, v]) => v && ['build', 'typecheck', 'lint', 'unit', 'e2e'].includes(k))
     .map(([k, v]) => `${k}: \`${v}\``)
@@ -30,8 +30,13 @@ export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy, co
     '- Légal & gouvernance : licences des dépendances, données personnelles, décisions tracées (ADR) — skill `legal-governance`.',
     `- Nouvelle machine / clone : rien à installer pour la CLI (\`.ceng/runtime/\` versionné) ; \`${CLI_INVOCATION} doctor\` ; graphe de code absent → \`${CLI_INVOCATION} graph install\` (accord humain) puis \`graph build\` ; mise à jour : \`npx -y github:Jean-Paul15/claude-eng-framework upgrade\`.`,
     '',
-    '**Approbation humaine obligatoire** (quelle que soit l\'autonomie) :',
-    ...APPROVAL_SUMMARY.map((s) => `- ${s}`),
+    ...(stage === 'prototype'
+      ? [
+          '**Stade : prototype** (aucun utilisateur réel) — migrations, déploiements, suppressions, push et fichiers de garde-fous du projet passent SANS validation (journalisés ; instantané avant suppression ou reset : `rollback`). Restent soumis à l\'humain : secrets, suppression hors du dépôt, push forcé sur une branche protégée d\'un dépôt partagé, publication, infrastructure.',
+          `Passage en production : \`${CLI_INVOCATION} config stage production\` (validation humaine).`,
+          '',
+        ]
+      : ['**Approbation humaine obligatoire** (quelle que soit l\'autonomie) :', ...APPROVAL_SUMMARY.map((s) => `- ${s}`)]),
     END,
   ].join('\n');
 }

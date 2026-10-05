@@ -34,7 +34,9 @@ un index temporaire et `write-tree` + `commit-tree`, référencé sous `refs/cen
 fichiers non suivis (le `.gitignore` est respecté) et ne touche ni l'index ni l'arbre de travail.
 
 Moments de checkpoint : avant une modification risquée (`route.checkpointBefore`), après une étape significative,
-avant de rendre la main (le hook `Stop` le rappelle une fois s'il y a des modifications non checkpointées), et
+à la fin d'une étape (le hook `Stop` prend de lui-même, sans bloquer, un checkpoint **automatique** à chaque fin de tour
+avec modifications de la session principale ; il ne rappelle le checkpoint volontaire qu'au plus toutes les 2 h, si aucun
+n'a été pris depuis 2 h), et
 **automatiquement avant chaque compaction** (hook `PreCompact`).
 
 ## Reprise automatique

@@ -26,10 +26,15 @@ poses les questions à l'humain, puis tu passes ses réponses en options.**
    - autonomie : `supervised` · `balanced` (défaut) · `high` — les actions irréversibles restent toujours soumises à l'humain ;
    - budget de tokens : `economy` · `balanced` (défaut) · `quality` ;
    - parallélisme : `off` · `subagents` (défaut) · `teams` (Agent Teams, expérimental, plus coûteux) ;
+   - stade : `production` (défaut : garde-fous complets) · `prototype` (aucun utilisateur réel, une erreur ne coûte rien :
+     migrations, déploiements, suppressions, push et fichiers de garde-fous sans validation, instantané avant
+     suppression ; secrets, suppression hors du dépôt, push forcé sur une branche protégée d'un dépôt partagé,
+     publication et infrastructure restent soumis à l'humain). Ne propose `prototype` que si l'humain dit que le
+     projet n'a pas de vrais utilisateurs ; ne le choisis jamais à sa place ;
    - objectif du projet en une phrase ;
    - installer graphify (graphe de code automatique, sans coût IA) ? oui par défaut.
 3. Lance : `ceng init --yes --risk <…> --autonomy <…> --budget <…> --parallelism <…> --goal "<…>" --install-graphify`
-   (ou `--code-graph off` si l'humain refuse graphify).
+   (ou `--code-graph off` si l'humain refuse graphify ; `--stage prototype` s'il a choisi le stade prototype).
 4. Bascule automatique (validations par l'invite, expiration → travail sans humain) : propose via l'invite de
    régler `"askUserQuestionTimeout": "10m"` dans ses paramètres **utilisateur** (`~/.claude/settings.json`, ou
    `/config` → « Question auto-continue timeout ») — c'est ce qui permet à une invite sans réponse d'expirer. Ne
@@ -50,7 +55,11 @@ Rien à installer pour travailler : la CLI et les hooks sont copiés dans le dé
 - `/ceng-orchestrate` dans Claude Code (ou `ceng run` dans un terminal) : la skill `ceng-orchestrate` prend le relais.
 - Le travail ordinaire avec Claude reste possible à tout moment : le framework n'est qu'un ensemble de fichiers du projet.
 
-## 5. Mettre à jour / désinstaller
+## 5. Stade, commandes de gates, mise à jour
+- Stade d'un projet existant : `ceng config stage` (lecture) ; `ceng config stage prototype|production` (écriture : validation
+  humaine — c'est un changement du niveau des garde-fous). Le passage en production redemande donc l'humain.
+- Commandes de gates déduites de la vraie pile (app Flutter dans `app/`, fonctions Deno…) : `ceng config detect`, puis
+  `ceng config detect --apply` (écrit `.ceng/config.json` : validation humaine).
 - Mise à jour du projet vers la dernière version : `npx -y github:Jean-Paul15/claude-eng-framework upgrade`
   (ou `ceng upgrade` après mise à jour de l'installation globale). Les fichiers modifiés localement sont préservés.
 - Désinstallation : `ceng uninstall --yes` (garde le Project Brain) ; `--purge` supprime aussi `.ceng/` — action

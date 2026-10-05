@@ -79,7 +79,11 @@ ceng run --unattended --max-hours 8 --max-budget-usd 20 # avec limites explicite
 **Sans même lancer le mode nuit**, une session normale bascule toute seule. Chaque validation (approuver une action,
 choisir une direction) passe par l'invite de questions de Claude Code, qui peut expirer : réglage utilisateur
 `askUserQuestionTimeout` à `10m`, le maximum de Claude Code. Le reste du fonctionnement :
-- **Tu réponds** : seule ta réponse réelle autorise l'action, et une seule fois.
+- **Projet sans utilisateurs réels** : `ceng config stage prototype` lève les validations pour ce qui est récupérable (migrations,
+  déploiements, suppressions avec instantané, push, fichiers de garde-fous) ; secrets, suppression hors du dépôt, push forcé sur
+  une branche protégée partagée, publication et infrastructure restent à valider. `ceng config stage production` rétablit tout.
+- **Tu réponds** : seule ta réponse réelle autorise l'action — 30 min pour cette même action (relances après une
+  erreur comprises), une seule fois pour une opération destructive.
 - **L'invite expire sans réponse** : le projet passe en mode sans humain. Les demandes sont consignées, les questions
   de direction prennent la recommandation de Claude comme décision provisoire, et le travail continue.
 - **Tu réécris** : les invites reviennent, et tu peux changer de trajectoire. Chaque décision provisoire est tracée

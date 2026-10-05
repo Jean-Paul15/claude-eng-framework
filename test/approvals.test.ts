@@ -58,7 +58,8 @@ describe('approbation de bout en bout', () => {
     return r.stdout ? (JSON.parse(r.stdout) as Out) : {};
   };
   const bash = (command: string) => ({ tool_name: 'Bash', tool_input: { command } });
-  const deploy = 'terraform apply -auto-approve';
+  // Opération destructive : l'autorisation sert une seule exécution (un déploiement, lui, vaut 30 min : voir plus bas).
+  const deploy = 'supabase db reset';
   const publish = 'npm publish';
   const other = 'terraform destroy';
   const ask = (command: string): string => {
@@ -95,7 +96,7 @@ describe('approbation de bout en bout', () => {
     assert.equal(verdict('terraform apply'), 'deny');
   });
 
-  it('4. la commande approuvée passe, une seule fois, y compris la boîte de permission native de la même exécution', () => {
+  it('4. la commande destructive approuvée passe, une seule fois, y compris la boîte de permission native de la même exécution', () => {
     assert.equal(verdict(deploy), 'allow');
     // Règle `ask` native : PermissionRequest voit la même exécution (relais), sans autorisation supplémentaire.
     assert.equal(hook('permission-request', bash(deploy)).hookSpecificOutput!.decision!.behavior, 'allow');
@@ -149,14 +150,28 @@ describe('boîte de permission native seule (commande autonome pour le hook)', (
   };
   const npmInstall = { tool_name: 'Bash', tool_input: { command: 'npm install left-pad' } };
 
-  it('autorisation à usage unique : la deuxième boîte identique est refusée', () => {
-    call('user-prompt', { prompt: 'installe-le' });
-    const denied = call('permission-request', npmInstall).hookSpecificOutput!.decision!;
+  const approve = (command: string): void => {
+    const denied = call('permission-request', { tool_name: 'Bash', tool_input: { command } }).hookSpecificOutput!.decision!;
     assert.equal(denied.behavior, 'deny');
     const id = denied.message!.match(/R-\d{4}/)![0];
-    call('question-answered', { tool_response: { answers: { 'Installer left-pad ?': `Approuver ${id}` } } });
-    assert.equal(call('permission-request', npmInstall).hookSpecificOutput!.decision!.behavior, 'allow');
-    assert.equal(call('permission-request', npmInstall).hookSpecificOutput!.decision!.behavior, 'deny');
+    call('question-answered', { tool_response: { answers: { 'Valider ?': `Approuver ${id}` } } });
+  };
+  const box = (command: string): string => call('permission-request', { tool_name: 'Bash', tool_input: { command } }).hookSpecificOutput!.decision!.behavior;
+
+  it('autorisation valable 30 min pour la même action : la boîte identique repasse (relance après une erreur)', () => {
+    call('user-prompt', { prompt: 'installe-le' });
+    const command = npmInstall.tool_input.command;
+    approve(command);
+    assert.equal(box(command), 'allow');
+    assert.equal(box(command), 'allow');
+    assert.equal(box(`${command} 2>&1 | tail -3`), 'allow', 'habillage d\'affichage ignoré');
+    assert.equal(box('npm install right-pad'), 'deny', 'une autre action ne profite pas de l\'autorisation');
+  });
+
+  it('opération destructive : autorisation à usage unique', () => {
+    approve('git reset --hard HEAD~2');
+    assert.equal(box('git reset --hard HEAD~2'), 'allow');
+    assert.equal(box('git reset --hard HEAD~2'), 'deny');
   });
 });
 

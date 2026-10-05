@@ -79,6 +79,8 @@ export interface Task {
 
 export type Budget = 'economy' | 'balanced' | 'quality';
 export type Autonomy = 'supervised' | 'balanced' | 'high';
+/** Stade du projet : `prototype` = aucun utilisateur réel, une erreur ne coûte rien ; `production` (défaut) = garde-fous complets. */
+export type Stage = 'prototype' | 'production';
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 export type Depth3 = 'light' | 'standard' | 'thorough';
 export type Parallelism = 'off' | 'subagents' | 'teams';

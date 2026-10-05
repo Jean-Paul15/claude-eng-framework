@@ -39,8 +39,18 @@ pour chaque lot :
   échec → ceng task fail <id> --reason "cause précise" → la route re-calculée dit : nouvelle stratégie, escalade ou blocage
 ceng status                     → régénère INDEX.md
 ```
-Checkpoint (`ceng checkpoint --task <id> --done "…" --next "…"`) : avant une modification risquée,
-après chaque étape significative, avant de rendre la main. Le hook Stop te le rappelle.
+Checkpoint (`ceng checkpoint --task <id> --done "…" --next "…"`) : avant une modification risquée et après chaque
+étape significative — c'est le checkpoint VOLONTAIRE, celui qui dit « fait / prochaine étape ».
+Le hook Stop ne te bloque jamais pour un checkpoint : à chaque fin de tour avec modifications, il prend lui-même un
+checkpoint AUTOMATIQUE silencieux (sauvegarde du travail de la session principale ; les modifications des sous-agents
+n'y comptent pas) et reprend la `next` de ton dernier checkpoint volontaire. Au plus toutes les 2 h, et seulement si
+tu n'as pris aucun checkpoint volontaire depuis 2 h, il affiche un rappel non bloquant. Ne prends donc pas de
+checkpoint « pour faire plaisir au hook » : un checkpoint volontaire par étape terminée suffit.
+
+Validations humaines : une approbation vaut 30 min pour la MÊME action (même commande réduite à ce qu'elle exécute :
+`cd dossier &&`, `2>&1`, `| tail`, espaces et ordre des commandes n'y changent rien) — après une erreur, relance-la
+sans redemander. Les opérations destructives (DROP/TRUNCATE/DELETE, reset, suppression récursive, push forcé) et les
+fichiers de garde-fous restent à usage unique : redemande à chaque fois.
 
 ## 2. Évaluer une tâche (ton jugement, la politique fait le reste)
 À la création (`ceng task add`), note 1-5 : **complexity, risk, ambiguity, novelty, arch**, plus
@@ -96,7 +106,17 @@ l'orchestrateur pose des questions : les workers n'ont pas cet outil et remonten
 pas ce que le code, la doc ou une décision par défaut raisonnable permettent de trancher.
 
 ## 6. Garde-fous non négociables
-Approbation humaine : déploiement/publication, infra, opérations destructives (push forcé, reset, suppression,
+Le **stade** du projet (`.ceng/config.json` → `stage`, affiché au démarrage de session ; `ceng config stage` pour le lire)
+règle le niveau. Défaut **production** : tout ce qui suit demande l'humain. En **prototype** (aucun utilisateur réel, une
+erreur ne coûte rien — décision de l'humain, jamais la tienne), migrations, déploiements, suppressions, reset, push
+(forcé compris) et fichiers de garde-fous passent SANS validation : agis sans demander, c'est journalisé, et un
+instantané est pris avant suppression et `git reset`/rebase (`ceng rollback <CP> --apply` annule). Même en prototype
+restent soumis à l'humain : secrets, suppression hors du dépôt, push forcé sur une branche protégée d'un dépôt partagé,
+publication de paquets, infrastructure (terraform/kubectl/cloud), actions GitHub irréversibles — et le changement de
+stade lui-même (`ceng config stage production|prototype` est une décision humaine : ne le lance pas de ta propre
+initiative ; propose-le quand le projet approche des vrais utilisateurs).
+
+En production, approbation humaine : déploiement/publication, infra, opérations destructives (push forcé, reset, suppression,
 DROP/TRUNCATE), migrations en production, secrets, fichiers de garde-fous (.claude/settings*, .ceng/config.json),
 licences, nouvelle collecte de données personnelles. L'économie de tokens ne justifie jamais d'ignorer un problème
 de sécurité, un bug critique, des tests nécessaires ou une revue architecturale nécessaire.

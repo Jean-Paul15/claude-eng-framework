@@ -35,11 +35,28 @@ quality) et `notes` (le *pourquoi* des écarts). Domaines toujours critiques : p
 Si le risque est high ou critical, les domaines sensibles détectés deviennent aussi critiques : auth, pii,
 multi-tenant, upload, webhooks, ai-llm, etc.
 
+## Stade du projet
+
+`stage` : `production` (défaut, y compris pour un projet existant sans ce réglage) ou `prototype`. En prototype, les actions
+récupérables (migrations, déploiements, suppressions, push, fichiers de garde-fous) passent sans validation, journalisées, avec
+instantané avant suppression ; secrets, suppression hors du dépôt, push forcé sur une branche protégée d'un dépôt partagé,
+publication et infrastructure restent soumis à l'humain (détail : `docs/security.md`). `ceng init --stage prototype`, ou
+`ceng config stage prototype|production` (lecture : `ceng config stage`) ; changer le stade est une décision humaine (le hook de
+garde la demande quand c'est Claude qui lance la commande). Le stade n'est jamais détecté automatiquement : assouplir les
+garde-fous sur une heuristique serait plus dangereux que de demander.
+
 ## Commandes des gates
 
 Elles sont détectées depuis le projet : scripts npm, uv/poetry/pip, go, cargo, flutter, maven/gradle, bundler,
 composer, dotnet, Makefile. Elles sont modifiables dans `commands`, et la valeur éditée à la main prime sur la
 détection lors d'un `upgrade`. Une gate sans commande vaut `skipped` (non bloquante) et est signalée.
+
+La détection suit la vraie pile, dossier compris : une app Flutter dans `app/` donne `cd app && flutter build apk --debug`
+(build), `cd app && flutter test` (unit) et `cd app && flutter analyze` (lint) — pas de `gradle` pour son dossier
+`android/` ; des fonctions Deno testées dans `supabase/functions` ajoutent `deno test --allow-all` à la gate `unit`.
+Un projet déjà initialisé garde ses anciennes commandes : `ceng config detect` affiche la configuration recommandée
+(nouvelle / modifiée / conservée), `ceng config detect --apply` l'écrit dans `.ceng/config.json` (fichier de garde-fous :
+validation humaine requise ; les commandes que la détection ne propose pas sont conservées).
 
 ## Graphe de code
 

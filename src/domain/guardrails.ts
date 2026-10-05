@@ -1,6 +1,7 @@
 import { matchesAny, normalizePath } from './globs.js';
 import { isCengCli, parseCommand, shellWords, splitCommand, splitPipes, type ShellKind, type Statement } from './shell.js';
-import type { Autonomy } from './types.js';
+import * as path from 'node:path';
+import type { Autonomy, Stage } from './types.js';
 
 export { splitCommand };
 
@@ -19,6 +20,8 @@ export interface Verdict {
   rule?: string;
   /** Présent quand la seule raison d'approbation est une suppression de fichiers (rendue récupérable par le hook). */
   deletion?: Deletion;
+  /** Règles qui auraient demandé une approbation et que le stade `prototype` laisse passer (le hook les journalise, prend un instantané si besoin). */
+  freed?: string[];
 }
 
 interface Rule {
@@ -46,6 +49,8 @@ const FORBIDDEN: Rule[] = [
 
 const APPROVAL: Rule[] = [
   { id: 'secrets-allow', pattern: /\b(cli\.js|ceng)\s+secrets\s+(allow|grant)\b/, reason: 'Autoriser l\'accès à un fichier de secrets : décision humaine.' },
+  { id: 'config-apply', pattern: /\b(cli\.js|ceng)\s+config\s+detect\b[^|;&\n]*--apply\b/, reason: 'Réécriture des commandes de gates dans .ceng/config.json (fichier de garde-fous) : décision humaine.' },
+  { id: 'config-stage', pattern: /\b(cli\.js|ceng)\s+config\s+stage\s+(prototype|production)\b/, reason: 'Changer le stade du projet (prototype/production) modifie le niveau des garde-fous : décision humaine.' },
   { id: 'git-force-push', pattern: /\bgit\s+push\b.*(\s--force(-with-lease)?\b|\s-f\b|\s\+\S+)/, reason: 'Push forcé : réécrit un historique partagé.' },
   { id: 'git-discard', pattern: /\bgit\s+(reset\s+--hard\b|clean\s+-[a-zA-Z]*f[a-zA-Z]*|checkout\s+(--\s+)?\.(\s|$)|restore\s+(--\S+\s+)*\.(\s|$)|stash\s+(drop|clear)\b|branch\s+-D\b)/, reason: 'Peut détruire du travail non commité ou une branche.' },
   { id: 'git-history-rewrite', pattern: /\bgit\s+(rebase(?!\s+--(?:abort|continue|skip|quit)\b)|filter-branch|filter-repo|commit\s+--amend)\b/, reason: 'Réécriture d\'historique.' },
@@ -111,6 +116,46 @@ export interface CommandContext {
   allowedSecrets?: readonly string[];
   /** Syntaxe de la commande (guillemets, échappements) : `powershell` pour l'outil du même nom. */
   shell?: ShellKind;
+  /** Stade du projet (défaut : production). En `prototype`, les actions récupérables passent sans validation. */
+  stage?: Stage;
+  /** Le dépôt a un remote (autres développeurs ou déploiements en dépendent). Défaut : oui. */
+  sharedRepo?: boolean;
+  /** Racine du projet et répertoire courant de la commande : une suppression hors du projet est irrécupérable. */
+  projectRoot?: string;
+  cwd?: string;
+  /** Branche courante (un `git push --force` sans destination la vise). */
+  currentBranch?: string;
+}
+
+/**
+ * Stade `prototype` : règles que l'on laisse passer parce que l'erreur est récupérable et ne coûte rien (aucun utilisateur
+ * réel) — migrations, déploiements, push, historique local, fichiers de garde-fous. Restent soumis à validation : secrets,
+ * suppression hors du dépôt, push forcé sur une branche protégée d'un dépôt partagé, et ce qui sort du projet
+ * (publication, infrastructure, GitHub, processus).
+ */
+const PROTOTYPE_FREE = new Set(['deploy', 'db-destructive', 'prod-migrate', 'git-discard', 'git-history-rewrite', 'git-push-supervised', 'git-push-protected', 'config-apply']);
+
+/** Un `git push --force` peut-il écraser l'historique d'une branche protégée d'un dépôt partagé ? (dans le doute : oui) */
+function forcePushRisky(unit: Statement, ctx: CommandContext): boolean {
+  if (ctx.sharedRepo === false) return false;
+  const m = /\bgit\s+push\b/.exec(unit.live);
+  if (!m) return true;
+  const words = shellWords(unit.plain.slice(m.index + m[0].length));
+  if (words.some((w) => /^--(all|mirror|delete|prune)$/.test(w))) return true;
+  const refspecs = words.filter((w) => !w.startsWith('-')).slice(1);
+  const targets = refspecs.length ? refspecs : [ctx.currentBranch ?? ''];
+  return targets.some((r) => {
+    let dst = (r.includes(':') ? r.split(':')[1]! : r).replace(/^\+/, '').replace(/^refs\/heads\//, '');
+    if (dst === 'HEAD') dst = ctx.currentBranch ?? '';
+    return dst === '' || ctx.protectedBranches.includes(dst);
+  });
+}
+
+/** La cible d'une suppression est-elle hors du projet (ou non résoluble : variable, `~`) ? Aucun instantané ne peut la rattraper. */
+function outsideProject(target: string, root: string, cwd?: string): boolean {
+  if (/^~|^\$|^%|\$\(|`/.test(target)) return true;
+  const rel = path.relative(root, path.resolve(cwd ?? root, target));
+  return rel.startsWith('..') || path.isAbsolute(rel);
 }
 
 const SECRET_READERS = /^(cat|less|more|head|tail|type|Get-Content|gc|bat|xxd|od|strings|base64|cp|copy|scp|rsync|Copy-Item|sed|awk|grep|rg|nl|tac)$/i;
@@ -120,6 +165,13 @@ function readsSecretFile(segment: string, allowed: readonly string[] = []): bool
   const tokens = shellWords(segment);
   if (tokens.length < 2 || !SECRET_READERS.test(tokens[0]!)) return false;
   return tokens.slice(1).some((t) => !t.startsWith('-') && isSecretPath(t, allowed));
+}
+
+/** Sous-commandes de la CLI ceng qui sont des décisions humaines (autoriser des secrets, réécrire la configuration des gates). */
+const CENG_HUMAN_RULES = new Set(['secrets-allow', 'config-apply', 'config-stage']);
+
+function cengHumanDecision(unit: Statement): Rule | undefined {
+  return APPROVAL.find((r) => CENG_HUMAN_RULES.has(r.id) && r.pattern.test(unit.live));
 }
 
 /** Première règle d'approbation applicable à une instruction (texte analysé : `live`, ou brut pour une règle `scanQuoted`). */
@@ -140,13 +192,20 @@ export function classifyCommand(command: string, ctx: CommandContext): Verdict {
   for (const r of FORBIDDEN) if (r.pattern.test(r.scanQuoted ? whole : parsed.wholeLive)) return forbidden(r);
   const approvals: Verdict[] = [];
   const deletions: Deletion[] = [];
+  const freed: string[] = [];
+  const prototype = ctx.stage === 'prototype';
+  /** Demande une approbation, sauf si le stade prototype laisse passer cette règle. */
+  const flag = (id: string, reason: string, unit: Statement): void => {
+    if (prototype && (PROTOTYPE_FREE.has(id) || (id === 'git-force-push' && !forcePushRisky(unit, ctx)))) freed.push(id);
+    else approvals.push({ class: 'approval', reason, rule: id });
+  };
   for (const statement of parsed.statements) {
     for (const r of FORBIDDEN) if (r.pattern.test(r.scanQuoted ? statement.plain : statement.live)) return forbidden(r);
     // Chaque maillon d'un pipeline est évalué à part : une commande ceng n'exempte pas ce qu'on lui enchaîne.
     for (const unit of splitPipes(statement, ctx.shell)) {
       if (!unit.carriesCode && isCengCli(shellWords(unit.plain))) {
-        const secrets = APPROVAL.find((r) => r.id === 'secrets-allow' && r.pattern.test(unit.live));
-        if (secrets) approvals.push({ class: 'approval', reason: secrets.reason, rule: secrets.id });
+        const human = cengHumanDecision(unit);
+        if (human) flag(human.id, human.reason, unit);
         continue;
       }
       if (readsSecretFile(unit.plain, ctx.allowedSecrets)) return { class: 'forbidden', reason: "Lecture ou copie d'un fichier de secrets.", rule: 'read-secrets' };
@@ -154,15 +213,16 @@ export function classifyCommand(command: string, ctx: CommandContext): Verdict {
       if (deletion) {
         const remaining = deletion.targets.filter((t) => !isRegenerablePath(t));
         if (remaining.some((t) => isSecretPath(t, ctx.allowedSecrets))) approvals.push({ class: 'approval', reason: 'Suppression d\'un fichier de secrets (non sauvegardable).', rule: 'delete-secret' });
+        else if (prototype && ctx.projectRoot && deletion.targets.some((t) => outsideProject(t, ctx.projectRoot!, ctx.cwd))) approvals.push({ class: 'approval', reason: 'Suppression hors du dépôt : irrécupérable (aucun instantané possible).', rule: 'delete-outside' });
         else if (remaining.length) deletions.push({ targets: remaining, recursive: deletion.recursive });
         continue;
       }
       const rule = matchApproval(unit);
-      if (rule) approvals.push({ class: 'approval', reason: rule.reason, rule: rule.id });
+      if (rule) flag(rule.id, rule.reason, unit);
       const push = /\bgit\s+push\b/.exec(unit.live);
       if (push) {
-        if (ctx.autonomy === 'supervised') approvals.push({ class: 'approval', reason: 'Autonomie supervisée : tout push est validé par un humain.', rule: 'git-push-supervised' });
-        else if (protectedPush(unit.plain.slice(push.index + push[0].length), ctx.protectedBranches)) approvals.push({ class: 'approval', reason: 'Push direct sur une branche protégée.', rule: 'git-push-protected' });
+        if (ctx.autonomy === 'supervised') flag('git-push-supervised', 'Autonomie supervisée : tout push est validé par un humain.', unit);
+        else if (protectedPush(unit.plain.slice(push.index + push[0].length), ctx.protectedBranches)) flag('git-push-protected', 'Push direct sur une branche protégée.', unit);
       }
     }
   }
@@ -173,9 +233,64 @@ export function classifyCommand(command: string, ctx: CommandContext): Verdict {
       reason: 'Suppression de fichiers : autorisée automatiquement si un instantané peut la rendre récupérable.',
       rule: 'delete',
       deletion: { targets: deletions.flatMap((d) => d.targets), recursive: deletions.some((d) => d.recursive) },
+      ...(freed.length ? { freed: [...new Set(freed)] } : {}),
     };
   }
-  return { class: 'autonomous', reason: 'Aucune règle de risque ne s\'applique.' };
+  return freed.length
+    ? { class: 'autonomous', reason: 'Stade prototype : action récupérable, sans validation.', rule: 'prototype', freed: [...new Set(freed)] }
+    : { class: 'autonomous', reason: 'Aucune règle de risque ne s\'applique.' };
+}
+
+// ---------------------------------------------------------------- Déclencheurs d'approbation
+
+export interface Trigger {
+  /** Texte de la sous-commande (maillon de pipeline) qui déclenche la règle. */
+  text: string;
+  rule: string;
+}
+
+/**
+ * Sous-commandes qui déclenchent une règle d'approbation (ou une suppression), sans le contexte d'affichage
+ * (`cd …`, `| tail`, redirections). Sert à identifier l'ACTION validée par l'humain : tout ce qui est à risque dans
+ * la commande est listé, pour qu'une validation ne couvre jamais une sous-commande à risque ajoutée après coup.
+ * Évaluation indépendante du contexte (autonomie, branches protégées) : une clé d'action doit rester stable.
+ */
+export function approvalTriggers(command: string, shell: ShellKind = 'bash'): Trigger[] {
+  const out: Trigger[] = [];
+  for (const statement of parseCommand(command.trim(), shell).statements) {
+    for (const unit of splitPipes(statement, shell)) {
+      if (!unit.carriesCode && isCengCli(shellWords(unit.plain))) {
+        const human = cengHumanDecision(unit);
+        if (human) out.push({ text: unit.plain, rule: human.id });
+        continue;
+      }
+      if (parseDeletion(unit.plain)) {
+        out.push({ text: unit.plain, rule: 'delete' });
+        continue;
+      }
+      const rule = matchApproval(unit);
+      if (rule) out.push({ text: unit.plain, rule: rule.id });
+      else if (/\bgit\s+push\b/.test(unit.live)) out.push({ text: unit.plain, rule: 'git-push' });
+    }
+  }
+  return out;
+}
+
+/** Règles dont l'autorisation ne vaut jamais pour une seconde exécution (destruction, réécriture, décision de sécurité). */
+const SINGLE_USE_RULES = new Set(['delete', 'delete-outside', 'config-stage', 'git-discard', 'git-force-push', 'git-history-rewrite', 'gh-destructive', 'secrets-allow', 'secrets-mgmt', 'config-apply', 'kill-all']);
+/** Mots qui signalent une opération destructive de données ou d'infrastructure, quelle que soit la règle qui l'a déclenchée. */
+const DESTRUCTIVE_WORDS = /\b(drop|truncate|delete|destroy|uninstall|reset|flush|downgrade|purge|rollback|undo|wipe)\b|--force-reset/i;
+
+/**
+ * L'autorisation de cette commande est-elle à usage unique ? Oui pour une opération destructive (DROP/TRUNCATE/DELETE,
+ * reset, suppression, réécriture d'historique…) ; non pour un déploiement ou une migration, qu'on doit pouvoir relancer
+ * après une erreur pendant la durée de l'autorisation.
+ */
+export function isSingleUseCommand(command: string, shell: ShellKind = 'bash'): boolean {
+  const triggers = approvalTriggers(command, shell);
+  if (triggers.length) return triggers.some((t) => SINGLE_USE_RULES.has(t.rule) || DESTRUCTIVE_WORDS.test(t.text));
+  // Aucune règle ne s'applique (autorisation demandée par la boîte native) : même prudence sur le texte lui-même.
+  return parseCommand(command.trim(), shell).statements.some((s) => splitPipes(s, shell).some((u) => parseDeletion(u.plain) !== null || DESTRUCTIVE_WORDS.test(u.live)));
 }
 
 // ---------------------------------------------------------------- Fichiers
@@ -191,13 +306,15 @@ const GOVERNANCE_FILES = [
 const CI_FILES = ['.github/workflows/**', '.gitlab-ci.yml', '.circleci/**', 'azure-pipelines.yml', 'Jenkinsfile', 'bitbucket-pipelines.yml'];
 const INFRA_FILES = ['**/*.tf', '**/*.tfvars', 'k8s/**', 'kubernetes/**', 'helm/**', '**/Chart.yaml'];
 
-export function classifyFileWrite(path: string, autonomy: Autonomy, allowedSecrets: readonly string[] = []): Verdict {
+export function classifyFileWrite(path: string, autonomy: Autonomy, allowedSecrets: readonly string[] = [], stage: Stage = 'production'): Verdict {
+  /** Stade prototype : fichiers de garde-fous, CI et infra se modifient sans validation (journalisé). */
+  const freeInPrototype = (rule: string): Verdict => ({ class: 'autonomous', reason: 'Stade prototype : modification libre.', rule: 'prototype', freed: [rule] });
   const p = normalizePath(path);
   if (matchesAny(p, GIT_INTERNALS)) return { class: 'forbidden', reason: 'Modification directe des internes git.', rule: 'git-internals' };
   if (isSecretPath(p, allowedSecrets)) return { class: 'forbidden', reason: 'Fichier de secrets : jamais écrit par un agent.', rule: 'secret-file' };
-  if (matchesAny(p, GOVERNANCE_FILES)) return { class: 'approval', reason: 'Fichier de gouvernance/garde-fous ou de licence : validation humaine.', rule: 'governance-file' };
-  if (matchesAny(p, CI_FILES) && autonomy !== 'high') return { class: 'approval', reason: 'Pipeline CI/CD : impact sur la chaîne de livraison.', rule: 'ci-file' };
-  if (matchesAny(p, INFRA_FILES) && autonomy !== 'high') return { class: 'approval', reason: 'Définition d\'infrastructure.', rule: 'infra-file' };
+  if (matchesAny(p, GOVERNANCE_FILES)) return stage === 'prototype' ? freeInPrototype('governance-file') : { class: 'approval', reason: 'Fichier de gouvernance/garde-fous ou de licence : validation humaine.', rule: 'governance-file' };
+  if (matchesAny(p, CI_FILES) && autonomy !== 'high') return stage === 'prototype' ? freeInPrototype('ci-file') : { class: 'approval', reason: 'Pipeline CI/CD : impact sur la chaîne de livraison.', rule: 'ci-file' };
+  if (matchesAny(p, INFRA_FILES) && autonomy !== 'high') return stage === 'prototype' ? freeInPrototype('infra-file') : { class: 'approval', reason: 'Définition d\'infrastructure.', rule: 'infra-file' };
   return { class: 'autonomous', reason: 'Fichier de travail ordinaire.' };
 }
 

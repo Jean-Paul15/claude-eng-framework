@@ -43,7 +43,6 @@ export function createCheckpoint(store: BrainStore, input: CheckpointInput): Che
   store.updateState((s) => {
     s.lastCheckpoint = cp;
     s.editsSinceCheckpoint = 0;
-    delete s.stopReminderAt;
   });
   store.log({ type: 'checkpoint', ...(taskId ? { taskId } : {}), data: { id, auto: cp.auto, snapshot: Boolean(snapshot), next: cp.next } });
   return cp;

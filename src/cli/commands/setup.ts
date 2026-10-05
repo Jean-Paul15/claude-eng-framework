@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DEFAULT_PREFERENCES } from '../../domain/policy.js';
-import type { Preferences } from '../../domain/types.js';
+import type { Preferences, Stage } from '../../domain/types.js';
 import { discover } from '../../discovery/index.js';
 import type { ProjectProfile } from '../../discovery/profile.js';
 import { install, locateFramework, type InstallReport, type Manifest } from '../../generation/install.js';
@@ -114,7 +114,7 @@ function summarizeActions(report: InstallReport): string[] {
 }
 
 export async function initCommand(argv: string[], mode: 'init' | 'upgrade' = 'init'): Promise<void> {
-  const p = parse(argv, { yes: { type: 'boolean', short: 'y' }, 'dry-run': { type: 'boolean' }, goal: { type: 'string' }, dir: { type: 'string' }, 'code-graph': { type: 'string' }, 'install-graphify': { type: 'boolean' }, presence: { type: 'string' }, ...PREF_FLAGS });
+  const p = parse(argv, { yes: { type: 'boolean', short: 'y' }, 'dry-run': { type: 'boolean' }, goal: { type: 'string' }, dir: { type: 'string' }, 'code-graph': { type: 'string' }, 'install-graphify': { type: 'boolean' }, presence: { type: 'string' }, stage: { type: 'string' }, ...PREF_FLAGS });
   if (bool(p, 'help')) {
     process.stdout.write(`ceng ${mode} [--dir <projet>] [--yes] [--dry-run] [--goal "…"] [--risk …] [--autonomy …] [--budget …] [--parallelism …] …\n`);
     return;
@@ -161,7 +161,9 @@ export async function initCommand(argv: string[], mode: 'init' | 'upgrade' = 'in
   const goal = str(p, 'goal');
   const presenceRaw = str(p, 'presence');
   if (presenceRaw !== undefined && !['on', 'off'].includes(presenceRaw)) throw new UsageError('--presence : on|off');
-  const report = install({ projectRoot: root, preferences: prefs, ...(goal ? { goal } : {}), dryRun: bool(p, 'dry-run'), profile, ...(codeGraph !== undefined ? { codeGraph } : {}), ...(presenceRaw !== undefined ? { presence: presenceRaw === 'on' } : {}) });
+  const stageRaw = str(p, 'stage');
+  if (stageRaw !== undefined && !['prototype', 'production'].includes(stageRaw)) throw new UsageError('--stage : prototype|production');
+  const report = install({ projectRoot: root, preferences: prefs, ...(goal ? { goal } : {}), dryRun: bool(p, 'dry-run'), profile, ...(codeGraph !== undefined ? { codeGraph } : {}), ...(presenceRaw !== undefined ? { presence: presenceRaw === 'on' } : {}), ...(stageRaw !== undefined ? { stage: stageRaw as Stage } : {}) });
   const graphNotes = setupGraphAtInit(root, { enabled: report.config.codeGraph?.enabled ?? false, install: installGraph, dryRun: bool(p, 'dry-run') });
   const next = bool(p, 'dry-run') ? '' : `\n\nÉtape suivante : \`ceng run\` (ou ouvrir Claude Code dans ce dossier et taper /ceng-orchestrate).`;
   const graphText = graphNotes.length ? `\n\nGraphe de code :\n${graphNotes.map((n) => `  • ${n}`).join('\n')}` : '';

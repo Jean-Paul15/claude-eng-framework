@@ -17,9 +17,25 @@ qui peut expirer, et non par une boîte de permission qui figerait la session.
 2. Le hook `PostToolUse` (synchrone) lit l'option **réellement choisie** : « Approuver R-xxxx » crée une autorisation
    valable 30 min, « Refuser R-xxxx » bloque l'action (elle n'est pas redemandée avant un nouveau message de l'humain).
    Les options reformulées sont tolérées tant que l'identifiant y figure ; un refus l'emporte sur toute ambiguïté.
-3. L'autorisation est consommée **exactement une fois**, par la commande (ou le fichier) identique : une autre action
-   ne profite jamais d'une approbation. Une règle `ask` native qui s'ajouterait au hook pour la même exécution est
-   couverte par un relais de 2 minutes, sans seconde autorisation.
+3. L'autorisation vaut 30 min pour la **même action** : la clé d'action ignore l'habillage de la commande (`2>&1`,
+   `| tail`/`head`/`grep`, `cd dossier &&`, espaces) et, pour une commande composée, se compose des seules
+   sous-commandes à risque (ordre indifférent ; en ajouter une change la clé). On peut donc relancer après une erreur
+   sans redemander. Une autre action ne profite jamais d'une approbation. Exceptions à **usage unique** (consommée par
+   la commande identique, avec un relais de 2 minutes pour une règle `ask` native de la même exécution) : opérations
+   destructives (DROP/TRUNCATE/DELETE, reset, suppression, push forcé, réécriture d'historique, destroy) et fichiers de
+   garde-fous (`.ceng/config.json`, `.claude/settings*`, runtime, licence…).
+
+**Stade du projet.** `.ceng/config.json` → `stage` : `production` (défaut) ou `prototype`. En `prototype` — aucun utilisateur réel,
+une erreur ne coûte rien — les actions récupérables passent sans validation : migrations et reset de base, déploiements,
+push (forcé compris), historique local (`reset --hard`, rebase), suppressions dans le dépôt et modifications des fichiers de
+garde-fous (settings, config, runtime, licence, CI, infra-as-code). Chacune est journalisée (`guard.verdict`, règle
+`prototype`) ; un instantané git est pris avant une suppression, un reset ou une réécriture d'historique
+(`ceng rollback <CP> --apply`). Restent soumis à l'humain : lecture/exposition de secrets (interdite), suppression hors du
+dépôt (ou cible non résolue : `~`, variable), push forcé sur une branche protégée ou par défaut d'un dépôt qui a un remote
+(destination inconnue : dans le doute, validation), publication de paquets, infrastructure, actions GitHub irréversibles,
+processus, `sudo` — et le changement de stade (`ceng config stage …`, dans les deux sens). Les règles interdites
+(`rm -rf /`, `curl | sh`, dump de l'environnement, désactivation des hooks) le restent. Le stade se règle à l'init
+(`--stage prototype`) ou par `ceng config stage prototype` ; un projet sans réglage est en production.
 
 Claude ne peut pas s'auto-approuver : seule la réponse réelle de l'humain crée une autorisation. Si l'invite expire sans réponse, la session bascule en mode sans humain : refus consignés dans
 `pending-approvals.md`, aucune attente.
