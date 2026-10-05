@@ -54,8 +54,15 @@ affiche une version détaillée.
 Boucle de relances de `claude -p` avec `--permission-mode auto` et `--permission-prompts none`, ainsi que
 `CENG_UNATTENDED=1` pour les hooks :
 - les actions à approbation (et les questions) sont refusées et consignées dans `pending-approvals.md` : rien n'attend ;
-- le hook `Stop` relance l'orchestrateur tant qu'il reste des tâches faisables. Il s'arrête après 3 relances sans
-  progression ou après 300 relances ;
+- le hook `Stop` relance l'orchestrateur tant qu'il reste des tâches faisables **et non déléguées**. Une tâche en cours
+  est déléguée quand un sous-agent la travaille (état `runningAgents`, ou `agent.spawn` récent du journal sans
+  `agent.stop` correspondant, expiration 60 min) ; un sous-agent démarré sans tâche rattachée couvre une tâche en
+  cours. Pas de relance quand tout est délégué ou que `maxParallel` est atteint : la fin d'un sous-agent réveille
+  l'orchestrateur. Les écritures de fichiers et les instantanés automatiques ne comptent pas comme progression ;
+  l'arrêt a lieu après 3 relances sans progression (changement d'état d'une tâche, rapport, checkpoint volontaire) ou
+  après 300 relances ;
+- un message de l'humain pendant la session (hors message de lancement) le rend présent pendant 15 min : les validations
+  lui sont alors posées via l'invite au lieu d'être consignées ;
 - entre deux lancements : attente après une limite d'usage ou une surcharge, arrêt après 2 lancements sans
   progression, limites en heures, en relances et en budget ;
 - au retour de l'humain, le brief signale les validations en attente et l'orchestrateur les présente via l'outil de

@@ -42,7 +42,7 @@ export function frameworkHooks(): Record<string, HookGroup[]> {
     PostToolUse: [
       { matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [hook('file-edited', { async: true, timeout: 10 })] },
       { matcher: 'Skill', hooks: [hook('skill-used', { timeout: 10 })] },
-      { matcher: 'AskUserQuestion', hooks: [hook('question-answered', { async: true, timeout: 10 })] },
+      { matcher: 'AskUserQuestion', hooks: [hook('question-answered', { timeout: 10 })] },
     ],
     SubagentStart: [{ hooks: [hook('subagent-start', { timeout: 10 })] }],
     SubagentStop: [{ hooks: [hook('subagent-stop'), hook('graph-refresh', { async: true, timeout: 15 })] }],

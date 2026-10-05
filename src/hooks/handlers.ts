@@ -2,7 +2,10 @@ import * as path from 'node:path';
 import { classifyCommand, classifyFileRead, classifyFileWrite, parseDeletion, splitCommand } from '../domain/guardrails.js';
 import { autoApproveDeletion } from '../app/deletion.js';
 import { deferredReason, isUnattended, recordPendingApproval, shouldKeepWorking } from '../app/unattended.js';
-import { actionKey, applyAnswers, askViaInvite, consumeGrant, isHumanAway, markAutopilot, markHumanActive, markHumanAway, openRequest, presenceEnabled } from '../app/presence.js';
+import { isHumanAway, markAutopilot, markHumanActive, markHumanAnswered, markHumanAway, presenceEnabled } from '../app/presence.js';
+import { actionKey, answerFeedback, applyAnswers, askViaInvite, clearRefusals, consumeGrant, consumeHandoff, findRefusal, openRequest, refusedMessage } from '../app/approvals.js';
+import { isTimeout } from '../domain/answers.js';
+import { removeOrphanTemps } from '../infra/fs.js';
 import { matchesAny, normalizePath } from '../domain/globs.js';
 import { resumeBrief } from '../brain/brief.js';
 import type { BrainStore } from '../brain/store.js';
@@ -45,8 +48,9 @@ const SPAWN_MATCH_WINDOW_MS = 10 * 60_000;
 /**
  * Demande d'approbation humaine, toujours par l'invite de questions (qui peut expirer) :
  *  - autorisation déjà donnée par l'humain pour cette action exacte -> autorisée (usage unique) ;
+ *  - action refusée par l'humain -> bloquée sans reposer la question (jusqu'à son prochain message) ;
  *  - humain absent (invite expirée, mode nuit) -> refus propre, consigné pour son retour ; Claude continue ;
- *  - sinon -> refus avec la consigne de poser la question via AskUserQuestion (identifiant R-xxxx).
+ *  - sinon -> refus avec la consigne de poser la question via AskUserQuestion (identifiant unique R-xxxx).
  * Bascule désactivable (`presence.enabled: false`) : on retombe alors sur la boîte de permission native.
  */
 function askHuman(store: BrainStore, input: HookInput, what: string, reason: string): HookOutput {
@@ -54,8 +58,10 @@ function askHuman(store: BrainStore, input: HookInput, what: string, reason: str
   const grant = consumeGrant(store, key);
   if (grant) {
     store.log({ type: 'guard.verdict', ...ids(input), data: { class: 'approved-by-human', request: grant.requestId } });
-    return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `[ceng] Approuvé par l'humain (${grant.requestId}).` } } };
+    return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `[ceng] Approuvé par l'humain (${grant.requestId}), autorisation consommée.` } } };
   }
+  const refusal = findRefusal(store, key);
+  if (refusal) return preToolDecision('deny', refusedMessage(refusal));
   if (isHumanAway(store)) {
     recordPendingApproval(store, what, reason);
     return preToolDecision('deny', deferredReason(reason));
@@ -82,7 +88,13 @@ export function sessionStart(store: BrainStore, input: HookInput): HookOutput {
     s.sessions += 1;
     s.lastSessionAt = new Date().toISOString();
     s.pendingSpawns = [];
+    // Nouveau processus : les sous-agents d'une session précédente n'existent plus (reprise/compaction : ils peuvent continuer).
+    if (source === 'startup') {
+      s.runningAgents = {};
+      s.agentStartedAt = {};
+    }
   });
+  removeOrphanTemps(store.paths.brain);
   store.log({ type: 'session.start', ...(input.session_id ? { sessionId: input.session_id } : {}), data: { source } });
   const brief = [resumeBrief(store, source), ...machineWarnings(store)].join('\n');
   return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: brief } } };
@@ -106,7 +118,8 @@ export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
   if (!command) return OK;
   const config = store.config();
   const protectedBranches = store.profile()?.git.protectedBranches ?? ['main', 'master'];
-  const verdict = classifyCommand(command, { autonomy: config.policy.autonomy, protectedBranches, allowedSecrets: config.secrets?.allow ?? [] });
+  const shell = input.tool_name === 'PowerShell' ? 'powershell' : 'bash';
+  const verdict = classifyCommand(command, { autonomy: config.policy.autonomy, protectedBranches, allowedSecrets: config.secrets?.allow ?? [], shell });
   if (verdict.class === 'autonomous') return OK;
   // Suppression de fichiers : pas de frein si elle peut être rendue récupérable (instantané pris juste avant).
   if (verdict.rule === 'delete' && verdict.deletion) {
@@ -115,7 +128,7 @@ export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
       store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'autonomous', rule: 'delete-with-snapshot', checkpoint: check.checkpointId } });
       const note = `[ceng] Suppression autorisée : instantané ${check.checkpointId} pris avant (annulable : \`${CLI_INVOCATION} rollback ${check.checkpointId} --apply\`).`;
       // « allow » seulement si la commande n'est QUE des suppressions ; sinon les permissions normales s'appliquent au reste.
-      const onlyDeletions = splitCommand(command).every((s) => parseDeletion(s) !== null);
+      const onlyDeletions = splitCommand(command, shell).every((s) => parseDeletion(s) !== null);
       return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', ...(onlyDeletions ? { permissionDecision: 'allow', permissionDecisionReason: note } : {}), additionalContext: note } } };
     }
     store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'approval', rule: 'delete', why: check.reason } });
@@ -192,6 +205,7 @@ export function agentSpawn(store: BrainStore, input: HookInput): HookOutput {
 
 export function subagentStart(store: BrainStore, input: HookInput): HookOutput {
   if (!input.agent_id) return OK;
+  const agentId = input.agent_id;
   let taskId: string | undefined;
   store.updateState((s) => {
     const pending = s.pendingSpawns ?? [];
@@ -200,9 +214,11 @@ export function subagentStart(store: BrainStore, input: HookInput): HookOutput {
       taskId = pending[i]!.taskId;
       pending.splice(i, 1);
       s.pendingSpawns = pending;
-      s.agentTasks = { ...(s.agentTasks ?? {}), [input.agent_id!]: taskId };
-      s.runningAgents = { ...(s.runningAgents ?? {}), [input.agent_id!]: taskId };
+      s.agentTasks = { ...(s.agentTasks ?? {}), [agentId]: taskId };
     }
+    // Toujours consigné, même sans tâche rattachée (valeur vide) : l'agent travaille, l'orchestrateur n'a pas à tourner en rond.
+    s.runningAgents = { ...(s.runningAgents ?? {}), [agentId]: taskId ?? '' };
+    s.agentStartedAt = { ...(s.agentStartedAt ?? {}), [agentId]: new Date().toISOString() };
   });
   store.log({ type: 'agent.spawn', ...ids(input), ...(taskId ? { taskId } : {}), data: { phase: 'started' } });
   return OK;
@@ -235,11 +251,14 @@ export function subagentStop(store: BrainStore, input: HookInput): HookOutput {
   const message = String(input.last_assistant_message ?? '');
   const hasReport = message.includes(REPORT_MARKER);
   store.log({ type: 'agent.stop', ...ids(input), ...(taskId ? { taskId } : {}), data: { hasReport } });
-  if (input.agent_id && store.state().runningAgents?.[input.agent_id]) {
+  if (input.agent_id && input.agent_id in (store.state().runningAgents ?? {})) {
     store.updateState((s) => {
       const running = { ...(s.runningAgents ?? {}) };
+      const started = { ...(s.agentStartedAt ?? {}) };
       delete running[input.agent_id!];
+      delete started[input.agent_id!];
       s.runningAgents = running;
+      s.agentStartedAt = started;
     });
   }
   if (!agentType.startsWith('ceng-') || hasReport || input.stop_hook_active) return OK;
@@ -336,7 +355,7 @@ export function graphRefresh(store: BrainStore, input: HookInput): HookOutput {
 
 /** UserPromptSubmit : l'humain est là (base de la détection d'absence) ; /ceng-orchestrate active le pilote automatique. */
 export function userPrompt(store: BrainStore, input: HookInput): HookOutput {
-  markHumanActive(store, String(input['prompt'] ?? ''), input.session_id);
+  if (markHumanActive(store, String(input['prompt'] ?? ''), input.session_id)) clearRefusals(store);
   return OK;
 }
 
@@ -354,7 +373,9 @@ export function permissionRequest(store: BrainStore, input: HookInput): HookOutp
     exitCode: 0,
     json: { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior, ...(message ? { message } : {}) } } },
   });
-  if (consumeGrant(store, key)) return decide('allow');
+  if (consumeGrant(store, key, false) || consumeHandoff(store, key)) return decide('allow');
+  const refusal = findRefusal(store, key);
+  if (refusal) return decide('deny', refusedMessage(refusal));
   const what = `${input.tool_name ?? 'outil'} ${String(ti['command'] ?? ti['file_path'] ?? ti['url'] ?? '').slice(0, 160)}`.trim();
   if (isHumanAway(store)) {
     const reason = "Permission requise alors que l'humain est absent";
@@ -400,15 +421,28 @@ export function askQuestion(store: BrainStore, input: HookInput): HookOutput {
 }
 
 /**
- * PostToolUse sur AskUserQuestion : lit la réponse RÉELLE de l'humain (« Approuver R-xxxx » -> autorisation à usage
- * unique) ; une invite fermée par expiration (askUserQuestionTimeout) signale son absence.
+ * PostToolUse sur AskUserQuestion : lit la réponse RÉELLE de l'humain (l'option choisie porte « R-xxxx » :
+ * « Approuver » -> autorisation à usage unique, « Refuser » -> refus) et dit à Claude quoi faire ensuite.
+ * Une vraie réponse prouve la présence de l'humain ; une invite fermée par expiration signale son absence.
+ * Hook synchrone : l'autorisation doit exister avant que Claude relance l'action.
  */
 export function questionAnswered(store: BrainStore, input: HookInput): HookOutput {
-  const response = JSON.stringify(input['tool_response'] ?? '');
-  const { approved, refused } = applyAnswers(store, response);
-  if (approved.length || refused.length) store.log({ type: 'guard.verdict', ...ids(input), data: { class: 'human-answer', approved, refused } });
-  if (/away from (the |your )?keyboard|may be away|timed? ?out|auto-continue/i.test(response)) markHumanAway(store);
-  return OK;
+  const response = input['tool_response'];
+  if (isTimeout(response)) {
+    markHumanAway(store);
+    return OK;
+  }
+  const outcome = applyAnswers(store, response);
+  if (outcome.verdicts.length) {
+    store.log({
+      type: 'guard.verdict',
+      ...ids(input),
+      data: { class: 'human-answer', approved: outcome.approved.map((r) => r.id), refused: outcome.refused.map((r) => r.id), unknown: outcome.unknown, unclear: outcome.unclear, answers: outcome.verdicts.map((v) => v.answer) },
+    });
+  }
+  markHumanAnswered(store);
+  const feedback = answerFeedback(outcome);
+  return feedback ? { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: feedback } } } : OK;
 }
 
 export function sessionEnd(store: BrainStore, input: HookInput): HookOutput {

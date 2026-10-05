@@ -16,14 +16,14 @@ l'utilisateur sont conservés.
 | `PostToolUse` Skill (async) | `skill-used` | mesure l'usage des skills (pour l'adaptation) |
 | `SubagentStop` | `subagent-stop` | si un agent `ceng-*` termine sans bloc `CENG_REPORT` : `block` une seule fois (`stop_hook_active` évite les boucles) |
 | `PreCompact` | `pre-compact` | checkpoint automatique (récit + instantané git) |
-| `Stop` | `stop` | tâche en cours + modifications non checkpointées → rappel unique (anti-boucle) |
+| `Stop` | `stop` | tâche en cours + modifications non checkpointées → rappel unique (anti-boucle) ; mode sans humain / pilote automatique : relance l'orchestrateur tant qu'il reste du travail non délégué (voir `docs/state-and-recovery.md`) |
 | `StopFailure` | `stop-failure` | enregistre l'interruption (`rate_limit`, `overloaded`…) pour la reprise |
 | `TaskCompleted` | `task-completed` | Agent Teams : refuse (exit 2) la complétion d'une tâche `T-xxxx` dont les gates requises manquent |
 | `SessionEnd` | `session-end` | journalise la fin |
 | `UserPromptSubmit` | `user-prompt` | l'humain est présent (annule la bascule) ; `/ceng-orchestrate` active la continuation automatique de la session |
-| `PermissionRequest` | `permission-request` | remplace les boîtes de permission natives (qui n'expirent jamais) par une validation via l'invite ; autorisation à usage unique ; humain absent → refus consigné |
+| `PermissionRequest` | `permission-request` | remplace les boîtes de permission natives (qui n'expirent jamais) par une validation via l'invite ; reprend l'autorisation déjà consommée par `guard-command` pour la même exécution (règles `ask` natives) ; humain absent → refus consigné |
 | `PreToolUse` AskUserQuestion | `ask-question` | humain absent → question mise en file, recommandation appliquée comme décision provisoire |
-| `PostToolUse` AskUserQuestion (async) | `question-answered` | lit la réponse réelle (« Approuver R-xxxx » → autorisation) ; invite expirée → bascule en mode sans humain |
+| `PostToolUse` AskUserQuestion (synchrone) | `question-answered` | lit l'option RÉELLEMENT choisie (l'identifiant R-xxxx doit y figurer ; la formulation de la question est libre) : approbation → autorisation à usage unique, refus → action bloquée ; dit à Claude quoi faire ensuite ; une réponse prouve la présence, une invite expirée signale l'absence |
 | `SessionStart`, `Stop`, `SubagentStop` (async) | `graph-refresh` | graphe de code graphify : construit s'il manque, mis à jour en arrière-plan si des fichiers ont changé (début de session, fin de tour, fin d'agent) — mode code, sans coût IA, verrou anti-chevauchement |
 
 Tester un hook à la main :

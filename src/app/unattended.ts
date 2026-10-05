@@ -3,6 +3,7 @@ import { readyTasks } from '../domain/taskgraph.js';
 import { appendLine, exists, readText } from '../infra/fs.js';
 import type { BrainStore } from '../brain/store.js';
 import { CLI_INVOCATION } from '../brain/paths.js';
+import { currentDelegation } from './delegation.js';
 
 /**
  * Mode sans humain (« mode nuit ») : rien n'attend jamais une réponse humaine.
@@ -41,11 +42,15 @@ export function deferredReason(reason: string): string {
     `Ne pas réessayer ni contourner : continuer autrement si c'est possible, sinon \`${CLI_INVOCATION} task block <id> --reason "attend validation humaine"\` puis passer aux tâches indépendantes.`;
 }
 
-/** Signature de progression : change dès qu'une tâche change d'état ou qu'un checkpoint est pris. */
+/**
+ * Signature de progression : change quand une tâche change d'état, qu'un rapport de sous-agent arrive ou qu'un checkpoint
+ * VOLONTAIRE est pris. Les simples écritures de fichiers des sous-agents et les instantanés automatiques (avant
+ * suppression, avant compaction) ne comptent pas : ils se produisent aussi quand l'orchestrateur tourne en rond.
+ */
 function progressSignature(store: BrainStore): string {
-  const tasks = store.tasks();
-  const byStatus = tasks.map((t) => `${t.id}:${t.status}:${t.attempts.length}`).join('|');
-  return `${byStatus}#${store.state().lastCheckpoint?.id ?? ''}`;
+  const byStatus = store.tasks().map((t) => `${t.id}:${t.status}:${t.attempts.length}`).join('|');
+  const lastDeliberate = store.checkpoints().filter((c) => !c.auto).pop();
+  return `${byStatus}#${lastDeliberate?.id ?? ''}#${store.listDir(store.paths.reports).length}`;
 }
 
 export interface ContinueDecision {
@@ -61,15 +66,19 @@ export function shouldKeepWorking(store: BrainStore): ContinueDecision {
   if (ready.length === 0 && inProgress.length === 0) {
     return { continue: false, reason: tasks.length === 0 ? 'aucune tâche' : 'plus aucune tâche faisable (terminées ou bloquées)' };
   }
-  const state = store.state();
-  // Tout ce qui est faisable est déjà confié à des sous-agents en cours : la fin de l'un d'eux réveillera
-  // l'orchestrateur. Le relancer maintenant ne ferait que consommer des tokens à attendre.
-  const delegated = new Set(Object.values(state.runningAgents ?? {}));
-  const allDelegated = inProgress.length > 0 && inProgress.every((t) => delegated.has(t.id));
-  const atCapacity = delegated.size >= Math.max(1, store.config().policy.maxParallel);
-  if (allDelegated && (ready.length === 0 || atCapacity)) {
-    return { continue: false, reason: 'travail en cours chez des sous-agents ; leur fin relancera l\'orchestrateur' };
+  // Tout ce qui est faisable est déjà confié à des sous-agents en cours (ou la limite de parallélisme est atteinte) :
+  // la fin de l'un d'eux réveillera l'orchestrateur. Le relancer maintenant ne ferait que consommer des tokens à attendre.
+  const delegation = currentDelegation(store, inProgress);
+  const undelegated = inProgress.filter((t) => !delegation.tasks.has(t.id));
+  const covered = undelegated.length <= delegation.unattached;
+  const limit = Math.max(1, store.config().policy.maxParallel);
+  if (delegation.running >= limit) {
+    return { continue: false, reason: `limite de parallélisme atteinte (${delegation.running}/${limit} sous-agents) ; la fin de l'un d'eux relancera l'orchestrateur` };
   }
+  if (inProgress.length > 0 && covered && ready.length === 0) {
+    return { continue: false, reason: 'tout le travail faisable est chez des sous-agents en cours ; leur fin relancera l\'orchestrateur' };
+  }
+  const state = store.state();
   const u = state.unattended ?? { continues: 0, lastSignature: '', stalls: 0 };
   const signature = progressSignature(store);
   const stalls = signature === u.lastSignature ? u.stalls + 1 : 0;
@@ -78,6 +87,6 @@ export function shouldKeepWorking(store: BrainStore): ContinueDecision {
   store.updateState((s) => {
     s.unattended = { continues: u.continues + 1, lastSignature: signature, stalls };
   });
-  const next = inProgress[0] ?? ready[0]!;
+  const next = undelegated[0] ?? ready[0] ?? inProgress[0]!;
   return { continue: true, reason: `il reste du travail faisable (prochaine : ${next.id} ${next.title})` };
 }

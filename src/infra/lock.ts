@@ -1,14 +1,11 @@
 import * as fs from 'node:fs';
+import { sleepSync } from './sleep.js';
 
 /**
  * Verrou fichier inter-processus (O_EXCL). Plusieurs subagents parallèles peuvent appeler la CLI
  * en même temps : sans verrou, deux `task done` simultanés écraseraient tasks.json.
  */
 const STALE_MS = 15_000;
-
-function sleepSync(ms: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
 
 export function withLock<T>(lockPath: string, fn: () => T, timeoutMs = 10_000): T {
   const deadline = Date.now() + timeoutMs;

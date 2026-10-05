@@ -70,6 +70,9 @@ export async function runUnattended(store: BrainStore, opts: UnattendedOptions):
   say(`démarrage — limites : ${opts.maxHours} h, ${opts.maxRuns} relances${opts.maxBudgetUsd ? `, ${opts.maxBudgetUsd} $ par relance` : ''}. Journal : ${store.paths.rel(logPath)}`);
   store.updateState((s) => {
     delete s.unattended;
+    // Un message humain antérieur ne doit pas faire croire à une présence pendant la nuit.
+    delete s.lastHumanAt;
+    delete s.humanAwaySignalAt;
   });
 
   while (run < opts.maxRuns && Date.now() < deadline) {

@@ -63,8 +63,10 @@ export interface BrainState {
   pendingSpawns?: { taskId: string; agentType: string; model?: string; at: string }[];
   /** agent_id (fourni par Claude Code aux hooks) → tâche travaillée. */
   agentTasks?: Record<string, string>;
-  /** Sous-agents démarrés et pas encore terminés : id d'agent → tâche. */
+  /** Sous-agents démarrés et pas encore terminés : id d'agent → tâche (chaîne vide : agent non rattaché à une tâche). */
   runningAgents?: Record<string, string>;
+  /** Heure de démarrage de chaque sous-agent de runningAgents (expiration d'un agent dont l'arrêt n'a jamais été signalé). */
+  agentStartedAt?: Record<string, string>;
   /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
   graphDirty?: boolean;
   /** Mode sans humain : compteur de relances et détection d'absence de progression. */
@@ -75,10 +77,16 @@ export interface BrainState {
   humanAwaySignalAt?: string;
   /** Session dans laquelle l'orchestrateur a été lancé : elle continue seule si l'humain s'absente. */
   autopilotSessionId?: string;
+  /** Dernier numéro de demande de validation attribué : les identifiants R-xxxx ne sont jamais réutilisés. */
+  approvalSeq?: number;
   /** Demandes de validation ouvertes (posées via l'invite de questions). */
   approvalRequests?: { id: string; key: string; what: string; reason: string; at: string }[];
   /** Autorisations à usage unique issues des réponses de l'humain. */
-  grants?: { requestId: string; key: string; expiresAt: string }[];
+  grants?: { requestId: string; key: string; what?: string; expiresAt: string }[];
+  /** Autorisation déjà consommée par PreToolUse, encore valable pour la boîte de permission de la MÊME exécution. */
+  handoffs?: { key: string; requestId: string; expiresAt: string }[];
+  /** Refus de l'humain : l'action refusée n'est pas redemandée tant qu'il n'a pas écrit de nouveau message. */
+  refusals?: { key: string; requestId: string; at: string }[];
 }
 
 const EMPTY_STATE: BrainState = { editsSinceCheckpoint: 0, sessions: 0 };
