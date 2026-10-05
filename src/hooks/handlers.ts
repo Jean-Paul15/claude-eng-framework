@@ -4,7 +4,7 @@ import type { ShellKind } from '../domain/shell.js';
 import { Git } from '../infra/git.js';
 import { autoApproveDeletion } from '../app/deletion.js';
 import { deferredReason, isUnattended, recordPendingApproval, shouldKeepWorking } from '../app/unattended.js';
-import { isHumanAway, markAutopilot, markHumanActive, markHumanAnswered, markHumanAway, presenceEnabled } from '../app/presence.js';
+import { PRESENCE_WINDOW_MS, isHumanAway, markAutopilot, markHumanActive, markHumanAnswered, markHumanAway, presenceEnabled } from '../app/presence.js';
 import { actionKey, answerFeedback, applyAnswers, askViaInvite, clearRefusals, consumeGrant, consumeHandoff, findRefusal, openRequest, refusedMessage, shellOf } from '../app/approvals.js';
 import { isTimeout } from '../domain/answers.js';
 import { removeOrphanTemps } from '../infra/fs.js';
@@ -365,7 +365,11 @@ export function stop(store: BrainStore, input: HookInput): HookOutput {
   const edits = autoCheckpoint(store);
   if (isUnattended()) return keepWorkingOrStop(store);
   // Session d'orchestration : le travail continue sans attendre l'humain (il peut interrompre ou écrire à tout moment).
-  if (input.session_id && store.state().autopilotSessionId === input.session_id) return keepWorkingOrStop(store);
+  // Pilote automatique : seulement quand l'humain n'a rien écrit récemment. S'il est là (message de moins de
+  // PRESENCE_WINDOW_MS), on lui rend la main au lieu de relancer la boucle.
+  const autopilot = store.state();
+  const humanRecent = Boolean(autopilot.lastHumanAt && Date.now() - Date.parse(autopilot.lastHumanAt) < PRESENCE_WINDOW_MS);
+  if (input.session_id && autopilot.autopilotSessionId === input.session_id && (!humanRecent || isHumanAway(store))) return keepWorkingOrStop(store);
   return edits > 0 ? voluntaryCheckpointReminder(store) : OK;
 }
 
