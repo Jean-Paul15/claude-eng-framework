@@ -1,3 +1,4 @@
+import { chain, dartCommands, dartUnitStep, denoUnitStep, findDartApp, findDenoFunctions, hasIntegrationTests, type Step } from './app-stacks.js';
 import { anyFile, hasAny, matching, type ScanContext } from './context.js';
 import type { Commands, ProjectProfile } from './profile.js';
 
@@ -137,21 +138,18 @@ export function detectCommands(ctx: ScanContext, packageManagers: readonly strin
     set('format', 'cargo fmt --check');
     set('deps-audit', 'cargo audit');
   }
-  if (packageManagers.includes('flutter') || packageManagers.includes('dart')) {
-    const tool = packageManagers.includes('flutter') ? 'flutter' : 'dart';
-    set('install', `${tool} pub get`);
-    set('lint', `${tool} analyze`);
-    set('typecheck', `${tool} analyze`);
-    set('unit', `${tool} test`);
-    set('format', 'dart format --output=none --set-exit-if-changed .');
-    if (ctx.files.some((f) => f.startsWith('integration_test/'))) set('e2e', 'flutter test integration_test');
+  // Dart/Flutter : application dans son dossier réel (`app/`…), outil réel. Le dossier android/ de l'app est son hôte :
+  // pas de commandes Gradle en plus (`gradle assemble` ne dit rien de l'app Flutter).
+  const dartApp = findDartApp(ctx);
+  if (dartApp) {
+    for (const [key, value] of Object.entries(dartCommands(dartApp, hasIntegrationTests(ctx, dartApp)))) set(key as keyof Commands, value);
   }
   if (packageManagers.includes('maven')) {
     set('build', 'mvn -q -DskipTests package');
     set('unit', 'mvn -q test');
     set('integration', 'mvn -q verify');
   }
-  if (packageManagers.includes('gradle')) {
+  if (packageManagers.includes('gradle') && !dartApp?.flutter) {
     const g = ctx.has('gradlew') ? './gradlew' : 'gradle';
     set('build', `${g} assemble`);
     set('unit', `${g} test`);
@@ -180,5 +178,11 @@ export function detectCommands(ctx: ScanContext, packageManagers: readonly strin
     }
   }
   if (!c.unit && anyFile(ctx, /(^|\/)test\/.*\.test\.(m?js|ts)$/) && hasAny(ctx, ['typescript']) === false && nodePm) set('unit', 'node --test');
+  // Gate `unit` : les tests de CHAQUE pile du dépôt, lancés chacun depuis son dossier (une pile qui échoue fait échouer la gate).
+  const unitSteps: Step[] = c.unit ? [{ dir: '', command: c.unit }] : [];
+  if (dartApp) unitSteps.push(dartUnitStep(dartApp));
+  const denoDir = findDenoFunctions(ctx);
+  if (denoDir) unitSteps.push(denoUnitStep(denoDir));
+  if (unitSteps.length) c.unit = chain(unitSteps);
   return c;
 }

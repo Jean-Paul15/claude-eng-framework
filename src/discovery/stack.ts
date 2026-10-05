@@ -1,3 +1,4 @@
+import { pubspecFiles } from './app-stacks.js';
 import { anyFile, hasAny, matching, type ScanContext } from './context.js';
 import type { ProjectProfile, ProjectType } from './profile.js';
 
@@ -37,7 +38,7 @@ export function detectPackageManagers(ctx: ScanContext): string[] {
   add(ctx.files.some((f) => /(^|\/)requirements[\w.-]*\.txt$/.test(f)) || (ctx.has('pyproject.toml') && !pm.some((p) => ['uv', 'poetry', 'pipenv'].includes(p))), 'pip');
   add(ctx.has('go.mod'), 'go');
   add(ctx.has('Cargo.toml'), 'cargo');
-  add(ctx.has('pubspec.yaml'), ctx.deps.has('flutter') ? 'flutter' : 'dart');
+  add(pubspecFiles(ctx).length > 0, ctx.deps.has('flutter') ? 'flutter' : 'dart');
   add(ctx.has('pom.xml'), 'maven');
   add(ctx.byName(/^build\.gradle(\.kts)?$/).length > 0, 'gradle');
   add(ctx.has('Gemfile'), 'bundler');
