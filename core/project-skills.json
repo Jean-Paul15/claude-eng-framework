@@ -46,9 +46,13 @@
       "flutter analyze sans avertissement ; dart format appliqué.",
       "Tests widget pour les composants clés ; integration_test pour les parcours critiques.",
       "Vérifié sur petit et grand écran, mode sombre, texte agrandi.",
-      "Permissions natives demandées au bon moment avec justification (Info.plist / AndroidManifest)."
+      "Permissions natives demandées au bon moment avec justification (Info.plist / AndroidManifest).",
+      "Android : une seule instance dans les apps récentes — MainActivity en launchMode singleTask (ou singleTop) avec l'affinité de tâche PAR DÉFAUT ; intents internes et PendingIntent qui réutilisent la tâche (jamais NEW_TASK + CLEAR_TASK) ; activités relais (partage, bulle, tuile) exclues des récents ; vérifier avec `adb shell dumpsys activity recents` après ouverture par icône, widget, notification, raccourci et partage.",
+      "Retour : chaque route a un parent logique (page ouverte à froid par lien, notification ou widget comprise) ; jamais d'écran noir ni de sortie involontaire ; confirmation avant de quitter depuis un écran racine, compatible avec le retour prédictif d'Android 14+."
     ],
     "pitfalls": [
+      "android:taskAffinity=\"\" sur la MainActivity : chaque ouverture depuis un widget, une notification, un raccourci ou un partage peut créer une seconde instance de l'app dans les récents.",
+      "targetPackage des raccourcis statiques (shortcuts.xml) réglé sur le namespace Kotlin au lieu de l'applicationId : les raccourcis ne s'ouvrent pas.",
       "BuildContext utilisé après un await sans vérifier mounted.",
       "Secrets ou clés d'API embarqués dans l'application (ils sont extractibles).",
       "Dépendances de packages non maintenus ou incompatibles avec la version de Flutter."
