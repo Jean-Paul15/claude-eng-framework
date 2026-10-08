@@ -196,35 +196,50 @@ export interface WalkOptions {
   ignore?: Set<string>;
 }
 
-/** Liste les fichiers (chemins relatifs POSIX) en ignorant les répertoires lourds/générés. */
+/**
+ * Chemins (relatifs POSIX) jamais parcourus : copies de travail des agents (worktrees de Claude Code), qui
+ * dupliquent tout le dépôt et rempliraient le plafond de fichiers avant le vrai code.
+ */
+export const DEFAULT_IGNORED_PATHS = new Set(['.claude/worktrees', 'graphify-out']);
+
+/**
+ * Liste les fichiers (chemins relatifs POSIX) en ignorant les répertoires lourds/générés. Parcours PAR NIVEAUX : les
+ * fichiers proches de la racine (manifestes d'une application dans `app/`, `site/`…) sont toujours vus, même quand un
+ * dossier profond atteint le plafond de fichiers.
+ */
 export function listFiles(root: string, opts: WalkOptions = {}): { files: string[]; truncated: boolean } {
   const maxFiles = opts.maxFiles ?? 20000;
   const maxDepth = opts.maxDepth ?? 8;
   const ignore = opts.ignore ?? DEFAULT_IGNORES;
   const files: string[] = [];
   let truncated = false;
-  const walk = (rel: string, depth: number) => {
-    if (truncated || depth > maxDepth) return;
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(path.join(root, rel), { withFileTypes: true });
-    } catch {
-      return;
-    }
-    entries.sort((a, b) => a.name.localeCompare(b.name));
-    for (const e of entries) {
-      if (files.length >= maxFiles) {
-        truncated = true;
-        return;
+  let level = [''];
+  for (let depth = 0; depth <= maxDepth && level.length > 0 && !truncated; depth++) {
+    const next: string[] = [];
+    for (const rel of level) {
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(path.join(root, rel), { withFileTypes: true });
+      } catch {
+        continue;
       }
-      const childRel = rel ? `${rel}/${e.name}` : e.name;
-      if (e.isDirectory()) {
-        if (!ignore.has(e.name)) walk(childRel, depth + 1);
-      } else if (e.isFile()) {
-        files.push(childRel);
+      entries.sort((a, b) => a.name.localeCompare(b.name));
+      for (const e of entries) {
+        const childRel = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) {
+          if (!ignore.has(e.name) && !DEFAULT_IGNORED_PATHS.has(childRel)) next.push(childRel);
+        } else if (e.isFile()) {
+          if (files.length >= maxFiles) {
+            truncated = true;
+            break;
+          }
+          files.push(childRel);
+        }
       }
+      if (truncated) break;
     }
-  };
-  walk('', 0);
+    level = next;
+  }
   return { files, truncated };
 }
+

@@ -35,7 +35,9 @@ export function detectPackageManagers(ctx: ScanContext): string[] {
   add(ctx.has('uv.lock'), 'uv');
   add(ctx.has('poetry.lock'), 'poetry');
   add(ctx.has('Pipfile.lock') || ctx.has('Pipfile'), 'pipenv');
-  add(ctx.files.some((f) => /(^|\/)requirements[\w.-]*\.txt$/.test(f)) || (ctx.has('pyproject.toml') && !pm.some((p) => ['uv', 'poetry', 'pipenv'].includes(p))), 'pip');
+  // Python à la RACINE seulement : un sous-dossier Python (outils, `ml/`) d'un projet d'une autre pile ne fait pas lancer
+  // `pytest` depuis la racine.
+  add(ctx.files.some((f) => /^requirements[\w.-]*\.txt$/.test(f)) || (ctx.has('pyproject.toml') && !pm.some((p) => ['uv', 'poetry', 'pipenv'].includes(p))), 'pip');
   add(ctx.has('go.mod'), 'go');
   add(ctx.has('Cargo.toml'), 'cargo');
   add(pubspecFiles(ctx).length > 0, ctx.deps.has('flutter') ? 'flutter' : 'dart');
