@@ -11,6 +11,7 @@ Périmètre : fichiers autorisés <globs> · interdits <…>
 Critères d'acceptation : <liste vérifiable>
 Stratégie de test : <route.testStrategy.flow> [types]
 Contraintes : <contrats figés, conventions, décisions ADR applicables>
+Décisions en vigueur : <chemin de VISION.md / DECISIONS.md du chantier, à lire AVANT de commencer> (si chantier)
 Livrable : code + tests + .ceng/brain/reports/T-0007.md + bloc CENG_REPORT
 ```
 Paramètres de l'outil Agent : `subagent_type` = route.implementer.agent, `model` = route.implementer.model.
@@ -42,6 +43,37 @@ coordination directe, session interactive, teams activées, budget ≠ economy.
 4. Attends la fin ; ne code pas à leur place. Puis : conflits → intégration → revue ciblée → gates. Arrête les teammates.
 Limites Claude Code : pas de reprise des teammates après `/resume` ; pas en mode non interactif. Le Brain
 (charte, rapports, tâches) permet de reprendre quand même.
+
+## Grand chantier : plusieurs agents vers une même finalité
+Pour un chantier large (refonte, audit global, nouvelle offre) où plusieurs agents travaillent longtemps vers un même
+but. Ce qu'on sait (Anthropic, *multi-agent research system* ; Cognition, *Don't build multi-agents*) : le parallèle
+paie pour CHERCHER et LIRE (chef Opus + agents Sonnet nettement meilleurs qu'un agent seul), coûte environ 15 fois plus
+de tokens qu'une conversation, et casse le code quand plusieurs agents écrivent en même temps avec des choix implicites
+différents. D'où :
+1. **Phases.** Recherche et audit en parallèle, en lecture seule ; synthèse par l'orchestrateur ; conception
+   (direction créative ou principal) ; mise en œuvre par étapes ; relecture croisée après chaque étape.
+2. **Un seul agent qui écrit à la fois** sur du code qui se touche. Deux au plus, seulement si leurs fichiers sont
+   disjoints ET les contrats figés (§ Parallélisme). Au plus 3 agents en même temps par défaut, quelle que soit la phase.
+3. **En étoile, jamais en réseau.** Les agents ne se parlent pas : tout passe par l'orchestrateur et une mémoire commune
+   du chantier, `.ceng/brain/chantiers/<nom>/` :
+   - `VISION.md` : finalité, principes, décisions validées (tenue par l'orchestrateur, lue par tout agent avant de
+     travailler) ;
+   - `DECISIONS.md` : chaque proposition et son sort (validée, adaptée, écartée) avec la raison ; les décisions
+     structurantes passent aussi en ADR (`ceng decision add`) ;
+   - `recherche/`, `audit/` : un rapport court par agent (l'orchestrateur lit les rapports, pas leurs explorations).
+4. **Circuit d'une proposition.** L'agent propose dans son rapport (ce que ça améliore, ce que ça touche ailleurs, les
+   hypothèses implicites qu'il a prises) → l'orchestrateur la confronte aux autres et à VISION.md → brief groupé à
+   l'humain (une ligne par proposition, son impact) → décision → VISION.md et DECISIONS.md mis à jour → chaque brief
+   suivant y renvoie (« Décisions en vigueur »), si bien que tous les agents travaillent sur la même base.
+5. **Validation par défaut.** Si l'humain l'a dit (sinon, demander une fois au lancement du chantier), toute
+   proposition qui sert la finalité est acceptée par défaut : le brief informe, on ne bloque que sur un vrai choix
+   (directions incompatibles, coût ou risque fort, sujet sensible, action à approbation humaine du § 6).
+6. **Un agent ne change jamais une décision validée** de lui-même : il propose, l'orchestrateur tranche.
+7. **Contexte complet, question précise.** Chaque agent reçoit le brief du chantier, VISION.md, DECISIONS.md, son
+   périmètre et un critère de réussite ; un agent qui ne peut pas poser de question doit pouvoir travailler sans.
+8. **Effectifs et modèles.** Orchestrateur et conception sur le modèle le plus fort ; recherche, audit, exécution et
+   relecture sur le modèle par défaut (Sonnet) ; exploration volumineuse sur Haiku (`ceng-scout`). Les effectifs du
+   chantier sont écrits dans VISION.md et validés par l'humain avant de lancer.
 
 ## Quand NE PAS déléguer
 Tâche triviale, contexte déjà chargé, correction d'une ligne : fais-le. Une délégation coûte un prompt

@@ -149,6 +149,6 @@ au checkpoint de la décision (peu de travail dépendant), soit tâches d'adapta
 Après une tâche importante : leçons réutilisables → `ceng learn add` (voir skill `ceng-skill-forge`).
 Périodiquement (≈ toutes les 10 tâches) : `ceng adapt` pour ajuster la stratégie sur données réelles.
 
-Références (charger seulement si besoin) : [delegation.md](delegation.md) (briefs, parallélisme, Agent Teams) ·
+Références (charger seulement si besoin) : [delegation.md](delegation.md) (briefs, parallélisme, Agent Teams, grand chantier à plusieurs agents) ·
 [bootstrap.md](bootstrap.md) (premier lancement) · [recovery.md](recovery.md) (reprise, rollback, échecs) ·
 [iteration.md](iteration.md) (cycle UNDERSTAND→DONE selon le risque).
