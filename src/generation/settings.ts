@@ -37,6 +37,7 @@ export function frameworkHooks(): Record<string, HookGroup[]> {
       { matcher: 'Bash|PowerShell', hooks: [hook('guard-command')] },
       { matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [hook('guard-file')] },
       { matcher: 'Agent|Task', hooks: [hook('agent-spawn', { timeout: 10 })] },
+      { matcher: 'mcp__.*', hooks: [hook('guard-mcp', { timeout: 10 })] },
       { matcher: 'AskUserQuestion', hooks: [hook('ask-question', { timeout: 10 })] },
     ],
     PostToolUse: [

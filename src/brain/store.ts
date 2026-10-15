@@ -24,6 +24,8 @@ export interface FrameworkConfig {
   codeGraph?: { enabled: boolean };
   /** Absent après N minutes sans message (0 = jamais de bascule automatique). */
   presence?: { enabled: boolean };
+  /** Mode équipe autonome : le framework tranche les permissions à la place d'un humain absent, selon une liste de sécurité fermée. */
+  team?: { enabled: boolean; mcpAllow?: string[]; mcpDefer?: string[] };
   /** Fichiers de secrets que l'humain autorise l'agent à lire/écrire (clés de test ou de développement). */
   secrets?: { allow: string[] };
   installedSkills: string[];

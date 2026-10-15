@@ -102,6 +102,29 @@ Désactivable avec `ceng init --presence off`, qui rétablit les boîtes de perm
 Lance le mode nuit dans un terminal plutôt que dans une session de Claude Desktop. Une session interactive s'arrête
 sur la moindre invite de permission ; le mode `--unattended` est conçu pour ne jamais en afficher.
 
+### 5. Plusieurs sessions en équipe, sans humain devant l'écran
+
+Quand plusieurs sessions Claude Code travaillent en parallèle (une copie de travail chacune), deux choses évitent que tout s'arrête
+ou que tout passe sans contrôle :
+
+```bash
+ceng team on                       # action humaine : équipe autonome
+ceng relay watch --reader coordination --interval 5   # coordination : écoute, branchée sur l'outil Monitor
+ceng relay emit --kind opus-ready --session 4 --ref docs/integration/DOSSIER_4.md   # une session signale un point d'arrêt
+```
+
+- **Équipe autonome (`ceng team on`)** : au lieu de boîtes de permission qui bloquent, le framework tranche selon une liste de
+  sécurité fermée et journalisée. Lecture, recherche, coordination entre sessions, outils locaux et commandes classées autonomes
+  passent ; ce qui agit hors de la machine (base de production, déploiement, e-mail, paiement, secrets) ou change les permissions
+  est refusé proprement et consigné dans `pending-approvals.md`, sans jamais attendre. Ce n'est pas le contournement total des
+  permissions de Claude Code : rien n'est désactivé, les garde-fous restent actifs et deviennent explicites. Activer ou couper ce
+  mode est une action humaine. `--allow` / `--defer` ajustent la liste pour un outil MCP précis.
+- **Relais (`ceng relay`)** : une session qui atteint un point d'arrêt émet un événement (dans le dépôt principal, quel que soit
+  son worktree) ; la session de coordination l'écoute avec `relay watch`, qui n'imprime qu'une ligne par événement. Branché sur Monitor,
+  chaque ligne réveille la coordination immédiatement et rien n'est lu ni payé entre deux événements. La skill `ceng-relay` décrit le
+  protocole, par exemple « prêt pour Opus » : la coordination change le modèle de la même session (elle garde son contexte) puis la
+  repasse au modèle courant.
+
 ## L'idée en 7 points
 
 1. **Un seul interlocuteur.** Tu parles à la session d'entrée, qui devient l'orchestrateur. Le modèle choisi au
@@ -217,6 +240,7 @@ init | upgrade | run | doctor | profile | uninstall
 task add|list|show|next|start|done|fail|block|unblock|cancel · route · plan · gate list|run|record · conflicts
 status · resume · checkpoint [list] · rollback · escalate [resolve] · decision add
 log · report · adapt · learn add|list|promote · skill new
+team status|on|off · relay emit|watch|events|ack
 ```
 
 `ceng help` détaille chaque commande, et toutes acceptent `--json`. Dans un projet initialisé, les agents

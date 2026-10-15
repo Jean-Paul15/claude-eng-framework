@@ -1,3 +1,4 @@
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { classifyCommand, classifyFileRead, classifyFileWrite, isSingleUseCommand, parseDeletion, splitCommand, type CommandContext } from '../domain/guardrails.js';
 import type { ShellKind } from '../domain/shell.js';
@@ -16,6 +17,8 @@ import { completionCheck } from '../app/tasks.js';
 import { CLI_INVOCATION } from '../brain/paths.js';
 import { currentDelegation } from '../app/delegation.js';
 import { graphDisabledByEnv, graphifyAvailable, refreshIfNeeded } from '../app/codegraph.js';
+import { classifyTeamTool } from '../domain/team.js';
+import { mainRoot } from '../app/relay.js';
 
 /**
  * Gestionnaires de hooks Claude Code. Chaque gestionnaire reçoit l'entrée JSON du hook et renvoie
@@ -57,6 +60,9 @@ const SPAWN_MATCH_WINDOW_MS = 10 * 60_000;
  *  - sinon -> refus avec la consigne de poser la question via AskUserQuestion (identifiant unique R-xxxx).
  * Bascule désactivable (`presence.enabled: false`) : on retombe alors sur la boîte de permission native.
  */
+/** Mode équipe autonome : le framework tranche à la place d'un humain absent. */
+const teamOn = (store: BrainStore): boolean => store.config().team?.enabled === true;
+
 function askHuman(store: BrainStore, input: HookInput, what: string, reason: string, once: boolean): HookOutput {
   const key = actionKey(String(input.tool_name ?? ''), input.tool_input);
   const grant = consumeGrant(store, key);
@@ -66,6 +72,11 @@ function askHuman(store: BrainStore, input: HookInput, what: string, reason: str
   }
   const refusal = findRefusal(store, key);
   if (refusal) return preToolDecision('deny', refusedMessage(refusal));
+  // Équipe autonome : jamais d'attente. Ce qui exige l'humain est refusé proprement et consigné pour son retour.
+  if (teamOn(store)) {
+    recordPendingApproval(store, what, reason);
+    return preToolDecision('deny', deferredReason(reason));
+  }
   if (isHumanAway(store)) {
     recordPendingApproval(store, what, reason);
     return preToolDecision('deny', deferredReason(reason));
@@ -469,8 +480,26 @@ export function userPrompt(store: BrainStore, input: HookInput): HookOutput {
  * Ces boîtes n'expirent jamais : on les remplace par l'invite de questions (qui expire), sauf si la bascule est désactivée.
  * L'invite elle-même n'est jamais interceptée : la refuser renverrait vers… l'invite (boucle infinie).
  */
+/**
+ * PreToolUse sur les outils MCP (mode équipe autonome seulement) : lecture, coordination et outils locaux passent sans boîte de permission ;
+ * tout ce qui agit hors de la machine (base, déploiement, e-mail, paiement, secrets) est refusé proprement et consigné pour l'humain.
+ */
+export function guardMcp(store: BrainStore, input: HookInput): HookOutput {
+  if (!teamOn(store)) return OK;
+  const name = String(input.tool_name ?? '');
+  const team = store.config().team;
+  const verdict = classifyTeamTool(name, { ...(team?.mcpAllow ? { mcpAllow: team.mcpAllow } : {}), ...(team?.mcpDefer ? { mcpDefer: team.mcpDefer } : {}) });
+  store.log({ type: 'guard.verdict', ...ids(input), data: { tool: name, class: verdict.decision === 'allow' ? 'autonomous' : 'deferred-to-human', rule: 'team-mode', reason: verdict.reason } });
+  if (verdict.decision === 'allow') {
+    return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `[ceng] Équipe autonome : ${verdict.reason}.` } } };
+  }
+  recordPendingApproval(store, name, verdict.reason);
+  return preToolDecision('deny', deferredReason(verdict.reason));
+}
+
 export function permissionRequest(store: BrainStore, input: HookInput): HookOutput {
   if (input.tool_name === 'AskUserQuestion') return OK;
+  if (teamOn(store)) return teamPermission(store, input);
   if (!presenceEnabled(store) && !isUnattended()) return OK;
   const ti = input.tool_input ?? {};
   const key = actionKey(String(input.tool_name ?? ''), ti);
@@ -488,6 +517,49 @@ export function permissionRequest(store: BrainStore, input: HookInput): HookOutp
     return decide('deny', deferredReason(reason));
   }
   return decide('deny', askViaInvite(openRequest(store, key, what, 'permission Claude Code', isSingleUsePermission(store, input))));
+}
+
+/** Une écriture est permise à l'équipe dans le projet courant, son dépôt principal (copies de travail) et le dossier temporaire. */
+function writableByTeam(store: BrainStore, file: string): boolean {
+  const abs = path.resolve(path.isAbsolute(file) ? file : path.join(store.paths.root, file));
+  const roots = [store.paths.root, mainRoot(store.paths.root), os.tmpdir()];
+  return roots.some((r) => {
+    const rel = path.relative(path.resolve(r), abs);
+    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+  });
+}
+
+/** Boîte de permission native en mode équipe autonome : commande classée par les garde-fous, autre outil par la liste de sécurité. */
+function teamPermission(store: BrainStore, input: HookInput): HookOutput {
+  const decide = (behavior: 'allow' | 'deny', message?: string): HookOutput => ({
+    exitCode: 0,
+    json: { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior, ...(message ? { message } : {}) } } },
+  });
+  const ti = input.tool_input ?? {};
+  const toolName = String(input.tool_name ?? '');
+  const command = typeof ti['command'] === 'string' ? ti['command'] : '';
+  if (command && /^(Bash|PowerShell)$/.test(toolName)) {
+    const verdict = classifyCommand(command, commandContext(store, input, command, shellOf(toolName)));
+    if (verdict.class === 'autonomous') return decide('allow');
+    if (verdict.class === 'forbidden') return decide('deny', `[ceng] Action interdite (${verdict.rule}) : ${verdict.reason}`);
+    recordPendingApproval(store, `${toolName} ${command.slice(0, 160)}`, verdict.reason);
+    return decide('deny', deferredReason(verdict.reason));
+  }
+  // Écriture hors du projet (et de son dépôt principal, dossier temporaire compris) : jamais décidée à la place de l'humain.
+  if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(toolName)) {
+    const file = String(ti['file_path'] ?? ti['notebook_path'] ?? '');
+    if (file && !writableByTeam(store, file)) {
+      const reason = `Écriture hors du projet (${file.slice(0, 120)}) : validation humaine`;
+      recordPendingApproval(store, `${toolName} ${file.slice(0, 160)}`, reason);
+      return decide('deny', deferredReason(reason));
+    }
+  }
+  const team = store.config().team;
+  const verdict = classifyTeamTool(toolName, { ...(team?.mcpAllow ? { mcpAllow: team.mcpAllow } : {}), ...(team?.mcpDefer ? { mcpDefer: team.mcpDefer } : {}) });
+  if (verdict.decision === 'allow') return decide('allow');
+  const what = `${toolName} ${String(ti['file_path'] ?? ti['url'] ?? '').slice(0, 160)}`.trim();
+  recordPendingApproval(store, what, verdict.reason);
+  return decide('deny', deferredReason(verdict.reason));
 }
 
 /** Une autorisation de boîte native est à usage unique pour une opération destructive ou un fichier de gouvernance. */
@@ -591,6 +663,7 @@ export const HANDLERS: Record<string, (store: BrainStore, input: HookInput) => H
   'guard-read': guardRead,
   'user-prompt': userPrompt,
   'permission-request': permissionRequest,
+  'guard-mcp': guardMcp,
   'question-answered': questionAnswered,
   'ask-question': askQuestion,
 };

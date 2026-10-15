@@ -10,6 +10,7 @@ import { runHook } from './hooks/run.js';
 import { graphCommand } from './cli/commands/graph.js';
 import { secretsCommand } from './cli/commands/secrets.js';
 import { configCommand } from './cli/commands/config.js';
+import { relayCommand, teamCommand } from './cli/commands/team.js';
 
 const HELP = `ceng — framework d'ingénierie autonome pour Claude Code
 
@@ -38,6 +39,13 @@ Observabilité & amélioration
 Commandes de gates
   config detect [--apply]    Commandes recommandées pour la vraie pile du projet ; --apply les écrit dans .ceng/config.json (validation humaine)
   config stage [prototype|production]   Stade du projet : prototype = sans validation pour ce qui est récupérable (changement : validation humaine)
+
+Équipe de sessions (plusieurs agents en parallèle)
+  team status|on|off [--allow mcp__serveur__outil] [--defer mcp__serveur__outil]
+                             Équipe autonome : le framework tranche les permissions à la place d'un humain absent (liste de sécurité fermée)
+  relay emit --kind opus-ready|opus-done|blocked|decision-needed|custom --session <nom> [--ref <fichier>] [--note "…"]
+  relay watch [--interval 5] [--replay] [--human]   La coordination attend ; une ligne par événement (à brancher sur Monitor)
+  relay events [--all] · relay ack [--upto N]
 
 Graphe de code (graphify, sans coût IA)
   graph status|install|build|enable|disable   Construit et maintenu automatiquement par les hooks
@@ -84,6 +92,8 @@ export async function main(argv: string[]): Promise<void> {
     case 'graph': return graphCommand(rest);
     case 'secrets': return secretsCommand(rest);
     case 'config': return configCommand(rest);
+    case 'team': return teamCommand(rest);
+    case 'relay': return relayCommand(rest);
     case 'hook': {
       const chunks: Buffer[] = [];
       if (!process.stdin.isTTY) for await (const c of process.stdin) chunks.push(c as Buffer);
