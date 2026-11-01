@@ -1,4 +1,74 @@
+# Dépendances et builds
 node_modules/
 dist/
+build/
+out/
+coverage/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Environnements Python (exemples) et caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.parcel-cache/
+
+# Secrets et clés
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+.npmrc
+.pypirc
+credentials*.json
+service-account*.json
+
+# Données lourdes, archives, documents
+*.pdf
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+*.csv
+*.parquet
+*.sqlite
+*.sqlite3
+*.db
+
+# Journaux et temporaires
 *.log
+npm-debug.log*
 .tmp/
+tmp/
+
+# État local du framework dans un projet de test
+.ceng/
+
+# Système et éditeurs
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
+
+# Notes de travail locales
+.api-notes.md
