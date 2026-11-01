@@ -1,6 +1,35 @@
-# ceng : un orchestrateur déterministe pour Claude Code
+<div align="center">
+  <h1>ceng</h1>
+  <p><b>Un orchestrateur déterministe pour Claude Code.</b></p>
+  <p>
+    <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript"/> <img src="https://img.shields.io/badge/Node.js-5FA04E?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js"/> <img src="https://img.shields.io/badge/Claude%20Code-D97757?style=for-the-badge&logo=claude&logoColor=white" alt="Claude Code"/> <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions"/>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/Licence-Apache%202.0-blue?style=flat-square" alt="Licence Apache 2.0"/> <img src="https://img.shields.io/badge/Langage-TypeScript-3178C6?style=flat-square" alt="Langage TypeScript"/> <img src="https://img.shields.io/github/actions/workflow/status/Jean-Paul15/claude-eng-framework/ci.yml?style=flat-square&label=tests" alt="Statut des tests"/>
+  </p>
+  <p>
+    <a href="#démarrer-en-cinq-minutes">Démarrer</a> ·
+    <a href="#comment-ça-marche">Architecture</a> ·
+    <a href="#stack-technique">Stack</a> ·
+    <a href="#structure-du-dépôt">Structure</a> ·
+    <a href="#tests">Tests</a>
+  </p>
+</div>
 
 `ceng` retire du LLM les décisions qu'il prend mal sur un chantier long (quel modèle, quel effort, quelle revue, quand c'est « fini ») et les confie à un moteur de politique en TypeScript, testé, qui ne consomme aucun token.
+
+## Sommaire
+
+- [Ce que ça apporte](#ce-que-ça-apporte)
+- [Le problème](#le-problème)
+- [Démarrer en cinq minutes](#démarrer-en-cinq-minutes)
+- [Comment ça marche](#comment-ça-marche)
+- [Stack technique](#stack-technique)
+- [Structure du dépôt](#structure-du-dépôt)
+- [Tests](#tests)
+- [Limites et suite](#limites-et-suite)
+- [Licence](#licence)
+- [Contact](#contact)
 
 ## Ce que ça apporte
 
@@ -53,16 +82,17 @@ Trois choix structurent le code.
 
 **Zéro dépendance d'exécution, runtime copié dans le projet.** `ceng init` place le runtime tel quel dans `.ceng/runtime/`. Les coéquipiers et la CI n'installent rien. Les écritures sont atomiques (`src/infra/fs.ts`) et les sections critiques passent par un verrou (`src/infra/lock.ts`), parce que plusieurs sessions peuvent écrire dans le Brain. Le détail des couches est dans [docs/architecture.md](docs/architecture.md).
 
-## Stack
+## Stack technique
 
-| Élément | Choix |
-|---|---|
-| Langage | TypeScript 5.9, ESM, mode `strict` |
-| Exécution | Node.js 22 ou plus, sans dépendance d'exécution |
-| Tests | Node test runner (`node --test`), 244 tests en 48 suites d'après [docs/validation.md](docs/validation.md) |
-| CI | GitHub Actions : Ubuntu, Windows, macOS ; Node 22 et 24 |
-| Cible | Claude Code : hooks, subagents, skills, Agent Teams |
-| Packaging | CLI `ceng` ou `claude-eng-framework` (champ `bin`), installation depuis GitHub |
+| Domaine | Technologies | Rôle dans le projet |
+|---|---|---|
+| Langage | <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/> | TypeScript 5.9, ESM, mode `strict` |
+| Exécution | <img src="https://img.shields.io/badge/Node.js-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js"/> | Node.js 22 ou plus, sans dépendance d'exécution |
+| Tests | <img src="https://img.shields.io/badge/Node%20test%20runner-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node test runner"/> | `node --test`, 244 tests en 48 suites d'après [docs/validation.md](docs/validation.md) |
+| Intégration continue | <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white" alt="GitHub Actions"/> | Ubuntu, Windows, macOS ; Node 22 et 24 |
+| Cible | <img src="https://img.shields.io/badge/Claude%20Code-D97757?style=flat-square&logo=claude&logoColor=white" alt="Claude Code"/> | Hooks, subagents, skills, Agent Teams |
+| Packaging | <img src="https://img.shields.io/badge/npm-CB3837?style=flat-square&logo=npm&logoColor=white" alt="npm"/> | CLI `ceng` ou `claude-eng-framework` (champ `bin`), installation depuis GitHub |
+| Documentation | <img src="https://img.shields.io/badge/Mermaid-FF3670?style=flat-square&logo=mermaid&logoColor=white" alt="Mermaid"/> | Schéma d'architecture ci-dessus, détail dans `docs/` |
 
 ## Structure du dépôt
 
@@ -82,6 +112,8 @@ examples/       cinq projets de démonstration (web, API, data, mobile, biblioth
 docs/           documentation détaillée
 research/       notes de conception
 ```
+
+## Tests
 
 Pour lancer les tests : `npm test` (build puis `node --test`). Pour le typage seul : `npm run typecheck`.
 
