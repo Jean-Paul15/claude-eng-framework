@@ -1,257 +1,132 @@
 # claude-eng-framework (`ceng`)
 
-Framework d'ingénierie logicielle autonome pour **Claude Code**. On l'installe dans n'importe quel dépôt :
-il découvre le projet, génère une configuration adaptée, puis transforme une session Claude Code en
-**orchestrateur**. Cet orchestrateur délègue chaque tâche au bon modèle, agent ou équipe, vérifie la qualité
-avant de déclarer « terminé », et reprend le travail après une interruption sans dépendre de l'historique
-de conversation.
+Un framework en TypeScript qui transforme une session Claude Code en orchestrateur : routage déterministe des tâches vers le bon modèle, garde-fous par hooks, quality gates et mémoire de projet qui survit à la conversation.
 
-## Démarrage rapide
+## Problème résolu
 
-### 1. Installer (une seule fois par machine)
+Sur un chantier long, une session d'assistant de code pose trois problèmes : le contexte se perd à la compaction ou à la reprise, le choix du modèle et du niveau de réflexion est arbitraire (donc coûteux ou fragile), et « terminé » n'est vérifié par rien. `ceng` déplace ces décisions hors du LLM, dans un moteur de politique testé qui ne consomme aucun token. Le LLM garde le jugement (évaluer une tâche) ; la politique en déduit le modèle, l'effort, la revue, les tests et les gates, et explique son choix.
 
-Prérequis : [Node.js](https://nodejs.org) 22 ou plus récent, git et [Claude Code](https://code.claude.com/docs/en/setup)
-(terminal, Claude Desktop onglet Code, ou web).
+## Fonctionnalités
 
-```bash
-# Apprend à Claude à installer et gérer le framework, dans n'importe quel projet
-npx skills add Jean-Paul15/claude-eng-framework -s ceng-setup -g -a claude-code -y
+- **Découverte du projet** : détection de la pile (Node, Python, Flutter, dbt, Prisma, Supabase, etc.), des commandes réelles de lint/test/build et du niveau de risque. `ceng init` n'écrit jamais dans le code applicatif.
+- **Routage expliqué** : `ceng route <tâche>` donne agent, modèle (Haiku, Sonnet ou Opus), effort, revue, stratégie de test, gates et règle d'escalade.
+- **Planification du parallélisme** : exécution directe, séquentielle, subagents parallèles ou Agent Team ; deux tâches au même périmètre ne tournent jamais en parallèle.
+- **Project Brain** (`.ceng/brain/`) : index court, état, rapports d'agents, checkpoints et décisions (ADR) chargés à la demande ; reprise sans historique de conversation.
+- **Hooks Claude Code** : injection de l'état à la reprise, refus des commandes dangereuses ou des lectures de fichiers de secrets, journal des délégations, checkpoint avant compaction et à l'arrêt.
+- **Quality gates** : une tâche ne passe à `done` que si ses gates requises sont vertes (ou dérogation justifiée et journalisée), dont un scanner de secrets intégré.
+- **Mode sans humain** : `ceng run --unattended` avec limites de durée et de budget ; les actions sensibles sont refusées et consignées dans `pending-approvals.md`.
+- **Équipe de sessions** : `ceng team` (permissions tranchées par une liste de sécurité fermée) et `ceng relay` (événements entre sessions).
+- **Contenu installable** : 11 agents `ceng-*` et 27 skills dans `core/`, installables seuls via `npx skills add`.
 
-# Facultatif : rend la commande `ceng` disponible partout
-npm install -g github:Jean-Paul15/claude-eng-framework
+## Architecture
+
+```mermaid
+flowchart TD
+    H[Humain] --> S[Session Claude Code<br/>skill ceng-orchestrate]
+    S -->|node .ceng/runtime/cli.js| P
+    subgraph P[Plan de contrôle déterministe - TypeScript]
+        D[domain : routage, planner, gates, guardrails, adaptation]
+        A[app : tâches, checkpoints, gates, coordination]
+        B[brain : Project Brain]
+        K[hooks : SessionStart, PreToolUse, PreCompact, Stop...]
+    end
+    S -->|outil Agent : subagent_type + model| W[Agents ceng-* : scout, builder, engineer, tester, reviewer, security, principal...]
+    W -->|rapport .ceng/brain/reports/| B
+    K --> S
 ```
 
-### 2. Démarrer un projet (Claude Desktop ou terminal)
+Le code suit des couches strictes (voir [docs/architecture.md](docs/architecture.md)) : `domain/` ne fait aucune I/O, `infra/` n'utilise que Node. Le projet n'a aucune dépendance d'exécution ; le runtime est copié tel quel dans `.ceng/runtime/` du projet cible, ce qui évite toute installation pour les coéquipiers ou la CI.
 
-1. **Ouvre le dossier du projet** (vide ou existant) dans Claude Desktop, onglet **Code**, ou lance `claude`
-   dedans. Accepte la confiance du dossier si elle t'est demandée.
-2. **Dis à Claude :** « Installe le framework claude-eng-framework dans ce projet. »
-   Il te pose quelques questions en un seul message (niveau de risque, autonomie, budget, parallélisme, objectif,
-   graphify), installe le framework, te montre ses recommandations et vérifie que tout fonctionne.
-3. **Lance l'orchestrateur avec ton projet :**
-   ```text
-   /ceng-orchestrate Je veux une appli de réservation pour un salon de coiffure, avec paiement en ligne.
-   ```
-   Il pose les questions de cadrage une fois (utilisateurs, périmètre, contraintes, critères de succès), conçoit
-   l'architecture, découpe le travail en tâches et commence.
-4. **Tu suis et tu valides.** Il ne revient vers toi que pour les décisions qui te reviennent et les actions sensibles
-   (déploiement, données de production, licences). Si tu fermes la session, la suivante reprend là où il s'était arrêté.
+## Stack
 
-Sans passer par Claude, l'équivalent en terminal, depuis le dossier du projet :
-
-```bash
-npx github:Jean-Paul15/claude-eng-framework init    # ou `ceng init` si installé globalement
-ceng run                                             # ouvre Claude Code en mode orchestrateur
-```
-
-### 3. Au quotidien
-
-| Tu veux… | Tu fais… |
+| Élément | Choix |
 |---|---|
-| Faire avancer le projet en autonomie | `/ceng-orchestrate` (avec une consigne si tu veux) |
-| Le laisser travailler sans toi (la nuit) | `ceng run --unattended` dans un terminal (voir ci-dessous) |
-| Savoir où en est le projet | demander à Claude « où en est le projet ? », ou `ceng status` |
-| Une petite modification ou une question | parler à Claude normalement : le framework reste actif en arrière-plan |
-| Comprendre pourquoi une décision a été prise | `ceng report`, `ceng log --task T-0004`, `ceng route T-0004` |
-| Vérifier l'installation | `ceng doctor` |
-| Mettre à jour le framework dans le projet | `npx -y github:Jean-Paul15/claude-eng-framework upgrade` |
-| Reprendre sur une autre machine | cloner le dépôt et ouvrir Claude : rien à installer (le runtime est dans `.ceng/runtime/`) |
+| Langage | TypeScript 5.9, ESM, `strict` |
+| Exécution | Node.js 22 ou plus, sans dépendance d'exécution |
+| Tests | Node test runner (`node --test`) |
+| CI | GitHub Actions : Ubuntu, Windows, macOS ; Node 22 et 24 |
+| Cible | Claude Code (hooks, subagents, skills, Agent Teams) |
+| Packaging | CLI `ceng` / `claude-eng-framework` (`bin`), installation depuis GitHub |
 
-Dans un projet, `ceng` peut toujours être remplacé par `node .ceng/runtime/cli.js`.
+## Installation
 
-### 4. Travailler la nuit, sans toi
+Prérequis : Node.js 22+, git, [Claude Code](https://code.claude.com/docs/en/setup).
 
 ```bash
-ceng run --unattended                                   # jusqu'à 10 h, 30 relances
-ceng run --unattended --max-hours 8 --max-budget-usd 20 # avec limites explicites
+# 1. Depuis les sources
+git clone https://github.com/Jean-Paul15/claude-eng-framework
+cd claude-eng-framework
+
+# 2. Dépendances de développement puis build (le script prepare lance tsc)
+npm ci
+
+# 3. Rend la commande `ceng` disponible
+npm link
 ```
 
-- **Rien n'attend jamais une réponse.** Une action qui demanderait ton accord (déploiement, push forcé…) est
-  refusée proprement et notée dans `.ceng/brain/pending-approvals.md`. Ses questions y sont aussi, avec l'hypothèse
-  provisoire retenue. Claude passe aux tâches indépendantes.
-- **Pas d'arrêt en cours de route.** Il enchaîne les tâches tant qu'il en reste de faisables et qu'il progresse. Il
-  s'arrête quand tout est fait ou bloqué, ou quand il ne progresse plus.
-- **Les interruptions sont gérées.** Après une limite d'usage ou une surcharge, il attend (15 min par défaut) puis
-  reprend depuis la mémoire du projet.
-- **Au réveil**, ouvre Claude : il te présente via l'invite de questions ce qui attend ta validation, puis applique
-  tes réponses. `ceng report` détaille la nuit.
+Sans cloner : `npx github:Jean-Paul15/claude-eng-framework init`, ou `npm install -g github:Jean-Paul15/claude-eng-framework`.
+Les skills seules s'installent avec `npx skills add Jean-Paul15/claude-eng-framework -g -a claude-code -y`
+(`ceng-orchestrate` et `ceng-skill-forge` requièrent le framework complet).
 
-**Sans même lancer le mode nuit**, une session normale bascule toute seule. Chaque validation (approuver une action,
-choisir une direction) passe par l'invite de questions de Claude Code, qui peut expirer : réglage utilisateur
-`askUserQuestionTimeout` à `10m`, le maximum de Claude Code. Le reste du fonctionnement :
-- **Projet sans utilisateurs réels** : `ceng config stage prototype` lève les validations pour ce qui est récupérable (migrations,
-  déploiements, suppressions avec instantané, push, fichiers de garde-fous) ; secrets, suppression hors du dépôt, push forcé sur
-  une branche protégée partagée, publication et infrastructure restent à valider. `ceng config stage production` rétablit tout.
-- **Tu réponds** : seule ta réponse réelle autorise l'action — 30 min pour cette même action (relances après une
-  erreur comprises), une seule fois pour une opération destructive.
-- **L'invite expire sans réponse** : le projet passe en mode sans humain. Les demandes sont consignées, les questions
-  de direction prennent la recommandation de Claude comme décision provisoire, et le travail continue.
-- **Tu réécris** : les invites reviennent, et tu peux changer de trajectoire. Chaque décision provisoire est tracée
-  (ADR), précédée d'un point de restauration, et gardée réversible.
+## Usage
 
-Les décisions sont triées avant de te déranger, selon que Claude est sûr ou non, et selon que changer d'avis
-coûterait peu ou beaucoup :
-- **Évident** (bonne pratique établie dans ce contexte) : il décide et te tient au courant.
-- **Incertain mais facile à changer** : il te demande. Si tu es absent, sa recommandation devient une décision
-  provisoire et il continue.
-- **Incertain et coûteux à changer** : il te demande. Si tu es absent, il ne construit rien sur une supposition :
-  seules les tâches qui en dépendent attendent ta réponse, tout le reste avance.
-
-Désactivable avec `ceng init --presence off`, qui rétablit les boîtes de permission natives.
-
-Lance le mode nuit dans un terminal plutôt que dans une session de Claude Desktop. Une session interactive s'arrête
-sur la moindre invite de permission ; le mode `--unattended` est conçu pour ne jamais en afficher.
-
-### 5. Plusieurs sessions en équipe, sans humain devant l'écran
-
-Quand plusieurs sessions Claude Code travaillent en parallèle (une copie de travail chacune), deux choses évitent que tout s'arrête
-ou que tout passe sans contrôle :
+Dans le dossier du projet cible :
 
 ```bash
-ceng team on                       # action humaine : équipe autonome
-ceng relay watch --reader coordination --interval 5   # coordination : écoute, branchée sur l'outil Monitor
-ceng relay emit --kind opus-ready --session 4 --ref docs/integration/DOSSIER_4.md   # une session signale un point d'arrêt
+ceng init            # questions : risque, autonomie, budget, parallélisme (--yes : valeurs détectées)
+ceng doctor          # vérifie l'installation
+ceng run             # ouvre Claude Code en mode orchestrateur (ou /ceng-orchestrate dans Claude Code)
+ceng status          # état du projet
+ceng route T-0004    # décision expliquée pour une tâche
+ceng gate run T-0004 # exécute les gates requises
+ceng report          # rapport d'observabilité
+ceng run --unattended --max-hours 8 --max-budget-usd 20   # travail sans humain
 ```
 
-- **Équipe autonome (`ceng team on`)** : au lieu de boîtes de permission qui bloquent, le framework tranche selon une liste de
-  sécurité fermée et journalisée. Lecture, recherche, coordination entre sessions, outils locaux et commandes classées autonomes
-  passent ; ce qui agit hors de la machine (base de production, déploiement, e-mail, paiement, secrets) ou change les permissions
-  est refusé proprement et consigné dans `pending-approvals.md`, sans jamais attendre. Ce n'est pas le contournement total des
-  permissions de Claude Code : rien n'est désactivé, les garde-fous restent actifs et deviennent explicites. Activer ou couper ce
-  mode est une action humaine. `--allow` / `--defer` ajustent la liste pour un outil MCP précis.
-- **Relais (`ceng relay`)** : une session qui atteint un point d'arrêt émet un événement (dans le dépôt principal, quel que soit
-  son worktree) ; la session de coordination l'écoute avec `relay watch`, qui n'imprime qu'une ligne par événement. Branché sur Monitor,
-  chaque ligne réveille la coordination immédiatement et rien n'est lu ni payé entre deux événements. La skill `ceng-relay` décrit le
-  protocole, par exemple « prêt pour Opus » : la coordination change le modèle de la même session (elle garde son contexte) puis la
-  repasse au modèle courant.
+`ceng help` détaille toutes les commandes ; elles acceptent `--json`. Dans un projet initialisé, `node .ceng/runtime/cli.js` remplace `ceng`. Le guide pas à pas (nouveau projet, mode nuit, équipe de sessions, tri des décisions) est dans [docs/usage.md](docs/usage.md).
 
-## L'idée en 7 points
+`ceng init` écrit dans le projet : `.ceng/` (config, profil, Brain, runtime), `.claude/skills/` et `.claude/agents/` selon le profil, `.claude/settings.json` (fusion non destructive avec sauvegarde), un bloc délimité dans `CLAUDE.md` et des exclusions dans `.gitignore`.
 
-1. **Un seul interlocuteur.** Tu parles à la session d'entrée, qui devient l'orchestrateur. Le modèle choisi au
-   départ ne limite pas l'exécution : chaque délégation choisit son modèle (Haiku, Sonnet ou Opus) et son niveau
-   de réflexion.
-2. **Des décisions déterministes et expliquées.** Le routage (modèle, effort, agent, revue, stratégie de test,
-   gates, escalade) et la planification du parallélisme (direct, séquentiel, subagents parallèles ou Agent Team)
-   sont calculés par un moteur de politique TypeScript testé, qui coûte 0 token et justifie chacun de ses choix.
-   Le LLM apporte son jugement (il évalue la tâche) ; la politique en déduit une décision constante.
-3. **Une mémoire hors conversation.** `.ceng/brain/` (le Project Brain) est organisé en progressive disclosure :
-   un index court, puis des fichiers chargés à la demande. Les workers écrivent un rapport complet et ne renvoient
-   qu'un résumé de 10 à 15 lignes. Le contexte principal reste petit sans que rien ne se perde.
-4. **Des hooks comme plan de contrôle.** Ils injectent l'état à chaque reprise, refusent les actions dangereuses,
-   soumettent les actions irréversibles à l'humain, journalisent qui fait quoi avec quel modèle, exigent un rapport
-   de chaque agent, prennent un checkpoint avant compaction et enregistrent les interruptions.
-5. **« Terminé » doit être prouvé.** Les quality gates sont sélectionnées selon le risque et exécutées avec les
-   vraies commandes du projet. Une tâche ne passe `done` que si ses gates requises sont vertes, ou si une dérogation
-   est explicitement justifiée et journalisée.
-6. **Un graphe de code toujours à jour.** Le graphe [graphify](https://github.com/Graphify-Labs/graphify) est construit à
-   l'init et mis à jour automatiquement en arrière-plan, sans coût IA. Les agents l'interrogent pour les questions
-   d'architecture au lieu de relire le code.
-7. **Une adaptation qui ne devient jamais un dogme.** Seules les skills pertinentes sont installées, et des skills
-   propres au projet sont générées (Stripe, Flutter, data…). Le framework s'ajuste à partir de son journal
-   (`ceng adapt`), avec un échantillon minimal : une expérience isolée ne devient jamais une règle.
-
-## Installation détaillée
-
-Prérequis : Node ≥ 22, git, [Claude Code](https://code.claude.com/docs/en/setup).
-
-**Framework complet** (CLI, hooks, agents, skills, Project Brain), directement depuis GitHub, dans le projet cible :
-
-```bash
-npx github:Jean-Paul15/claude-eng-framework init
-```
-
-Ou en installation globale, qui rend la commande `ceng` disponible partout :
-
-```bash
-npm install -g github:Jean-Paul15/claude-eng-framework
-```
-
-**Skills seules**, sans le framework, via l'écosystème [skills](https://github.com/vercel-labs/skills) :
-
-```bash
-npx skills add Jean-Paul15/claude-eng-framework -g -a claude-code -y                        # toutes les skills
-npx skills add Jean-Paul15/claude-eng-framework -s creative-director -g -a claude-code -y    # une seule
-```
-
-Les skills `ceng-orchestrate` et `ceng-skill-forge` ont besoin du framework complet. Les autres (testing, security,
-creative-director, frontend-executor, quality-gate-auditor…) sont autonomes.
-
-**Depuis les sources** :
-
-```bash
-git clone https://github.com/Jean-Paul15/claude-eng-framework && cd claude-eng-framework
-npm install && npm link
-```
-
-Puis, dans un projet :
-
-```bash
-cd mon-projet
-ceng init          # questions : risque, autonomie, budget, parallélisme… (--yes = valeurs détectées)
-ceng run           # ou : ouvrir Claude Code et taper /ceng-orchestrate
-```
-
-Ce que `init` écrit dans le projet (jamais dans le code applicatif) :
-
-- `.ceng/` : configuration, profil, Project Brain et runtime autonome (aucune installation requise pour les coéquipiers ou la CI) ;
-- `.claude/skills/`, `.claude/agents/` : uniquement ce que le profil justifie ;
-- `.claude/settings.json` : hooks et règles de permission, en fusion non destructive avec sauvegarde ;
-- `CLAUDE.md` : un bloc court délimité ;
-- `.gitignore` : exclusion des journaux.
-
-## Pour les agents IA (Claude Code)
-
-Si l'on te demande d'installer ce framework dans un projet, suis la skill
-[`core/skills/ceng-setup/SKILL.md`](core/skills/ceng-setup/SKILL.md). En résumé :
-
-1. `ceng --version`, sinon préfixer les commandes par `npx -y github:Jean-Paul15/claude-eng-framework`.
-2. `init --dry-run` pour voir la détection.
-3. Poser à l'humain, en un seul message, ses choix de risque, d'autonomie, de budget, de parallélisme, l'objectif et
-   s'il veut graphify.
-4. `init --yes --risk … --autonomy … --budget … --parallelism … --goal "…" --install-graphify`.
-5. Montrer les recommandations, puis `doctor`, puis `/ceng-orchestrate`.
-
-Un projet déjà initialisé fonctionne sans installation : la CLI est dans `.ceng/runtime/` et les consignes dans son
-`CLAUDE.md`. Pour rendre cette procédure disponible partout sur une machine :
-`npx skills add Jean-Paul15/claude-eng-framework -s ceng-setup -g -a claude-code -y`.
-
-## Documentation
-
-| Sujet | Fichier |
-|---|---|
-| Architecture et cycle de vie | [docs/architecture.md](docs/architecture.md) |
-| Installation, configuration, mise à jour | [docs/installation.md](docs/installation.md) · [docs/configuration.md](docs/configuration.md) |
-| Orchestration, routage des modèles, subagents, Agent Teams, escalade | [docs/orchestration.md](docs/orchestration.md) |
-| Project Brain, checkpoints, reprise, rollback | [docs/state-and-recovery.md](docs/state-and-recovery.md) |
-| Tests, quality gates, revue | [docs/quality.md](docs/quality.md) |
-| Sécurité, autonomie, légal et gouvernance | [docs/security.md](docs/security.md) |
-| Hooks | [docs/hooks.md](docs/hooks.md) |
-| Skills, skills projet, auto-amélioration, MCP | [docs/skills.md](docs/skills.md) |
-| Observabilité | [docs/observability.md](docs/observability.md) |
-| Dépannage | [docs/troubleshooting.md](docs/troubleshooting.md) |
-| Étendre le framework | [docs/extending.md](docs/extending.md) |
-| Validation (tests et preuves) | [docs/validation.md](docs/validation.md) |
-| Recherche ayant guidé la conception | [research/](research/) |
-
-## Commandes
+## Structure du dépôt
 
 ```text
-init | upgrade | run | doctor | profile | uninstall
-task add|list|show|next|start|done|fail|block|unblock|cancel · route · plan · gate list|run|record · conflicts
-status · resume · checkpoint [list] · rollback · escalate [resolve] · decision add
-log · report · adapt · learn add|list|promote · skill new
-team status|on|off · relay emit|watch|events|ack
+src/
+  domain/       politique pure : routage, planner, gates, guardrails, secrets
+  discovery/    détection de pile, de plateforme et de risque
+  brain/        stockage du Project Brain
+  app/          cas d'usage : tâches, checkpoints, gates, coordination
+  generation/   installation dans un projet (settings, CLAUDE.md, skills)
+  hooks/        gestionnaires des hooks Claude Code
+  cli/, cli.ts  interface en ligne de commande
+  infra/        fs atomique, verrou, git, exec
+core/           agents, skills et catalogue installés dans les projets
+test/           suites de tests (une par domaine)
+examples/       cinq projets de démonstration servant aux tests de découverte
+docs/           documentation détaillée      research/  notes de conception
 ```
 
-`ceng help` détaille chaque commande, et toutes acceptent `--json`. Dans un projet initialisé, les agents
-appellent la copie locale : `node .ceng/runtime/cli.js <commande>`.
-
-## Développement du framework
+## Tests
 
 ```bash
-npm test           # build + 83 tests (domaine, découverte sur 5 projets de démo, installation, cycle de vie, hooks, reprise)
+npm test        # build puis node --test sur dist/test
+npm run typecheck
 ```
+
+La suite compte 244 tests en 48 suites (routage, planification, garde-fous, découverte sur les projets de `examples/`, installation, cycle de vie, hooks, reprise après interruption, mode sans humain). Détail dans [docs/validation.md](docs/validation.md).
+
+## Limites connues
+
+- Le framework cible Claude Code ; il n'est pas conçu pour d'autres assistants.
+- Les décisions de routage reposent sur l'évaluation de la tâche faite par le LLM (complexité, risque, ambiguïté) : la politique est déterministe, pas son entrée.
+- Le mode sans humain refuse les actions sensibles au lieu de les exécuter ; elles attendent une validation ultérieure.
+- Le graphe de code dépend de l'outil externe [graphify](https://github.com/Graphify-Labs/graphify), optionnel.
+- Les projets de `examples/` sont des fixtures de test, pas des applications complètes.
+- Les preuves en conditions réelles décrites dans `docs/validation.md` portent sur une version précise de Claude Code et ne sont pas rejouées par la CI.
 
 ## Licence
 
-[Apache License 2.0](LICENSE) — Copyright 2026 Jean-Paul ADOGLI. Voir aussi [NOTICE](NOTICE).
+Apache License 2.0 : voir [LICENSE](LICENSE) et [NOTICE](NOTICE). Copyright 2026 Jean-Paul ADOGLI.
+
+## Contact
+
+Jean-Paul ADOGLI, [github.com/Jean-Paul15](https://github.com/Jean-Paul15).
