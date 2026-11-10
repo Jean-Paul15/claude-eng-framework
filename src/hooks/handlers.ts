@@ -62,6 +62,12 @@ const SPAWN_MATCH_WINDOW_MS = 10 * 60_000;
  */
 /** Mode équipe autonome : le framework tranche à la place d'un humain absent. */
 const teamOn = (store: BrainStore): boolean => store.config().team?.enabled === true;
+/** Bypass total (décision humaine, `ceng bypass on`) : plus aucune validation ni refus ; journal et instantanés conservés. */
+const bypassOn = (store: BrainStore): boolean => store.config().bypass?.enabled === true;
+
+function allowDecision(reason: string): HookOutput {
+  return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: `[ceng] ${reason}` } } };
+}
 
 function askHuman(store: BrainStore, input: HookInput, what: string, reason: string, once: boolean): HookOutput {
   const key = actionKey(String(input.tool_name ?? ''), input.tool_input);
@@ -129,6 +135,27 @@ function allowInPrototype(store: BrainStore, input: HookInput, freed: readonly s
   return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason: note } } };
 }
 
+/**
+ * Bypass total : l'action passe, quelle que soit la règle (interdiction comprise : c'est le choix de l'humain). Elle est journalisée,
+ * et un instantané est pris avant ce qui peut détruire du travail local (suppression, reset, réécriture) : tout reste annulable.
+ */
+function allowInBypass(store: BrainStore, input: HookInput, what: string, rule: string | undefined, deletionTargets?: readonly string[]): HookOutput {
+  let snapshot = '';
+  try {
+    if (deletionTargets?.length) {
+      const check = autoApproveDeletion(store, [...deletionTargets], input.cwd);
+      if (check.ok) snapshot = check.checkpointId ?? '';
+    } else if (rule && SNAPSHOT_BEFORE.has(rule)) {
+      const state = store.state();
+      snapshot = createCheckpoint(store, { done: `Instantané automatique avant ${rule} (bypass) : ${what}`.slice(0, 300), next: state.lastCheckpoint?.next ?? 'continuer la tâche en cours', auto: true }).id;
+    }
+  } catch {
+    // l'instantané est un filet : son échec ne bloque jamais en bypass
+  }
+  store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'autonomous', rule: 'bypass', bypassed: rule ?? 'permission', ...(snapshot ? { checkpoint: snapshot } : {}) } });
+  return allowDecision(`Bypass total : ${rule ?? 'action'} sans validation (journalisé).${snapshot ? ` Instantané ${snapshot} pris avant (annulable : \`${CLI_INVOCATION} rollback ${snapshot} --apply\`).` : ''}`);
+}
+
 function preToolDecision(decision: 'deny' | 'ask', reason: string): HookOutput {
   return {
     exitCode: 0,
@@ -159,8 +186,11 @@ export function sessionStart(store: BrainStore, input: HookInput): HookOutput {
   return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: brief } } };
 }
 
+const BYPASS_NOTE = `BYPASS TOTAL (décidé par l'humain) : aucune validation, aucun refus du framework — suppressions, push, déploiements, migrations, infrastructure, fichiers .env et garde-fous compris. N'attends aucune approbation et ne pose pas de question d'autorisation : agis. Secrets : utilise-les sans afficher leurs valeurs (noms de variables, \`${CLI_INVOCATION} secrets keys\`) ; lis-les si la tâche l'exige, sans jamais les recopier dans un rapport, un log ou un commit. Instantané automatique avant suppression/reset (annulable : \`${CLI_INVOCATION} rollback\`) ; checkpoint volontaire avant tout ce qui sort de la machine. Questions de direction : seulement si l'impact est fort, sinon ta recommandation devient la décision.`;
+
 /** Au stade prototype, l'orchestrateur doit savoir que les validations courantes sont levées (et ce qui reste soumis à l'humain). */
 function stageNotes(store: BrainStore): string[] {
+  if (bypassOn(store)) return [BYPASS_NOTE];
   if (stageOf(store) !== 'prototype') return [];
   return [`Stade : PROTOTYPE (aucun utilisateur réel) — migrations, déploiements, suppressions, push et fichiers de garde-fous passent sans validation (journalisé ; instantané avant suppression/reset, annulable par \`${CLI_INVOCATION} rollback\`). Restent soumis à l'humain : secrets, suppression hors du dépôt, push forcé sur une branche protégée d'un dépôt partagé, publication, infrastructure. Passage en production : \`${CLI_INVOCATION} config stage production\`.`];
 }
@@ -186,6 +216,7 @@ export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
   if (!command) return OK;
   const shell = shellOf(String(input.tool_name ?? ''));
   const verdict = classifyCommand(command, commandContext(store, input, command, shell));
+  if (bypassOn(store) && verdict.class !== 'autonomous') return allowInBypass(store, input, command, verdict.rule, verdict.deletion?.targets);
   if (verdict.class === 'autonomous') return verdict.freed?.length ? allowInPrototype(store, input, verdict.freed, command) : OK;
   // Suppression de fichiers : pas de frein si elle peut être rendue récupérable (instantané pris juste avant).
   if (verdict.rule === 'delete' && verdict.deletion) {
@@ -213,7 +244,10 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
   const rel = relativeToProject(store, raw);
   if (rel.startsWith('..')) return OK; // hors projet : laissé aux permissions natives
   const config = store.config();
-  const verdict = classifyFileWrite(rel, config.policy.autonomy, config.secrets?.allow ?? [], config.stage ?? 'production');
+  const bypass = bypassOn(store);
+  const classified = classifyFileWrite(rel, config.policy.autonomy, config.secrets?.allow ?? [], config.stage ?? 'production');
+  // Bypass total : fichiers de secrets, garde-fous, CI, internes git compris. Seul reste le verrou entre agents (ci-dessous) : il évite un conflit, pas une action.
+  const verdict = bypass && classified.class !== 'autonomous' ? { ...classified, class: 'autonomous' as const, freed: [classified.rule ?? 'file'] } : classified;
   if (verdict.class !== 'autonomous') {
     store.log({ type: 'guard.verdict', ...ids(input), data: { file: rel, class: verdict.class, rule: verdict.rule } });
     // Un fichier de gouvernance (garde-fous, licence…) : chaque modification est une décision, jamais une autorisation réutilisable.
@@ -239,6 +273,7 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
     }
   }
   // Stade prototype : fichier de garde-fous, CI ou infra modifiable sans validation (la règle `ask` native est levée aussi).
+  if (bypass) return verdict.freed?.length ? allowInBypass(store, input, rel, verdict.freed[0]) : allowDecision('Bypass total.');
   return verdict.freed?.length ? allowInPrototype(store, input, verdict.freed, rel) : OK;
 }
 
@@ -247,7 +282,7 @@ export function guardRead(store: BrainStore, input: HookInput): HookOutput {
   const raw = String(input.tool_input?.['file_path'] ?? '');
   if (!raw) return OK;
   const rel = relativeToProject(store, raw);
-  if (rel.startsWith('..')) return OK;
+  if (rel.startsWith('..') || bypassOn(store)) return OK;
   const verdict = classifyFileRead(rel, store.config().secrets?.allow ?? []);
   if (verdict.class === 'autonomous') return OK;
   store.log({ type: 'guard.verdict', ...ids(input), data: { file: rel, class: verdict.class, rule: verdict.rule } });
@@ -485,6 +520,10 @@ export function userPrompt(store: BrainStore, input: HookInput): HookOutput {
  * tout ce qui agit hors de la machine (base, déploiement, e-mail, paiement, secrets) est refusé proprement et consigné pour l'humain.
  */
 export function guardMcp(store: BrainStore, input: HookInput): HookOutput {
+  if (bypassOn(store)) {
+    store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'autonomous', rule: 'bypass' } });
+    return allowDecision('Bypass total.');
+  }
   if (!teamOn(store)) return OK;
   const name = String(input.tool_name ?? '');
   const team = store.config().team;
@@ -499,6 +538,10 @@ export function guardMcp(store: BrainStore, input: HookInput): HookOutput {
 
 export function permissionRequest(store: BrainStore, input: HookInput): HookOutput {
   if (input.tool_name === 'AskUserQuestion') return OK;
+  if (bypassOn(store)) {
+    store.log({ type: 'guard.verdict', ...ids(input), data: { tool: input.tool_name, class: 'autonomous', rule: 'bypass' } });
+    return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } } } };
+  }
   if (teamOn(store)) return teamPermission(store, input);
   if (!presenceEnabled(store) && !isUnattended()) return OK;
   const ti = input.tool_input ?? {};

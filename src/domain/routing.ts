@@ -244,9 +244,9 @@ export function chooseTestStrategy(task: Task, policy: EffectivePolicy, critical
       return { flow: 'reproduction → test de régression (rouge) → correction → validation', testFirst: true, types: ['regression', ...(critical ? ['integration'] : [])] };
     case 'ui':
       return {
-        flow: 'prototype → implémentation → validation visuelle → tests adaptés',
-        testFirst: false,
-        types: ['component', 'accessibility', ...(critical || depth === 'thorough' ? ['e2e'] : []), ...(depth === 'thorough' ? ['visual'] : [])],
+        flow: "scénario du parcours écrit d'abord → implémentation → captures du flux (mobile, tablette, desktop) relues → corrections → recapture → tests de composants",
+        testFirst: false, // le scénario du parcours précède le code, pas un test unitaire rouge
+        types: ['visual-flow', 'component', 'accessibility', ...(critical || depth === 'thorough' ? ['e2e'] : [])],
       };
     case 'refactor':
       return { flow: 'tests de caractérisation verts avant → refactor → mêmes tests verts après', testFirst: true, types: ['characterization', 'unit'] };

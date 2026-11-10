@@ -51,6 +51,7 @@ const APPROVAL: Rule[] = [
   { id: 'secrets-allow', pattern: /\b(cli\.js|ceng)\s+secrets\s+(allow|grant)\b/, reason: 'Autoriser l\'accès à un fichier de secrets : décision humaine.' },
   { id: 'config-apply', pattern: /\b(cli\.js|ceng)\s+config\s+detect\b[^|;&\n]*--apply\b/, reason: 'Réécriture des commandes de gates dans .ceng/config.json (fichier de garde-fous) : décision humaine.' },
   { id: 'team-mode', pattern: /\b(cli\.js|ceng)\s+team\s+(on|off)\b/, reason: 'Mode équipe autonome : activer ou couper change le niveau des garde-fous, décision humaine.' },
+  { id: 'bypass-mode', pattern: /\b(cli\.js|ceng)\s+bypass\s+(on|off)\b/, reason: 'Bypass total : activer ou couper la suppression de toutes les validations est une décision humaine.' },
   { id: 'config-stage', pattern: /\b(cli\.js|ceng)\s+config\s+stage\s+(prototype|production)\b/, reason: 'Changer le stade du projet (prototype/production) modifie le niveau des garde-fous : décision humaine.' },
   { id: 'git-force-push', pattern: /\bgit\s+push\b.*(\s--force(-with-lease)?\b|\s-f\b|\s\+\S+)/, reason: 'Push forcé : réécrit un historique partagé.' },
   { id: 'git-discard', pattern: /\bgit\s+(reset\s+--hard\b|clean\s+-[a-zA-Z]*f[a-zA-Z]*|checkout\s+(--\s+)?\.(\s|$)|restore\s+(--\S+\s+)*\.(\s|$)|stash\s+(drop|clear)\b|branch\s+-D\b)/, reason: 'Peut détruire du travail non commité ou une branche.' },
@@ -169,7 +170,7 @@ function readsSecretFile(segment: string, allowed: readonly string[] = []): bool
 }
 
 /** Sous-commandes de la CLI ceng qui sont des décisions humaines (autoriser des secrets, réécrire la configuration des gates). */
-const CENG_HUMAN_RULES = new Set(['secrets-allow', 'config-apply', 'config-stage', 'team-mode']);
+const CENG_HUMAN_RULES = new Set(['secrets-allow', 'config-apply', 'config-stage', 'team-mode', 'bypass-mode']);
 
 function cengHumanDecision(unit: Statement): Rule | undefined {
   return APPROVAL.find((r) => CENG_HUMAN_RULES.has(r.id) && r.pattern.test(unit.live));
@@ -278,7 +279,7 @@ export function approvalTriggers(command: string, shell: ShellKind = 'bash'): Tr
 }
 
 /** Règles dont l'autorisation ne vaut jamais pour une seconde exécution (destruction, réécriture, décision de sécurité). */
-const SINGLE_USE_RULES = new Set(['delete', 'delete-outside', 'config-stage', 'team-mode', 'git-discard', 'git-force-push', 'git-history-rewrite', 'gh-destructive', 'secrets-allow', 'secrets-mgmt', 'config-apply', 'kill-all']);
+const SINGLE_USE_RULES = new Set(['delete', 'delete-outside', 'config-stage', 'team-mode', 'bypass-mode', 'git-discard', 'git-force-push', 'git-history-rewrite', 'gh-destructive', 'secrets-allow', 'secrets-mgmt', 'config-apply', 'kill-all']);
 /** Mots qui signalent une opération destructive de données ou d'infrastructure, quelle que soit la règle qui l'a déclenchée. */
 const DESTRUCTIVE_WORDS = /\b(drop|truncate|delete|destroy|uninstall|reset|flush|downgrade|purge|rollback|undo|wipe)\b|--force-reset/i;
 

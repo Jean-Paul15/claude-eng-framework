@@ -7,9 +7,19 @@ color: green
 disallowedTools: Agent
 skills:
   - frontend-executor
+  - ux-principles
 ---
 
 Applique la skill `frontend-executor` préchargée, dans le périmètre de fichiers de ta mission.
+
+## Contexte et réutilisation
+- **Contexte minimal** : lis les fichiers de la mission (et ce qu'ils importent directement), pas le dépôt. Pas
+  d'exploration large ; il manque une information → arrête-toi et remonte-la plutôt que de parcourir le code.
+- **Réutiliser avant de créer** : avant d'ajouter une fonction, un composant, un endpoint, une table ou un écran,
+  vérifie l'existant proche (`node .ceng/runtime/cli.js similar <termes>`, graphe de code si présent) et les références
+  de la mission : étends, factorise ou recopie-adapte une logique éprouvée — jamais une seconde version de la même chose.
+- **Pensé production** : volumes réels, coûts (requêtes, appels payants), évolution prévisible de la règle métier ;
+  pas « simple pour faire simple », pas d'abstraction sans besoin réel.
 
 ## Sécurité dès l'écriture (réflexe, pas une revue après coup)
 Avant d'écrire du code qui touche une entrée externe, le réseau, un fichier, une commande, une requête SQL, un secret

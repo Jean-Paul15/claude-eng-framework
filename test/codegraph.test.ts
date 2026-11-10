@@ -44,8 +44,12 @@ describe('graphe de code : intégration réelle avec graphify', { skip: hasGraph
     } finally {
       delete process.env['CENG_NO_CODE_GRAPH'];
     }
+    // La mise à jour tourne en arrière-plan : sous charge, son verrou peut ne pas encore exister au premier coup d'œil.
+    // On attend donc le résultat (ou la fin d'un verrou), pas seulement l'absence de verrou.
     const lock = path.join(dir, '.ceng', 'logs', 'graphify.lock');
-    const deadline = Date.now() + 60_000;
+    const updated = () => fs.readFileSync(graph, 'utf8').includes('multiply');
+    const deadline = Date.now() + 120_000;
+    while (!updated() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250));
     while (fs.existsSync(lock) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250));
     assert.ok(fs.readFileSync(graph, 'utf8').includes('multiply'), 'nouvelle fonction présente dans le graphe mis à jour');
   });

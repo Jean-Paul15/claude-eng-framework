@@ -51,8 +51,12 @@ export function buildLaunchPlan(store: BrainStore, opts: { model?: string; goal?
   if (opts.effort) args.push('--effort', opts.effort);
   const prompt = `/ceng-orchestrate${opts.goal ? ` ${opts.goal}` : ''}`;
   if (opts.resume) args.push('--continue');
+  if (config.bypass?.enabled && !opts.headless) {
+    args.push('--permission-mode', 'bypassPermissions');
+    notes.push('Bypass total : permission-mode bypassPermissions (aucune validation).');
+  }
   if (opts.headless) {
-    const mode = config.policy.autonomy === 'supervised' ? 'default' : 'acceptEdits';
+    const mode = config.bypass?.enabled ? 'bypassPermissions' : config.policy.autonomy === 'supervised' ? 'default' : 'acceptEdits';
     args.unshift('-p', prompt);
     args.push('--permission-mode', mode, '--output-format', 'json');
     notes.push(`Mode non interactif : permission-mode ${mode}, pas d'Agent Teams (limitation Claude Code), actions à approbation refusées.`);
@@ -100,7 +104,7 @@ export async function runCommand(argv: string[]): Promise<void> {
       ...(model ? { model } : {}), ...(goal ? { goal } : {}),
       maxHours: num(p, 'max-hours', 10), maxRuns: num(p, 'max-runs', 30), waitMinutes: num(p, 'wait-minutes', 15),
       ...(str(p, 'max-budget-usd') ? { maxBudgetUsd: str(p, 'max-budget-usd')! } : {}),
-      permissionMode: str(p, 'permission-mode') ?? 'auto',
+      permissionMode: str(p, 'permission-mode') ?? (store.config().bypass?.enabled ? 'bypassPermissions' : 'auto'),
       dryRun: bool(p, 'dry-run'),
     });
     return;

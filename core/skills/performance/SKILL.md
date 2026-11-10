@@ -20,5 +20,9 @@ re-rendus inutiles côté UI.
 Algorithme/requête → index → éviter le travail (cache avec invalidation claire, mémoïsation) → parallélisme/asynchronisme
 → micro-optimisations (rarement utiles).
 
+## Algorithmes qui dépendent du volume
+Proximité (chauffeur, livreur), matching, classement, recherche, agrégats : skill `scale-algorithms` — réduire l'espace
+de recherche (index, grille, pré-calcul) avant de calculer précisément ; coût d'exploitation chiffré.
+
 ## Dimensionner sur la réalité
 Volume et trafic réellement attendus ; pas de cache distribué ni de sharding « au cas où ».

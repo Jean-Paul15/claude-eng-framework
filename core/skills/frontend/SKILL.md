@@ -7,6 +7,9 @@ description: Ingénierie frontend (web et mobile) — composants, état, chargem
 
 Si une direction créative existe (module de design system + ADR, ou `docs/CREATIVE_DIRECTION.md` sur un ancien projet), la skill `frontend-executor` prime : on n'invente pas le design.
 
+Principes non négociables : skill `ux-principles` (révélation progressive, budget d'écran, élévation sobre, typographie,
+responsive mobile + tablette + desktop). Validation : skill `visual-flow-testing` (parcours capturé et relu en images).
+
 ## Composants
 - Réutiliser les composants et tokens existants avant d'en créer ; un composant = une responsabilité.
 - État au plus près de son usage ; état serveur via la solution de fetching du projet (cache, invalidation) plutôt

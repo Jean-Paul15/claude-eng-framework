@@ -26,6 +26,11 @@ export interface FrameworkConfig {
   presence?: { enabled: boolean };
   /** Mode équipe autonome : le framework tranche les permissions à la place d'un humain absent, selon une liste de sécurité fermée. */
   team?: { enabled: boolean; mcpAllow?: string[]; mcpDefer?: string[] };
+  /**
+   * Bypass total, décidé par l'humain : plus aucune validation ni refus du framework (permissions natives en `bypassPermissions`).
+   * Tout reste journalisé et les instantanés automatiques (avant suppression, reset, réécriture) restent pris : tout est annulable.
+   */
+  bypass?: { enabled: boolean; since?: string };
   /** Fichiers de secrets que l'humain autorise l'agent à lire/écrire (clés de test ou de développement). */
   secrets?: { allow: string[] };
   installedSkills: string[];

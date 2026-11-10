@@ -8,6 +8,15 @@ description: Critères de qualité du code et leur domaine de validité — lisi
 Objectif : du code qu'un développeur senior découvrant le projet comprend du premier coup, qui se teste,
 se modifie et s'audite sans peur.
 
+## Avant d'écrire : l'existant et la production
+- **Réutiliser avant de créer.** Chercher ce qui existe déjà de proche (`ceng similar <termes>`, graphe de code,
+  grep des noms métier en français ET en anglais) : une fonctionnalité commencée, un composant voisin, un service qui
+  fait 80 % du besoin. L'étendre ou le factoriser ; ne jamais créer une seconde version de la même chose. Code de
+  référence fourni par l'humain : recopier la logique éprouvée et l'adapter, pas réécrire de zéro.
+- **Penser production, pas « simple pour faire simple ».** La solution la plus simple qui tient en production : volumes
+  réels, erreurs et reprises, sécurité, coût d'exploitation, évolution prévisible de la règle métier (une règle qui va
+  changer se modélise pour changer : configuration, données, machine à états). Sans inventer de besoin futur.
+
 ## Grille d'évaluation (dans cet ordre)
 1. **Correction** : cas limites, erreurs, entrées invalides, concurrence. Le chemin heureux ne suffit pas.
 2. **Lisibilité** : noms qui disent l'intention ; une fonction = une chose ; profondeur d'imbrication faible ;

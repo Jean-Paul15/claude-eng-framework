@@ -52,6 +52,8 @@ export function selectGates(task: Task, review: ReviewLevel, policy: EffectivePo
   if (task.kind === 'docs') add('docs', true, 'Tâche de documentation : relecture de cohérence.');
   if (task.kind === 'research' || task.kind === 'design') {
     add('report', true, 'Le livrable d\'une recherche/conception est un document écrit.');
+    // La conception d'une interface est implémentée par son auteur : elle se juge sur les images du parcours.
+    if (task.kind === 'design') add('visual', true, "Écrans conçus capturés et relus image par image (mobile, tablette, desktop).");
     return gates;
   }
 
@@ -83,7 +85,8 @@ export function selectGates(task: Task, review: ReviewLevel, policy: EffectivePo
   if (task.kind === 'ui' || task.domains.includes('frontend')) {
     add('accessibility', policy.quality !== 'light', 'Toute UI doit rester accessible (WCAG 2.2 AA).');
     add('ux', task.assessment.risk >= 3, 'Cohérence UX (feedback, erreurs, états vides/chargement).');
-    if (policy.quality === 'thorough' || task.domains.includes('design-system')) add('visual', false, 'Cohérence visuelle avec le design system.');
+    // Test principal d'une interface : le parcours capturé en images (mobile, tablette, desktop) et relu — skill visual-flow-testing.
+    add('visual', true, "Parcours capturé et relu image par image (mobile, tablette, desktop) : test principal d'une interface.");
   }
   if (task.domains.includes('performance') || (a.risk >= 4 && task.domains.includes('hot-path'))) {
     add('performance', a.risk >= 4, 'Chemin chaud : mesurer avant/après.');

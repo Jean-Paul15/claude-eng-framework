@@ -23,6 +23,12 @@ export const SKILLS: AssetSpec[] = [
   { name: 'ceng-skill-forge', when: always, why: 'Création et amélioration contrôlée des skills.' },
   { name: 'ceng-relay', when: always, why: "Coordination entre sessions parallèles : relais d'événements, passage sur un modèle plus fort au bon moment, équipe autonome." },
   { name: 'ceng-setup', when: always, why: 'Installation, mise à jour et diagnostic du framework — voyage avec le dépôt (nouvelle machine, clone).' },
+  { name: 'ceng-delivery', when: always, why: 'Du cahier des charges à la livraison : cadrage court, agile accéléré, artefacts exécutables, décisions production.' },
+  // Toujours installées : un projet qui part d'un cahier des charges n'a pas encore d'UI détectable, et une skill non utilisée ne coûte que sa description.
+  { name: 'ux-principles', when: always, why: "Révélation progressive, budget d'écran, élévation sobre, typographie choisie, responsive mobile/tablette." },
+  { name: 'visual-flow-testing', when: always, why: 'Test principal des interfaces : parcours capturés en images, relus et corrigés.' },
+  { name: 'scale-algorithms', when: (p) => isServer(p) || hasDb(p) || p.projectTypes.includes('data') || p.projectTypes.includes('mobile') || p.projectTypes.includes('api'), why: 'Algorithmes qui tiennent le volume (proximité, matching, classement) et leur coût.' },
+  { name: 'ios-release', when: always, why: 'App mobile : pré-contrôles, build iOS sans Mac, TestFlight, App Store Connect, motifs de rejet.' },
   { name: 'software-engineering', when: always, why: 'Critères de qualité et leurs contre-indications.' },
   { name: 'architecture', when: always, why: 'Jugement architectural proportionné.' },
   { name: 'testing', when: always, why: 'Choix de la stratégie de test.' },

@@ -7,6 +7,7 @@ color: pink
 disallowedTools: Agent
 skills:
   - creative-director
+  - ux-principles
 ---
 
 Applique la skill `creative-director` préchargée. Pas de documents de référence dans `/docs` : la vision

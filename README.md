@@ -53,7 +53,7 @@ cd /chemin/vers/mon-projet && ceng init    # questions : risque, autonomie, budg
 ceng run                             # ouvre Claude Code en mode orchestrateur
 ```
 
-`ceng doctor` vérifie l'installation, `ceng status` donne l'état du projet, `ceng help` liste toutes les commandes (elles acceptent `--json`). `ceng init` n'écrit jamais dans le code applicatif : il crée `.ceng/`, des agents et skills sous `.claude/`, fusionne `.claude/settings.json` avec sauvegarde, ajoute un bloc délimité dans `CLAUDE.md` et des exclusions dans `.gitignore`. Le guide pas à pas (mode nuit, équipe de sessions, tri des décisions) est dans [docs/usage.md](docs/usage.md).
+`ceng doctor` vérifie l'installation, `ceng status` donne l'état du projet, `ceng help` liste toutes les commandes (elles acceptent `--json`). `ceng init` n'écrit jamais dans le code applicatif : il crée `.ceng/`, des agents et skills sous `.claude/`, fusionne `.claude/settings.json` avec sauvegarde, ajoute un bloc délimité dans `CLAUDE.md` et des exclusions dans `.gitignore`. Le guide pas à pas (cahier des charges, bypass total, mode nuit, équipe de sessions, tri des décisions) est dans [docs/usage.md](docs/usage.md).
 
 ## Comment ça marche
 
@@ -88,7 +88,7 @@ Trois choix structurent le code.
 |---|---|---|
 | Langage | <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/> | TypeScript 5.9, ESM, mode `strict` |
 | Exécution | <img src="https://img.shields.io/badge/Node.js-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js"/> | Node.js 22 ou plus, sans dépendance d'exécution |
-| Tests | <img src="https://img.shields.io/badge/Node%20test%20runner-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node test runner"/> | `node --test`, 244 tests en 48 suites d'après [docs/validation.md](docs/validation.md) |
+| Tests | <img src="https://img.shields.io/badge/Node%20test%20runner-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node test runner"/> | `node --test`, 253 tests en 50 suites d'après [docs/validation.md](docs/validation.md) |
 | Intégration continue | <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white" alt="GitHub Actions"/> | Ubuntu, Windows, macOS ; Node 22 et 24 |
 | Cible | <img src="https://img.shields.io/badge/Claude%20Code-D97757?style=flat-square&logo=claude&logoColor=white" alt="Claude Code"/> | Hooks, subagents, skills, Agent Teams |
 | Packaging | <img src="https://img.shields.io/badge/npm-CB3837?style=flat-square&logo=npm&logoColor=white" alt="npm"/> | CLI `ceng` ou `claude-eng-framework` (champ `bin`), installation depuis GitHub |

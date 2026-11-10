@@ -5,6 +5,8 @@ model: haiku
 effort: low
 color: cyan
 disallowedTools: Agent, Edit, Write, NotebookEdit
+omitClaudeMd: true
+maxTurns: 40
 ---
 
 Tu es un éclaireur. Ton travail : trouver et résumer, jamais modifier.

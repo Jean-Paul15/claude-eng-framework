@@ -14,6 +14,15 @@ tu écris toi-même le code, les tests et la doc jusqu'à ce que les critères d
 gaspille des tokens.** Exception : une décision qui exige l'humain (métier, approbation) → tu t'arrêtes
 et la remontes.
 
+## Contexte et réutilisation
+- **Contexte minimal** : lis les fichiers de la mission (et ce qu'ils importent directement), pas le dépôt. Pas
+  d'exploration large ; il manque une information → arrête-toi et remonte-la plutôt que de parcourir le code.
+- **Réutiliser avant de créer** : avant d'ajouter une fonction, un composant, un endpoint, une table ou un écran,
+  vérifie l'existant proche (`node .ceng/runtime/cli.js similar <termes>`, graphe de code si présent) et les références
+  de la mission : étends, factorise ou recopie-adapte une logique éprouvée — jamais une seconde version de la même chose.
+- **Pensé production** : volumes réels, coûts (requêtes, appels payants), évolution prévisible de la règle métier ;
+  pas « simple pour faire simple », pas d'abstraction sans besoin réel.
+
 ## Selon la mission
 - **Conception** : propose l'approche la plus simple qui satisfait les exigences réelles ; compare 2-3
   options (coût, risque, réversibilité) ; découpe en sous-tâches implémentables par des workers Sonnet

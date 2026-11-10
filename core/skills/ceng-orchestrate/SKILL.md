@@ -18,6 +18,8 @@ CLI d'état (jamais d'édition manuelle de tasks.json/state.json) : `node .ceng/
 2. Interruption signalée → reprends au dernier checkpoint ; vérifie `git status` ; ne recommence pas l'analyse.
 3. Aucune tâche et objectif vide → **bootstrap** : lis [bootstrap.md](bootstrap.md).
 4. Instruction nouvelle de l'humain (`$ARGUMENTS`) → intègre-la au graphe (nouvelles tâches ou mise à jour de l'objectif).
+5. Cahier des charges, objectif produit, « livre-moi ça » → skill `ceng-delivery` (cadrage court, une invite si le cahier
+   est imprécis, plan validé, puis livraison complète en incréments ; tu décides, l'humain valide ou réoriente).
 
 ## Économie bien comprise
 L'économie se mesure sur la tâche entière, pas tour par tour : bien décider une fois (recherche, vérification) coûte
@@ -57,6 +59,9 @@ fichiers de garde-fous restent à usage unique : redemande à chaque fois.
 `--context S|M|L`, `--files` (globs exclusifs → conditionne le parallélisme), `--deps`, `--accept`
 (critères vérifiables, obligatoires si complexité ≥ 3), `--domains` (payments, auth, pii, database,
 api, frontend, performance, licensing… → planchers de qualité), `--interfaces` (contrats partagés).
+**Avant de créer une tâche de fonctionnalité : l'existant.** `ceng similar <termes du besoin>` (et `graphify query` si
+le graphe existe) : quelque chose de proche existe ou a été commencé → la tâche devient « étendre / terminer / factoriser
+X », jamais « créer » une seconde version. Code de référence indiqué par l'humain → noté pour le brief (`--ref`).
 Une tâche = un livrable vérifiable. Trop grosse (complexité 5 et ambiguë) → fais-la concevoir/découper par `ceng-principal`.
 
 ## 3. Décider qui travaille
@@ -64,7 +69,9 @@ Une tâche = un livrable vérifiable. Trop grosse (complexité 5 et ambiguë) �
 contredire si tu as une information qu'elle n'a pas — **dis pourquoi** (consigne-le dans le rapport ou
 via `ceng decision add` si c'est structurant).
 - `executor: direct` → fais-le toi-même (déléguer coûterait plus que le travail).
-- `subagent` → délègue à `implementer.agent` avec `model: implementer.model` (paramètre de l'outil Agent).
+- `subagent` → délègue à `implementer.agent` avec `model: implementer.model` (paramètre de l'outil Agent), avec le
+  paquet de `ceng brief <id> [--ref fichier]…` : uniquement la portion de code, les références et les décisions utiles.
+- Toi (Opus) : tu décides, tu fixes les contrats, tu arbitres. Tu ne codes que ce qui est plus court que déléguer.
 - Une phase `design`/`architecture-review` → `ceng-principal` (Opus) ; `threat-model`/`security-review` → `ceng-security` ; `review` → `ceng-reviewer` ; `understand` → `ceng-scout` (Haiku).
 - Recherche externe seulement si la décision en dépend (API récente, version, vulnérabilité, service cloud) → `ceng-researcher`.
 
@@ -121,6 +128,12 @@ DROP/TRUNCATE), migrations en production, secrets, fichiers de garde-fous (.clau
 licences, nouvelle collecte de données personnelles. L'économie de tokens ne justifie jamais d'ignorer un problème
 de sécurité, un bug critique, des tests nécessaires ou une revue architecturale nécessaire.
 
+**Bypass total** (`ceng bypass on`, décision de l'humain ; le brief de session l'annonce « BYPASS TOTAL ») : plus aucune
+validation ni refus — stade, liste ci-dessus, secrets et `.env` compris. N'attends aucune approbation : agis. Ce qui reste,
+parce que ce n'est pas un frein : checkpoint volontaire avant ce qui sort de la machine (déploiement, migration distante,
+publication), instantanés automatiques avant suppression/reset, secrets utilisés sans être affichés (lus si la tâche
+l'exige, jamais recopiés dans un rapport, un log ou un commit). Tu ne l'actives ni ne le coupes de toi-même.
+
 ## 6 bis. Mode sans humain (`ceng run --unattended`, « mode nuit »)
 Le prompt commence par « MODE SANS HUMAIN » : personne ne répondra.
 - Ne pose **aucune** question bloquante. Une question de direction prend **ta recommandation** comme **décision
@@ -144,11 +157,17 @@ les décisions en attente (« montre-moi les décisions », « reprends l'invite
 au checkpoint de la décision (peu de travail dépendant), soit tâches d'adaptation dans le graphe ; mets l'ADR à jour
 (« remplacée par … »). Une décision gardée telle quelle passe de PROVISOIRE à acceptée.
 
+## 6 ter. Sessions, contexte, limites du compte
+Ta conversation reste petite. Session trop chargée (compaction déjà faite, chantier sans lien avec le précédent) →
+checkpoint volontaire précis, puis nouvelle session qui reprend depuis le Brain ; plusieurs sessions en parallèle →
+skill `ceng-relay`. Limites d'usage : Opus décide, Sonnet produit, Haiku lit ; voir skill `ceng-delivery` § 7.
+
 ## 7. Fin de phase / de session
 `ceng status` ; résume à l'humain ce qui est fait, ce qui reste, les décisions qui l'attendent.
 Après une tâche importante : leçons réutilisables → `ceng learn add` (voir skill `ceng-skill-forge`).
 Périodiquement (≈ toutes les 10 tâches) : `ceng adapt` pour ajuster la stratégie sur données réelles.
 
+Livraison depuis un cahier des charges : skill `ceng-delivery`. UI : skills `ux-principles` et `visual-flow-testing` (le test du flux en images est le test principal d'une interface).
 Références (charger seulement si besoin) : [delegation.md](delegation.md) (briefs, parallélisme, Agent Teams, grand chantier à plusieurs agents) ·
 [bootstrap.md](bootstrap.md) (premier lancement) · [recovery.md](recovery.md) (reprise, rollback, échecs) ·
 [iteration.md](iteration.md) (cycle UNDERSTAND→DONE selon le risque).

@@ -29,6 +29,13 @@ npm install -g github:Jean-Paul15/claude-eng-framework
    ```
    Il pose les questions de cadrage une fois (utilisateurs, périmètre, contraintes, critères de succès), conçoit
    l'architecture, découpe le travail en tâches et commence.
+   **Tu as un cahier des charges ?** Donne-le tel quel (et, si tu en as, des fichiers de code de référence à reprendre) :
+   ```text
+   /ceng-orchestrate Voici le cahier des charges : <colle-le ou donne le chemin>. Références : src/legacy/cart.ts
+   ```
+   Opus le lit, pose au plus une série de questions si un point à fort impact est flou, te fait valider le plan, puis
+   livre par incréments : migrations SQL, contrats d'API et code plutôt que documents, diagrammes seulement quand ils
+   portent le flux, tests de la logique en TDD, parcours capturés en images et relus sur mobile, tablette et desktop.
 4. **Tu suis et tu valides.** Il ne revient vers toi que pour les décisions qui te reviennent et les actions sensibles
    (déploiement, données de production, licences). Si tu fermes la session, la suivante reprend là où il s'était arrêté.
 
@@ -48,6 +55,8 @@ ceng run                                             # ouvre Claude Code en mode
 | Savoir où en est le projet | demander à Claude « où en est le projet ? », ou `ceng status` |
 | Une petite modification ou une question | parler à Claude normalement : le framework reste actif en arrière-plan |
 | Comprendre pourquoi une décision a été prise | `ceng report`, `ceng log --task T-0004`, `ceng route T-0004` |
+| Lui donner carte blanche, sans aucune validation | `ceng bypass on` (toi, dans un terminal), puis nouvelle session — voir ci-dessous |
+| Savoir si quelque chose existe déjà avant d'en créer un autre | `ceng similar historique des commandes` |
 | Vérifier l'installation | `ceng doctor` |
 | Mettre à jour le framework dans le projet | `npx -y github:Jean-Paul15/claude-eng-framework upgrade` |
 | Reprendre sur une autre machine | cloner le dépôt et ouvrir Claude : rien à installer (le runtime est dans `.ceng/runtime/`) |
@@ -96,6 +105,19 @@ Désactivable avec `ceng init --presence off`, qui rétablit les boîtes de perm
 
 Lance le mode nuit dans un terminal plutôt que dans une session de Claude Desktop. Une session interactive s'arrête
 sur la moindre invite de permission ; le mode `--unattended` est conçu pour ne jamais en afficher.
+
+## Bypass total : Claude peut tout faire
+
+```bash
+ceng bypass on      # toi seul : Claude ne peut pas se l'accorder
+ceng bypass off     # retour aux garde-fous
+```
+
+Plus aucune validation ni refus : suppressions, push (forcé compris), déploiements, migrations, infrastructure, création et
+lecture des fichiers `.env`, fichiers de garde-fous. Claude Code passe en `bypassPermissions` (nouvelle session après
+l'activation). Ce qui reste, parce que ça ne freine rien : tout est journalisé, un instantané est pris automatiquement avant
+une suppression ou un reset (`ceng rollback`), les secrets sont utilisés sans être affichés quand c'est possible et ne sont
+jamais recopiés dans un rapport, un log ou un commit, et deux agents parallèles ne s'écrasent pas le même fichier.
 
 ## 5. Plusieurs sessions en équipe, sans humain devant l'écran
 

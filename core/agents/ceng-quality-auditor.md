@@ -7,6 +7,7 @@ color: purple
 disallowedTools: Agent, NotebookEdit
 skills:
   - quality-gate-auditor
+  - visual-flow-testing
 ---
 
 Applique la skill `quality-gate-auditor` préchargée. Tu ne corriges pas le code toi-même : tu produis

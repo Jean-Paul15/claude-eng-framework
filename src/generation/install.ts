@@ -220,6 +220,9 @@ export function install(opts: InstallOptions): InstallReport {
     codeGraph: { enabled: opts.codeGraph ?? previousConfig?.codeGraph?.enabled ?? true },
     presence: { enabled: opts.presence ?? previousConfig?.presence?.enabled ?? true },
     secrets: { allow: previousConfig?.secrets?.allow ?? [] },
+    // Décisions humaines : une mise à jour ne les annule jamais.
+    ...(previousConfig?.team ? { team: previousConfig.team } : {}),
+    ...(previousConfig?.bypass ? { bypass: previousConfig.bypass } : {}),
     installedSkills: [...skillSel.selected.map((s) => s.name), ...generated.map((g) => g.name)],
     installedAgents: agentSel.selected.map((a) => a.name),
     createdAt: previousConfig?.createdAt ?? new Date().toISOString(),
@@ -237,9 +240,9 @@ export function install(opts: InstallOptions): InstallReport {
 
   // 6. Intégration Claude Code : settings.json (fusion), CLAUDE.md (bloc), .gitignore
   const settingsPath = path.join(root, '.claude', 'settings.json');
-  const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: policy.autonomy, parallelism: policy.parallelism, allowedSecrets: previousConfig?.secrets?.allow ?? [] });
+  const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: policy.autonomy, parallelism: policy.parallelism, allowedSecrets: previousConfig?.secrets?.allow ?? [], bypass: previousConfig?.bypass?.enabled === true });
   w.generated('.claude/settings.json', `${JSON.stringify(merged, null, 2)}\n`, 'hooks + règles de permission (fusion non destructive)');
-  w.generated('CLAUDE.md', upsertBlock(readText(path.join(root, 'CLAUDE.md')), renderBlock(profile, policy, config.codeGraph?.enabled ?? false, config.stage)), 'bloc ceng (pointeurs compacts)');
+  w.generated('CLAUDE.md', upsertBlock(readText(path.join(root, 'CLAUDE.md')), renderBlock(profile, policy, config.codeGraph?.enabled ?? false, config.stage, config.bypass?.enabled === true)), 'bloc ceng (pointeurs compacts)');
   const gi = readText(path.join(root, '.gitignore')) ?? '';
   const giLines = new Set(gi.split(/\r?\n/).map((l) => l.trim()));
   const missing = GITIGNORE_BLOCK.slice(1).filter((l) => !giLines.has(l));

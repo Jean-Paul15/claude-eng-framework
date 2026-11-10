@@ -11,6 +11,8 @@ import { graphCommand } from './cli/commands/graph.js';
 import { secretsCommand } from './cli/commands/secrets.js';
 import { configCommand } from './cli/commands/config.js';
 import { relayCommand, teamCommand } from './cli/commands/team.js';
+import { bypassCommand } from './cli/commands/bypass.js';
+import { briefCommand, similarCommand } from './cli/commands/context.js';
 
 const HELP = `ceng — framework d'ingénierie autonome pour Claude Code
 
@@ -26,6 +28,8 @@ Travail (utilisé par l'orchestrateur et les agents)
   route <id>                 Décision expliquée : agent, modèle, effort, revue, tests, gates, escalade
   plan [--charter "mission"] Lots exécutables : direct / séquentiel / subagents parallèles / Agent Team
   gate list|run <id> [--only lint,unit] · gate record <id> <gate> pass|fail --note …
+  similar <termes…>          Existant proche (fichiers, symboles) à réutiliser AVANT de créer — évite les doublons
+  brief <id>                 Paquet de délégation minimal : fichiers à toucher, références, existant, décisions, critères
   conflicts                  Fichiers touchés par plusieurs agents / hors périmètre
 
 Mémoire & reprise
@@ -39,6 +43,9 @@ Observabilité & amélioration
 Commandes de gates
   config detect [--apply]    Commandes recommandées pour la vraie pile du projet ; --apply les écrit dans .ceng/config.json (validation humaine)
   config stage [prototype|production]   Stade du projet : prototype = sans validation pour ce qui est récupérable (changement : validation humaine)
+
+Bypass total (décision humaine)
+  bypass status|on|off       Aucune validation ni refus (bypassPermissions) ; journal et instantanés conservés
 
 Équipe de sessions (plusieurs agents en parallèle)
   team status|on|off [--allow mcp__serveur__outil] [--defer mcp__serveur__outil]
@@ -93,6 +100,9 @@ export async function main(argv: string[]): Promise<void> {
     case 'secrets': return secretsCommand(rest);
     case 'config': return configCommand(rest);
     case 'team': return teamCommand(rest);
+    case 'bypass': return bypassCommand(rest);
+    case 'similar': return similarCommand(rest);
+    case 'brief': return briefCommand(rest);
     case 'relay': return relayCommand(rest);
     case 'hook': {
       const chunks: Buffer[] = [];

@@ -7,7 +7,7 @@ export const BEGIN = '<!-- ceng:begin (généré par claude-eng-framework — mo
 export const END = '<!-- ceng:end -->';
 
 /** Bloc court injecté dans CLAUDE.md : des pointeurs, pas un manuel (CLAUDE.md est chargé à chaque session). */
-export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy, codeGraph = false, stage: Stage = 'production'): string {
+export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy, codeGraph = false, stage: Stage = 'production', bypass = false): string {
   const cmds = Object.entries(profile.commands)
     .filter(([k, v]) => v && ['build', 'typecheck', 'lint', 'unit', 'e2e'].includes(k))
     .map(([k, v]) => `${k}: \`${v}\``)
@@ -30,7 +30,13 @@ export function renderBlock(profile: ProjectProfile, policy: EffectivePolicy, co
     '- Légal & gouvernance : licences des dépendances, données personnelles, décisions tracées (ADR) — skill `legal-governance`.',
     `- Nouvelle machine / clone : rien à installer pour la CLI (\`.ceng/runtime/\` versionné) ; \`${CLI_INVOCATION} doctor\` ; graphe de code absent → \`${CLI_INVOCATION} graph install\` (accord humain) puis \`graph build\` ; mise à jour : \`npx -y github:Jean-Paul15/claude-eng-framework upgrade\`.`,
     '',
-    ...(stage === 'prototype'
+    ...(bypass
+      ? [
+          "**BYPASS TOTAL** (décision de l'humain) — aucune validation ni refus : suppressions, push, déploiements, migrations, infrastructure, fichiers `.env` et garde-fous compris. Agis sans demander d'autorisation. Secrets : les utiliser sans afficher leurs valeurs ; les lire si la tâche l'exige, jamais les recopier (rapport, log, commit). Tout est journalisé ; instantané avant suppression ou reset (`rollback`).",
+          `Retour aux garde-fous : \`${CLI_INVOCATION} bypass off\`.`,
+          '',
+        ]
+      : stage === 'prototype'
       ? [
           '**Stade : prototype** (aucun utilisateur réel) — migrations, déploiements, suppressions, push et fichiers de garde-fous du projet passent SANS validation (journalisés ; instantané avant suppression ou reset : `rollback`). Restent soumis à l\'humain : secrets, suppression hors du dépôt, push forcé sur une branche protégée d\'un dépôt partagé, publication, infrastructure.',
           `Passage en production : \`${CLI_INVOCATION} config stage production\` (validation humaine).`,

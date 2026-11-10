@@ -2,6 +2,10 @@
 
 ## Brief de délégation (outil Agent) — modèle
 Le worker ne voit **pas** ta conversation. Le brief doit suffire, et rien de plus.
+**Génère-le** : `ceng brief <id> [--ref chemin]… [--context "…"]` — fichiers existants du périmètre, références à
+recopier-adapter, existant proche à réutiliser (anti-doublon), décisions en vigueur, rapports des dépendances, critères,
+stratégie de test, règle de contexte minimal. Complète « Contexte minimal » (2 à 5 lignes : ce que le worker ne peut pas
+trouver seul, avec les lignes précises si tu les connais) et colle le tout. Modèle équivalent :
 
 ```
 Tâche T-0007 — <titre>                       ← l'ID T-xxxx est obligatoire (traçabilité par les hooks)

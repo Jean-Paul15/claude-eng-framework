@@ -56,6 +56,14 @@ un script qui ouvre lui-même un fichier peut passer. Pour une autonomie élevé
 Les hooks sont *fail-open* (un bug du framework ne bloque pas la session) : les permissions natives restent la
 première ligne de défense.
 
+## Bypass total (`ceng bypass on`)
+Décision humaine (la garde de commandes soumet `bypass on|off` à l'approbation quand Claude la lance ; mise à jour du framework
+sans effet sur ce choix). Effets : les hooks autorisent toute commande, écriture, lecture et outil MCP (règles interdites
+comprises), le `.claude/settings.json` passe en `defaultMode: bypassPermissions` et perd les règles `deny`/`ask` du framework
+(celles de l'utilisateur restent). Conservé : journal `guard.verdict` (règle `bypass`), instantané avant suppression, reset ou
+réécriture d'historique, verrou de fichiers entre agents parallèles, masquage des secrets dans les journaux du framework.
+À réserver aux projets où l'humain assume toutes les conséquences ; recommandé : machine ou conteneur isolé.
+
 ## Sécurité dans le cycle de développement
 
 Profondeur proportionnée au risque :

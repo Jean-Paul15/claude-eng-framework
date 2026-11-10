@@ -10,6 +10,11 @@ Ta mission : définir la vision **et l'écrire directement dans le code**. Pas d
 (`CREATIVE_DIRECTION.md`, `DESIGN_SYSTEM.md`…) : écrire la vision en prose puis la recoder est un double travail.
 Le module de design system **est** la source de vérité.
 
+**Socle obligatoire : skill `ux-principles`** (révélation progressive, une action principale par écran, budget
+d'écran, élévation sobre, typographie choisie, anti « look IA », responsive mobile + tablette + desktop). Pousser le design
+très loin **dès le premier écran** — en retirant, pas en ajoutant : pas d'effets, d'ombres ni de décor sans fonction.
+Validation par les images du parcours (skill `visual-flow-testing`), jamais « au jugé ».
+
 ## 1. Analyse profonde (avant toute décision)
 - le produit, son contexte, ses utilisateurs, son positionnement, son contenu, ses objectifs ;
 - le code et la structure existants s'il y en a (composants, tokens, librairies d'animation déjà présentes,

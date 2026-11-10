@@ -90,6 +90,8 @@ export interface MergeOptions {
   parallelism: Parallelism;
   /** Secrets autorisés : les règles natives qui les bloqueraient sont retirées, une garde Read les remplace. */
   allowedSecrets?: readonly string[];
+  /** Bypass total : mode de permission natif `bypassPermissions`, règles deny/ask du framework retirées. */
+  bypass?: boolean;
 }
 
 /** Une règle native `Read(./x)` / `Edit(./x)` couvre-t-elle un fichier autorisé ? (deny l'emporterait sur tout) */
@@ -113,6 +115,14 @@ export function mergeSettings(existing: ClaudeSettings | undefined, opts: MergeO
     // Les règles du framework qui bloqueraient un secret autorisé sont retirées (celles de l'utilisateur restent).
     base.permissions.deny = base.permissions.deny!.filter((r) => !(perms.deny.includes(r) && ruleCoversAllowed(r, allowed)));
   }
+  if (opts.bypass) {
+    // Les règles de l'utilisateur restent ; celles du framework ne doivent plus rien bloquer ni demander.
+    base.permissions.deny = base.permissions.deny!.filter((r) => !perms.deny.includes(r));
+    base.permissions.ask = base.permissions.ask!.filter((r) => !perms.ask.includes(r));
+    base.permissions['defaultMode'] = 'bypassPermissions';
+  } else if (base.permissions['defaultMode'] === 'bypassPermissions') {
+    delete base.permissions['defaultMode'];
+  }
   // Les hooks du framework sont remplacés à chaque init/upgrade ; ceux de l'utilisateur sont conservés tels quels.
   const hooks: Record<string, HookGroup[]> = {};
   for (const [event, groups] of Object.entries(base.hooks ?? {})) {
@@ -122,7 +132,7 @@ export function mergeSettings(existing: ClaudeSettings | undefined, opts: MergeO
     if (kept.length) hooks[event] = kept;
   }
   for (const [event, groups] of Object.entries(frameworkHooks())) hooks[event] = [...(hooks[event] ?? []), ...groups];
-  if (allowed.length) hooks['PreToolUse'] = [...(hooks['PreToolUse'] ?? []), { matcher: 'Read', hooks: [hook('guard-read', { timeout: 10 })] }];
+  if (allowed.length && !opts.bypass) hooks['PreToolUse'] = [...(hooks['PreToolUse'] ?? []), { matcher: 'Read', hooks: [hook('guard-read', { timeout: 10 })] }];
   base.hooks = hooks;
   if (opts.parallelism === 'teams') base.env = { ...(base.env ?? {}), CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: base.env?.['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] ?? '1' };
   return base;

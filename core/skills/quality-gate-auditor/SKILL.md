@@ -10,6 +10,11 @@ définie dans `/docs`. Le site a été implémenté par un autre modèle.
 
 **Ne recommence pas le projet.** Audite le résultat réel par rapport à la vision initiale.
 
+## Méthode : les images d'abord
+Audite sur **les captures réelles du parcours** (skill `visual-flow-testing` : mobile, tablette, desktop, états vide /
+chargement / erreur), avec la grille de la skill `ux-principles` (révélation progressive, surcharge, hiérarchie,
+espacements, élévation sobre, typographie, « look IA »). Pas de capture → les produire d'abord, pas d'audit au jugé.
+
 ## Ce que tu inspectes
 - cohérence visuelle · qualité du motion · rythme · transitions · scroll · hiérarchie · micro-interactions
 - cohérence entre les pages · responsive · performance · accessibilité
