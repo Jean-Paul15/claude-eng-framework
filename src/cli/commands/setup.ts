@@ -164,7 +164,7 @@ export async function initCommand(argv: string[], mode: 'init' | 'upgrade' = 'in
   const stageRaw = str(p, 'stage');
   if (stageRaw !== undefined && !['prototype', 'production'].includes(stageRaw)) throw new UsageError('--stage : prototype|production');
   const report = install({ projectRoot: root, preferences: prefs, ...(goal ? { goal } : {}), dryRun: bool(p, 'dry-run'), profile, ...(codeGraph !== undefined ? { codeGraph } : {}), ...(presenceRaw !== undefined ? { presence: presenceRaw === 'on' } : {}), ...(stageRaw !== undefined ? { stage: stageRaw as Stage } : {}) });
-  const graphNotes = setupGraphAtInit(root, { enabled: report.config.codeGraph?.enabled ?? false, install: installGraph, dryRun: bool(p, 'dry-run') });
+  const graphNotes = setupGraphAtInit(root, { enabled: report.config.codeGraph?.enabled ?? false, install: installGraph, dryRun: bool(p, 'dry-run'), mode });
   const next = bool(p, 'dry-run') ? '' : `\n\nÉtape suivante : \`ceng run\` (ou ouvrir Claude Code dans ce dossier et taper /ceng-orchestrate).`;
   const graphText = graphNotes.length ? `\n\nGraphe de code :\n${graphNotes.map((n) => `  • ${n}`).join('\n')}` : '';
   out(p, summarize(report, bool(p, 'dry-run')) + graphText + next, { ...report, graphNotes });

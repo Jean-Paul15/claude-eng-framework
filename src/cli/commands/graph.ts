@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { buildGraph, graphDisabledByEnv, graphifyAvailable, graphPath, installGraphify } from '../../app/codegraph.js';
+import { buildGraph, graphDisabledByEnv, graphifyAvailable, graphPath, installGraphify, refreshInBackground } from '../../app/codegraph.js';
 import { BrainStore } from '../../brain/store.js';
 import { exists } from '../../infra/fs.js';
 import { out, parse, str, UsageError } from '../args.js';
@@ -66,7 +66,12 @@ export function graphCommand(argv: string[]): void {
 }
 
 /** Étape d'init : installe (si demandé) puis construit le graphe. Ne fait jamais échouer l'init. */
-export function setupGraphAtInit(root: string, opts: { enabled: boolean; install: boolean; dryRun: boolean }): string[] {
+/**
+ * Graphe de code à l'installation. Un graphe déjà présent n'est jamais reconstruit ici (les hooks le mettent à jour en
+ * arrière-plan) ; à la mise à jour, un graphe absent est construit en arrière-plan : `upgrade` reste rapide même sur un
+ * gros dépôt. Seul le premier `init` le construit tout de suite (le projet en a besoin dès sa première session).
+ */
+export function setupGraphAtInit(root: string, opts: { enabled: boolean; install: boolean; dryRun: boolean; mode?: 'init' | 'upgrade' }): string[] {
   if (!opts.enabled || opts.dryRun || graphDisabledByEnv()) return [];
   const notes: string[] = [];
   let available = graphifyAvailable(root);
@@ -78,6 +83,11 @@ export function setupGraphAtInit(root: string, opts: { enabled: boolean; install
   if (!available) {
     if (!opts.install) notes.push('Graphe de code activé mais graphify absent : `ceng graph install` (ou relancer init avec --install-graphify).');
     return notes;
+  }
+  if (exists(graphPath(root))) return ['Graphe de code présent : mis à jour automatiquement par les hooks.'];
+  if (opts.mode === 'upgrade') {
+    refreshInBackground(new BrainStore(root), 'build');
+    return ['Graphe de code en construction en arrière-plan.'];
   }
   const r = buildGraph(root);
   notes.push(r.ok ? `Graphe de code construit (${r.detail.replace(/^.*— /, '')}) ; mis à jour automatiquement ensuite.` : `Construction du graphe échouée : ${r.detail}`);

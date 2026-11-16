@@ -44,6 +44,18 @@ parler de temps en temps, il ne contrôle pas chaque étape. Ce qui suit est sa 
    modérable. Côté Android : règles Google Play équivalentes (données, permissions sensibles, suppression de compte).
    Pendant le travail, toute fonction sensible (paiement, données, santé, enfants, IA, contenu publié) → vérifier la
    règle à jour du magasin (skill `research`).
+   **Cahier des charges en PDF (ou images, maquettes, captures)** — le lire en entier, une fois, sans le relire ensuite :
+   - Pages lues par lots (outil Read avec `pages`, 20 pages au plus par lecture) : texte ET images de chaque page sont vus
+     (maquettes, schémas, tableaux, captures). Gros document → découpé entre plusieurs `ceng-researcher` (un lot de pages
+     chacun), qui renvoient chacun une synthèse.
+   - Images extraites en pleine résolution dans `docs/spec/assets/` (PyMuPDF : `page.get_images()` + `extract_image`, ou
+     `pdfimages -png` ; `pdftoppm -r 150` pour une page entière), nommées `p<page>-<n>-<sujet>.png`.
+   - Synthèse unique `.ceng/brain/spec.md` : une section par partie du cahier, exigences numérotées (EX-001…) avec la page
+     source, et pour chaque maquette son image, l'écran qu'elle décrit et ce qui est imposé (contenu, ordre, style) ou
+     seulement indicatif. C'est elle que lisent l'orchestrateur et les briefs (`--ref docs/spec/assets/...`), jamais le PDF.
+   - Les maquettes deviennent des références du test visuel : la capture livrée est relue à côté de l'image du cahier ;
+     écart volontaire (meilleure UX, règle d'un magasin) → noté dans la synthèse avec la raison.
+   - Chaque exigence est tracée jusqu'à une tâche et un test (« EX-014 → T-0031 ») ; la livraison finale liste celles couvertes.
 2. Repérer **seulement les vrais trous** : ce qui change l'architecture, le modèle de données, la facture ou le légal.
    Le reste se décide (bonne pratique du domaine) et se note comme hypothèse.
 3. **Une seule invite** (`AskUserQuestion`, 1 à 4 questions groupées, recommandation en premier) si le cahier est
