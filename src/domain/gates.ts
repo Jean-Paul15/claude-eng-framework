@@ -1,4 +1,5 @@
 import { LEGAL_SENSITIVE_DOMAINS, SECURITY_SENSITIVE_DOMAINS } from './policy.js';
+import { requiredDiagrams } from './diagrams.js';
 import type { EffectivePolicy, GateId, GateKind, GateRequirement, ReviewLevel, Task } from './types.js';
 
 export const GATE_KINDS: Record<GateId, GateKind> = {
@@ -20,6 +21,7 @@ export const GATE_KINDS: Record<GateId, GateKind> = {
   visual: 'agent',
   ux: 'agent',
   docs: 'agent',
+  diagrams: 'builtin',
   review: 'agent',
   'security-review': 'agent',
   'architecture-review': 'agent',
@@ -53,6 +55,8 @@ export function selectGates(task: Task, review: ReviewLevel, policy: EffectivePo
   if (task.kind === 'research' || task.kind === 'design') {
     add('report', true, 'Le livrable d\'une recherche/conception est un document écrit.');
     // La conception d'une interface est implémentée par son auteur : elle se juge sur les images du parcours.
+    const designDiagrams = requiredDiagrams(task);
+    if (designDiagrams.length) add('diagrams', true, `Diagramme(s) obligatoire(s) : ${designDiagrams.map((d) => d.why).join(' ; ')}.`);
     if (task.kind === 'design') add('visual', true, "Écrans conçus capturés et relus image par image (mobile, tablette, desktop).");
     return gates;
   }
@@ -91,6 +95,8 @@ export function selectGates(task: Task, review: ReviewLevel, policy: EffectivePo
   if (task.domains.includes('performance') || (a.risk >= 4 && task.domains.includes('hot-path'))) {
     add('performance', a.risk >= 4, 'Chemin chaud : mesurer avant/après.');
   }
+  const diagrams = requiredDiagrams(task);
+  if (diagrams.length) add('diagrams', true, `Diagramme(s) obligatoire(s) : ${diagrams.map((d) => d.why).join(' ; ')}.`);
   if (task.kind === 'feature' && a.architecturalImpact >= 3) add('docs', false, 'Impact architectural : documentation/ADR à jour.');
 
   switch (review) {

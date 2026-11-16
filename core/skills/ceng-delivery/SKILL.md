@@ -85,7 +85,18 @@ Les estimations humaines ne valent plus : ce qui prenait 2 mois à une équipe s
 | Design | module de design system (tokens, thème, composants) | un document de direction |
 | Configuration | fichiers de config versionnés, `.env.example` commenté | un guide d'installation long |
 | Décision | ADR de quelques lignes (`ceng decision add`) | un document de conception |
-**Diagrammes : seulement quand ils portent le flux** et qu'on les fait vivre. Utiles : diagramme d'états (statuts d'une
+**Diagrammes UML obligatoires quand ils sont pertinents** (gate `diagrams`, vérifiée à chaque tâche concernée : présent
+dans un fichier modifié par la tâche, sinon échec) — déclenchés par les domaines de la tâche :
+| Domaine de la tâche (`--domains`) | Diagramme Mermaid exigé |
+|---|---|
+| `lifecycle` (entité à 3 statuts ou plus : commande, course, paiement, abonnement) | **états** — `stateDiagram-v2` |
+| `integration`, `webhooks`, `oauth`, `payments`, `dispatch` (échange entre systèmes) | **séquence** — `sequenceDiagram` |
+| `journey` (parcours utilisateur clé, processus métier à étapes) | **activité** — `flowchart` |
+| `multi-surface` / `architecture` (cadrage d'un projet web + mobile + backoffice + API) | **déploiement** — `architecture-beta`, C4 ou `flowchart` dans un fichier d'architecture |
+Rangement : `docs/diagrams/<sujet>.md` (bloc ```mermaid) ou à côté du code ; première ligne : ce qu'il reflète (fichiers,
+symboles). Diagramme existant toujours exact après la tâche → `ceng gate record <id> diagrams pass --note "toujours exact : …"`.
+Jamais : classes, objets, composants, paquetages, cas d'utilisation, communication, timing (le code, le SQL et les contrats
+les remplacent). **Diagrammes : seulement quand ils portent le flux** et qu'on les fait vivre. Utiles : diagramme d'états (statuts d'une
 commande, d'une course), séquence d'une intégration (paiement, webhook, dispatch), parcours utilisateur, architecture des
 surfaces. En Mermaid dans `docs/` ou à côté du code, **mis à jour dans la même tâche** que le code qu'ils décrivent.
 Un ER se génère depuis le schéma si besoin. Pas de diagramme UML de classes « pour la forme ».

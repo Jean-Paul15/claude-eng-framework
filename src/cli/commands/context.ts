@@ -5,6 +5,7 @@ import { routeAndStore } from '../../app/tasks.js';
 import { BrainStore } from '../../brain/store.js';
 import { matchesAny, normalizePath } from '../../domain/globs.js';
 import type { Candidate } from '../../domain/similarity.js';
+import { DIAGRAM_LABEL, requiredDiagrams } from '../../domain/diagrams.js';
 import type { Task } from '../../domain/types.js';
 import { exists, listFiles, readText } from '../../infra/fs.js';
 import { out, parse, requirePositional, str, UsageError } from '../args.js';
@@ -99,6 +100,7 @@ export function briefCommand(argv: string[]): void {
     ...(task.acceptance.length ? task.acceptance.map((a) => `  - ${a}`) : ['  - <critères vérifiables>']),
     `Tests : ${route.testStrategy.flow}${route.testStrategy.types.length ? ` [${route.testStrategy.types.join(', ')}]` : ''}${route.testStrategy.testFirst ? ' — test d\'abord (TDD)' : ''}`,
     ...(task.domains.includes('frontend') || task.kind === 'ui' || task.kind === 'design' ? ['Validation visuelle : parcours capturé et relu image par image (skill visual-flow-testing), mobile + tablette + desktop.'] : []),
+    ...section('Diagrammes obligatoires (Mermaid, créés ou mis à jour dans cette tâche — gate `diagrams`) :', requiredDiagrams(task).map((d) => `  - ${DIAGRAM_LABEL[d.kind]} — ${d.why}`)),
     'Règles de contexte : ne lis que les fichiers listés et ceux qu\'ils importent directement ; pas d\'exploration large. S\'il manque une information, arrête-toi et remonte-la (status: blocked) plutôt que de deviner ou de parcourir le dépôt.',
     `Livrable : code + tests + .ceng/brain/reports/${task.id}.md + bloc CENG_REPORT (dont « reuse: » = ce qui a été réutilisé ou pourquoi rien ne l'était ; « removed: » = ancien code, doublons ou code mort supprimés).`,
     `Agent : ${route.implementer.agent} · modèle ${route.implementer.model} · effort ${route.implementer.effort}`,

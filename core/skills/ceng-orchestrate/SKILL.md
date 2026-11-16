@@ -58,7 +58,8 @@ fichiers de garde-fous restent à usage unique : redemande à chaque fois.
 À la création (`ceng task add`), note 1-5 : **complexity, risk, ambiguity, novelty, arch**, plus
 `--context S|M|L`, `--files` (globs exclusifs → conditionne le parallélisme), `--deps`, `--accept`
 (critères vérifiables, obligatoires si complexité ≥ 3), `--domains` (payments, auth, pii, database,
-api, frontend, performance, licensing… → planchers de qualité), `--interfaces` (contrats partagés).
+api, frontend, performance, licensing… → planchers de qualité ; lifecycle, integration, webhooks, oauth, dispatch,
+journey, multi-surface → **diagramme obligatoire**, voir skill `ceng-delivery` § 3), `--interfaces` (contrats partagés).
 **Tu es le responsable technique d'un code maintenu des années** (skill `software-engineering`) : une seule façon de faire
 chaque chose ; remplacer = supprimer l'ancien dans la même tâche (code mort, doublons, drapeaux et tests devenus inutiles) ;
 le legacy encore utilisé se retire en expand/contract avec une date, jamais laissé sans fin. Critère d'acceptation implicite

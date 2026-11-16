@@ -1,10 +1,11 @@
 import * as path from 'node:path';
+import { DIAGRAM_LABEL, diagramsIn, requiredDiagrams, type DiagramKind } from '../domain/diagrams.js';
 import { GATE_KINDS } from '../domain/gates.js';
 import { scanText } from '../domain/secrets.js';
 import { isSecretPath } from '../domain/guardrails.js';
 import type { GateId, GateResult, GateStatus, Task } from '../domain/types.js';
 import { runShell, tail } from '../infra/exec.js';
-import { exists, readJson, readText, writeTextAtomic } from '../infra/fs.js';
+import { exists, listFiles, readJson, readText, writeTextAtomic } from '../infra/fs.js';
 import { Git } from '../infra/git.js';
 import { redact } from '../domain/secrets.js';
 import type { BrainStore } from '../brain/store.js';
@@ -27,6 +28,47 @@ export function changedFiles(root: string): string[] {
   if (!git.isRepo()) return [];
   const head = git.head();
   return head ? git.filesChangedSince(head) : git.changedFiles();
+}
+
+const DIAGRAM_FILE = /\.(md|mdx|mmd)$/i;
+const DIAGRAM_SKIP = /(^|\/)(node_modules|dist|build|\.ceng|graphify-out|vendor)(\/|$)/;
+
+/**
+ * Diagrammes obligatoires de la tâche : présents dans un fichier modifié par la tâche (donc à jour). Présents seulement
+ * dans un fichier inchangé → échec explicite : le mettre à jour, ou confirmer qu'il reste exact (`gate record … diagrams pass`).
+ */
+export function runDiagramsGate(root: string, task: Task, files = changedFiles(root)): { status: GateStatus; detail: string } {
+  const required = requiredDiagrams(task);
+  if (!required.length) return { status: 'pass', detail: 'Aucun diagramme requis.' };
+  const kindsIn = (f: string): Set<DiagramKind> => {
+    const text = readText(path.join(root, f));
+    return text && text.length < MAX_SCAN_BYTES ? diagramsIn(text, /\.mmd$/i.test(f), f) : new Set();
+  };
+  const candidates = (list: readonly string[]) => new Map(list.filter((f) => DIAGRAM_FILE.test(f) && !DIAGRAM_SKIP.test(f)).map((f) => [f, kindsIn(f)]));
+  const changed = candidates(files);
+  let repo: Map<string, Set<DiagramKind>> | undefined;
+  const ok: string[] = [];
+  const stale: string[] = [];
+  const missing: string[] = [];
+  for (const r of required) {
+    const fresh = [...changed].find(([, k]) => k.has(r.kind));
+    if (fresh) {
+      ok.push(`${DIAGRAM_LABEL[r.kind]} : ${fresh[0]}`);
+      continue;
+    }
+    repo ??= candidates(listFiles(root, { maxFiles: 20000 }).files);
+    const old = [...repo].find(([, k]) => k.has(r.kind));
+    if (old) stale.push(`${DIAGRAM_LABEL[r.kind]} : ${old[0]} n'a pas été mis à jour par cette tâche`);
+    else missing.push(`${DIAGRAM_LABEL[r.kind]} — ${r.why}`);
+  }
+  if (!missing.length && !stale.length) return { status: 'pass', detail: `Diagrammes à jour :\n- ${ok.join('\n- ')}` };
+  return {
+    status: 'fail',
+    detail: [
+      ...(missing.length ? ['Diagramme(s) manquant(s) (Mermaid, dans docs/diagrams/ ou à côté du code) :', ...missing.map((m) => `- ${m}`)] : []),
+      ...(stale.length ? [`À mettre à jour, ou confirmer qu'il reste exact : \`ceng gate record ${task.id} diagrams pass --note "toujours exact : …"\``, ...stale.map((s) => `- ${s}`)] : []),
+    ].join('\n'),
+  };
 }
 
 export function runSecretsGate(root: string, files = changedFiles(root)): { status: GateStatus; detail: string } {
@@ -114,6 +156,9 @@ export function runGates(store: BrainStore, taskId: string, only?: GateId[]): Ga
       }
     } else if (req.gate === 'secrets') {
       outcome = { gate: req.gate, required: req.required, ...runSecretsGate(root) };
+    } else if (req.gate === 'diagrams') {
+      const confirmed = task.gates.find((g) => g.gate === 'diagrams' && g.status === 'pass' && !(g.detail ?? '').startsWith('Diagrammes à jour'));
+      outcome = confirmed ? { gate: req.gate, status: 'pass', required: req.required, detail: confirmed.detail ?? 'confirmé' } : { gate: req.gate, required: req.required, ...runDiagramsGate(root, task) };
     } else if (req.gate === 'compliance') {
       outcome = { gate: req.gate, required: req.required, ...runComplianceGate(root, store, task) };
     } else if (req.gate === 'report') {
