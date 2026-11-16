@@ -58,6 +58,8 @@ Rien à installer pour travailler : la CLI et les hooks sont copiés dans le dé
 ## 5. Stade, commandes de gates, mise à jour
 - Stade d'un projet existant : `ceng config stage` (lecture) ; `ceng config stage prototype|production` (écriture : validation
   humaine — c'est un changement du niveau des garde-fous). Le passage en production redemande donc l'humain.
+- Bypass total : `ceng bypass on|off|status` — décision de l'humain uniquement (aucune validation ni refus ensuite,
+  journal et instantanés conservés ; nouvelle session après le changement). Ne le propose que s'il le demande.
 - Commandes de gates déduites de la vraie pile (app Flutter dans `app/`, fonctions Deno…) : `ceng config detect`, puis
   `ceng config detect --apply` (écrit `.ceng/config.json` : validation humaine).
 - Mise à jour du projet vers la dernière version : `npx -y github:Jean-Paul15/claude-eng-framework upgrade`
