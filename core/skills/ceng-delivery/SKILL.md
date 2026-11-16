@@ -15,6 +15,9 @@ parler de temps en temps, il ne contrôle pas chaque étape. Ce qui suit est sa 
   en données) ; une logique stable reste simple. Pas d'abstraction pour un besoin qui n'existe pas.
 - **Les bonnes pratiques éprouvées d'abord** : ce que font les produits sérieux du même domaine (rechercher quand on ne
   sait pas — skill `research`), pas une invention.
+- **Code rapide et optimisé dès l'écriture** (complexité adaptée au volume réel, pas de N+1, pas de travail inutile) et
+  **travail économe en jetons** (paquets `ceng brief`, exploration par `ceng-scout`, jamais relire ce qui est déjà lu,
+  sorties longues résumées) — sans jamais sacrifier tests, sécurité ou qualité.
 - **Les coûts font partie de la conception** : base (skill `database`), algorithmes (skill `scale-algorithms`), appels
   d'API payants, stockage, temps réel, IA. Une fonctionnalité qui multiplie la facture par 10 au premier pic est un bug.
 - **Réutiliser avant de créer** : code de référence fourni par l'humain, existant du projet (`ceng similar`),

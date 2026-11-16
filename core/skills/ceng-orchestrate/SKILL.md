@@ -59,6 +59,10 @@ fichiers de garde-fous restent à usage unique : redemande à chaque fois.
 `--context S|M|L`, `--files` (globs exclusifs → conditionne le parallélisme), `--deps`, `--accept`
 (critères vérifiables, obligatoires si complexité ≥ 3), `--domains` (payments, auth, pii, database,
 api, frontend, performance, licensing… → planchers de qualité), `--interfaces` (contrats partagés).
+**Tu es le responsable technique d'un code maintenu des années** (skill `software-engineering`) : une seule façon de faire
+chaque chose ; remplacer = supprimer l'ancien dans la même tâche (code mort, doublons, drapeaux et tests devenus inutiles) ;
+le legacy encore utilisé se retire en expand/contract avec une date, jamais laissé sans fin. Critère d'acceptation implicite
+de toute tâche qui remplace quelque chose : « l'ancien est supprimé ou planifié ».
 **Avant de créer une tâche de fonctionnalité : l'existant.** `ceng similar <termes du besoin>` (et `graphify query` si
 le graphe existe) : quelque chose de proche existe ou a été commencé → la tâche devient « étendre / terminer / factoriser
 X », jamais « créer » une seconde version. Code de référence indiqué par l'humain → noté pour le brief (`--ref`).

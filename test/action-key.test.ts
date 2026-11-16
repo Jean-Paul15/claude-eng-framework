@@ -50,12 +50,12 @@ describe('clé d\'action', () => {
 
   it('une autre action a une autre clé', () => {
     assert.notEqual(key(`${push} --linked`), key(push));
-    assert.notEqual(key('supabase db reset'), key(push));
+    assert.notEqual(key('supabase db reset --linked'), key(push));
     assert.notEqual(key('terraform apply'), key('terraform destroy'));
   });
 
   it('commande composée : la clé est celle des sous-commandes à risque, toutes ; en ajouter une change la clé', () => {
-    assert.notEqual(key(`${push} && supabase db reset`), key(push), 'une validation de push ne couvre pas un reset ajouté');
+    assert.notEqual(key(`${push} && supabase db reset --linked`), key(push), 'une validation de push ne couvre pas un reset ajouté');
     assert.equal(key(`${push} && npm publish`), key(`npm publish; ${push}`), 'ordre indifférent');
     assert.deepEqual(approvalTriggers(`cd x && ${push} 2>&1 | tail -3 && echo ok`).map((t) => t.rule), ['db-destructive']);
   });
@@ -73,7 +73,7 @@ describe('clé d\'action', () => {
 
 describe('usage unique ou 30 minutes', () => {
   it('opérations destructives : usage unique', () => {
-    for (const c of ['supabase db reset', 'psql -c "DROP TABLE users"', 'psql -c "TRUNCATE users"', 'psql -c "DELETE FROM users"', 'git reset --hard HEAD~1', 'rm -rf data', 'git push --force origin x', 'kubectl delete pod web', 'terraform destroy', 'prisma migrate reset', 'cd app && rm -r build_data | tail']) {
+    for (const c of ['supabase db reset --linked', 'psql -c "DROP TABLE users"', 'psql -c "TRUNCATE users"', 'psql -c "DELETE FROM users"', 'git reset --hard HEAD~1', 'rm -rf data', 'git push --force origin x', 'kubectl delete pod web', 'terraform destroy', 'prisma migrate reset', 'cd app && rm -r build_data | tail']) {
       assert.equal(isSingleUseCommand(c), true, c);
     }
   });
@@ -116,7 +116,7 @@ describe('validation d\'une même action : de bout en bout', () => {
     assert.doesNotMatch(asked, /une seule exécution/);
     for (const v of [push, `cd supabase && ${push}`, `${push} 2>&1 | tail -3`, `${push} 2>&1 | tail -3`, `echo go && ${push} | head -5`]) assert.equal(verdict(v), 'allow', v);
     assert.equal(verdict(`${push} --linked`), 'deny');
-    assert.equal(verdict(`${push} && supabase db reset`), 'deny', 'une opération destructive ajoutée n\'est pas couverte');
+    assert.equal(verdict(`${push} && supabase db reset --linked`), 'deny', 'une opération destructive ajoutée n\'est pas couverte');
   });
 
   it('une demande ouverte n\'est pas dupliquée par une variante de la même commande', () => {
@@ -125,10 +125,10 @@ describe('validation d\'une même action : de bout en bout', () => {
   });
 
   it('opération destructive : usage unique', () => {
-    const asked = approve('supabase db reset');
+    const asked = approve('supabase db reset --linked');
     assert.match(asked, /une seule exécution/);
-    assert.equal(verdict('supabase db reset 2>&1 | tail -2'), 'allow');
-    assert.equal(verdict('supabase db reset'), 'deny');
+    assert.equal(verdict('supabase db reset --linked 2>&1 | tail -2'), 'allow');
+    assert.equal(verdict('supabase db reset --linked'), 'deny');
   });
 
   it('fichier de gouvernance : chaque modification est une décision (usage unique)', () => {

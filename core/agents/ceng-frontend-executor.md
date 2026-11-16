@@ -18,6 +18,8 @@ Applique la skill `frontend-executor` préchargée, dans le périmètre de fichi
 - **Réutiliser avant de créer** : avant d'ajouter une fonction, un composant, un endpoint, une table ou un écran,
   vérifie l'existant proche (`node .ceng/runtime/cli.js similar <termes>`, graphe de code si présent) et les références
   de la mission : étends, factorise ou recopie-adapte une logique éprouvée — jamais une seconde version de la même chose.
+- **Nettoyer ce que tu remplaces** : ancien code, doublon, code mort, tests et styles devenus inutiles sont supprimés
+  dans la même mission (usages vérifiés d'abord) ; un legacy encore utilisé est marqué déprécié avec une tâche de retrait.
 - **Pensé production** : volumes réels, coûts (requêtes, appels payants), évolution prévisible de la règle métier ;
   pas « simple pour faire simple », pas d'abstraction sans besoin réel.
 

@@ -100,7 +100,7 @@ export function briefCommand(argv: string[]): void {
     `Tests : ${route.testStrategy.flow}${route.testStrategy.types.length ? ` [${route.testStrategy.types.join(', ')}]` : ''}${route.testStrategy.testFirst ? ' — test d\'abord (TDD)' : ''}`,
     ...(task.domains.includes('frontend') || task.kind === 'ui' || task.kind === 'design' ? ['Validation visuelle : parcours capturé et relu image par image (skill visual-flow-testing), mobile + tablette + desktop.'] : []),
     'Règles de contexte : ne lis que les fichiers listés et ceux qu\'ils importent directement ; pas d\'exploration large. S\'il manque une information, arrête-toi et remonte-la (status: blocked) plutôt que de deviner ou de parcourir le dépôt.',
-    `Livrable : code + tests + .ceng/brain/reports/${task.id}.md + bloc CENG_REPORT (dont « reuse: » = ce qui a été réutilisé ou pourquoi rien ne l'était).`,
+    `Livrable : code + tests + .ceng/brain/reports/${task.id}.md + bloc CENG_REPORT (dont « reuse: » = ce qui a été réutilisé ou pourquoi rien ne l'était ; « removed: » = ancien code, doublons ou code mort supprimés).`,
     `Agent : ${route.implementer.agent} · modèle ${route.implementer.model} · effort ${route.implementer.effort}`,
   ].join('\n');
   out(p, text, { task: task.id, files: scope, refs, similar, decisions, route: route.implementer });

@@ -50,7 +50,7 @@ describe('bypass total', () => {
     assert.match(fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8'), /BYPASS TOTAL/);
     assert.match(json<{ hookSpecificOutput: { additionalContext: string } }>(runtimeHook(dir, 'session-start', { source: 'startup' })).hookSpecificOutput.additionalContext, /BYPASS TOTAL/);
 
-    for (const command of ['cat .env', 'vercel --prod', 'git push --force origin main', 'supabase db reset']) {
+    for (const command of ['cat .env', 'vercel --prod', 'git push --force origin main', 'supabase db reset --linked']) {
       assert.equal(bash(command)?.permissionDecision, 'allow', command);
     }
     fs.writeFileSync(path.join(dir, 'old.txt'), 'x');

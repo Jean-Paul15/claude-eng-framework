@@ -24,7 +24,7 @@ describe('classification au stade prototype (pure)', () => {
   it('migrations, déploiements, reset, push, historique local : autonomes, avec la liste des règles levées', () => {
     for (const [command, rule] of [
       ['supabase db push --include-all', 'db-destructive'],
-      ['supabase db reset', 'db-destructive'],
+      ['supabase db reset --linked', 'db-destructive'],
       ['psql -c "DROP TABLE users"', 'db-destructive'],
       ['prisma migrate deploy', 'prod-migrate'],
       ['vercel --prod', 'deploy'],
@@ -133,7 +133,7 @@ describe('stade prototype de bout en bout', () => {
   });
 
   it('migrations, déploiement, push, fichiers de garde-fous : sans validation, journalisés', () => {
-    for (const c of ['supabase db push --include-all 2>&1 | tail -3', 'supabase db reset', 'vercel --prod', 'git push origin main']) {
+    for (const c of ['supabase db push --include-all 2>&1 | tail -3', 'supabase db reset --linked', 'vercel --prod', 'git push origin main']) {
       assert.equal(bash(c), 'allow', c);
       assert.match(reason(c), /Stade prototype/);
     }

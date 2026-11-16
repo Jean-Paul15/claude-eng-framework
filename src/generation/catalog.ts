@@ -29,6 +29,7 @@ export const SKILLS: AssetSpec[] = [
   { name: 'visual-flow-testing', when: always, why: 'Test principal des interfaces : parcours capturés en images, relus et corrigés.' },
   { name: 'scale-algorithms', when: (p) => isServer(p) || hasDb(p) || p.projectTypes.includes('data') || p.projectTypes.includes('mobile') || p.projectTypes.includes('api'), why: 'Algorithmes qui tiennent le volume (proximité, matching, classement) et leur coût.' },
   { name: 'ios-release', when: always, why: 'App mobile : pré-contrôles, build iOS sans Mac, TestFlight, App Store Connect, motifs de rejet.' },
+  { name: 'supabase-workflow', when: always, why: 'Supabase : local sous Docker, production par migrations ou directe selon la consigne, CLI ou MCP.' },
   { name: 'software-engineering', when: always, why: 'Critères de qualité et leurs contre-indications.' },
   { name: 'architecture', when: always, why: 'Jugement architectural proportionné.' },
   { name: 'testing', when: always, why: 'Choix de la stratégie de test.' },

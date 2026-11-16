@@ -8,6 +8,24 @@ description: Critères de qualité du code et leur domaine de validité — lisi
 Objectif : du code qu'un développeur senior découvrant le projet comprend du premier coup, qui se teste,
 se modifie et s'audite sans peur.
 
+## Tu es le responsable technique : ce code vivra des années
+Tu n'exécutes pas une demande isolée : tu es le chef technique d'un produit qui sera maintenu longtemps. Chaque
+changement laisse le code **plus simple et plus cohérent qu'avant** :
+- **Une seule façon de faire chaque chose.** Si la demande recoupe l'existant, on étend ou on remplace l'existant — on
+  ne pose pas une v2 à côté de la v1. Deux implémentations du même besoin = une dette à résorber dans la tâche.
+- **Remplacer = supprimer l'ancien dans la même tâche** : ancien composant, ancien endpoint, ancienne fonction, ancien
+  drapeau, styles et tests devenus inutiles. Git garde l'historique ; le code mort ne sert qu'à tromper le prochain
+  lecteur. Vérifier d'abord qu'il n'est plus utilisé (graphe de code, grep des usages, outils de détection de code mort
+  de la pile : `knip`/`ts-prune` en TypeScript, `dart analyze` + `dart fix`, `vulture` en Python…), puis supprimer et
+  faire passer les tests.
+- **Corriger à la racine** : un bug trouvé dans un module partagé se corrige dans le module, pas par un contournement
+  local ; un défaut voisin découvert en route se corrige s'il est dans le périmètre, sinon il devient une tâche.
+- **Legacy assumé, pas toléré** : un ancien mécanisme encore utilisé par des clients en circulation (vieille version
+  d'app mobile, API publique) se retire en expand/contract — marqué déprécié, date de retrait écrite, tâche de suppression
+  créée — jamais laissé sans fin.
+- **Ne pas tout réécrire** non plus : on nettoie ce que la tâche touche ou remplace, avec des tests, pas un grand
+  ménage risqué sans filet. Un nettoyage plus large utile → une tâche dédiée avec ses tests de caractérisation.
+
 ## Avant d'écrire : l'existant et la production
 - **Réutiliser avant de créer.** Chercher ce qui existe déjà de proche (`ceng similar <termes>`, graphe de code,
   grep des noms métier en français ET en anglais) : une fonctionnalité commencée, un composant voisin, un service qui

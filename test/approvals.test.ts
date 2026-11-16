@@ -59,7 +59,7 @@ describe('approbation de bout en bout', () => {
   };
   const bash = (command: string) => ({ tool_name: 'Bash', tool_input: { command } });
   // Opération destructive : l'autorisation sert une seule exécution (un déploiement, lui, vaut 30 min : voir plus bas).
-  const deploy = 'supabase db reset';
+  const deploy = 'supabase db reset --linked';
   const publish = 'npm publish';
   const other = 'terraform destroy';
   const ask = (command: string): string => {
