@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { DEFAULT_PREFERENCES, reconcile } from '../src/domain/policy.js';
 import type { Assessment, EffectivePolicy, Preferences, Task } from '../src/domain/types.js';
 
+
+// Les tests ne touchent jamais au registre réel de la machine ni ne lancent de mise à jour en arrière-plan.
+process.env['CENG_HOME'] = fs.mkdtempSync(path.join(os.tmpdir(), 'ceng-home-'));
+process.env['CENG_NO_AUTO_UPGRADE'] = '1';
+
 export const FRAMEWORK_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const EXAMPLES = path.join(FRAMEWORK_ROOT, 'examples');
 export const CLI = path.join(FRAMEWORK_ROOT, 'dist', 'src', 'cli.js');

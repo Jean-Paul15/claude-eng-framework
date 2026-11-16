@@ -138,3 +138,9 @@ ceng relay emit --kind opus-ready --session 4 --ref docs/integration/DOSSIER_4.m
   mode est une action humaine. `--allow` / `--defer` ajustent la liste pour un outil MCP précis.
 - **Relais (`ceng relay`)** : une session qui atteint un point d'arrêt émet un événement (dans le dépôt principal, quel que soit
   son worktree) ; la session de coordination l'écoute avec `relay watch`, qui n'imprime qu'une ligne par événement. Branché sur Monitor,
+
+## Mettre à jour le framework dans tes projets
+Rien à faire projet par projet : au démarrage d'une session, un projet dont la copie du framework est plus ancienne que
+celle de la machine se met à jour tout seul en arrière-plan (fichiers modifiés par toi préservés ; nouvelles skills actives
+à la session suivante). Pour tout mettre à jour d'un coup : `ceng upgrade --all`. Désactiver pour un projet :
+`"autoUpgrade": false` dans `.ceng/config.json`. Un nouveau projet prend toujours la dernière version à `ceng init`.

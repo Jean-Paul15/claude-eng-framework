@@ -8,7 +8,7 @@ import { deferredReason, isUnattended, recordPendingApproval, shouldKeepWorking 
 import { PRESENCE_WINDOW_MS, isHumanAway, markAutopilot, markHumanActive, markHumanAnswered, markHumanAway, presenceEnabled } from '../app/presence.js';
 import { actionKey, answerFeedback, applyAnswers, askViaInvite, clearRefusals, consumeGrant, consumeHandoff, findRefusal, openRequest, refusedMessage, shellOf } from '../app/approvals.js';
 import { isTimeout } from '../domain/answers.js';
-import { removeOrphanTemps } from '../infra/fs.js';
+import { readJson, readText, removeOrphanTemps } from '../infra/fs.js';
 import { matchesAny, normalizePath } from '../domain/globs.js';
 import { resumeBrief } from '../brain/brief.js';
 import type { BrainStore, CheckpointRecord } from '../brain/store.js';
@@ -19,6 +19,8 @@ import { currentDelegation } from '../app/delegation.js';
 import { graphDisabledByEnv, graphifyAvailable, refreshIfNeeded } from '../app/codegraph.js';
 import { classifyTeamTool } from '../domain/team.js';
 import { mainRoot } from '../app/relay.js';
+import { checkCode, DEFAULT_LIMITS, formatFindings } from '../domain/code-check.js';
+import { frameworkCli, frameworkFingerprint, readRegistry, upgradeInBackground } from '../app/registry.js';
 import { closeIntent, externalEffects, openIntent, unresolvedIntents } from '../app/intents.js';
 
 /**
@@ -183,11 +185,38 @@ export function sessionStart(store: BrainStore, input: HookInput): HookOutput {
   });
   removeOrphanTemps(store.paths.brain);
   store.log({ type: 'session.start', ...(input.session_id ? { sessionId: input.session_id } : {}), data: { source } });
-  const brief = [resumeBrief(store, source), ...intentWarnings(store), ...stageNotes(store), ...machineWarnings(store)].join('\n');
+  const brief = [resumeBrief(store, source), ...autoUpgrade(store), ...intentWarnings(store), ...stageNotes(store), ...machineWarnings(store)].join('\n');
   return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: brief } } };
 }
 
 const BYPASS_NOTE = `BYPASS TOTAL (décidé par l'humain) : aucune validation, aucun refus du framework — suppressions, push, déploiements, migrations, infrastructure, fichiers .env et garde-fous compris. N'attends aucune approbation et ne pose pas de question d'autorisation : agis. Secrets : utilise-les sans afficher leurs valeurs (noms de variables, \`${CLI_INVOCATION} secrets keys\`) ; lis-les si la tâche l'exige, sans jamais les recopier dans un rapport, un log ou un commit. Instantané automatique avant suppression/reset (annulable : \`${CLI_INVOCATION} rollback\`) ; checkpoint volontaire avant tout ce qui sort de la machine. Questions de direction : seulement si l'impact est fort, sinon ta recommandation devient la décision.`;
+
+/**
+ * Le framework de la machine est plus récent que la copie du projet : mise à jour lancée en arrière-plan (non destructive :
+ * fichiers modifiés par l'utilisateur préservés). Ainsi aucun projet n'est à mettre à jour à la main.
+ */
+function autoUpgrade(store: BrainStore): string[] {
+  if (process.env['CENG_NO_AUTO_UPGRADE'] === '1' || process.env['CENG_AUTO_UPGRADE_CHILD'] === '1') return [];
+  try {
+    if (store.config().autoUpgrade === false) return [];
+    const fw = readRegistry().framework;
+    if (!fw || path.resolve(fw) === path.resolve(store.paths.root)) return [];
+    const cli = frameworkCli(fw);
+    const build = cli ? frameworkFingerprint(fw) : undefined;
+    const installed = readJson<{ frameworkBuild?: string }>(store.paths.manifest)?.frameworkBuild;
+    if (!cli || !build || build === installed) return [];
+    const last = store.state().autoUpgradeAt;
+    if (last && Date.now() - Date.parse(last) < 10 * 60_000) return [];
+    store.updateState((s) => {
+      s.autoUpgradeAt = new Date().toISOString();
+    });
+    upgradeInBackground(cli, store.paths.root);
+    store.log({ type: 'session.start', data: { autoUpgrade: true, from: installed ?? 'inconnu', to: build } });
+    return ['Framework ceng mis à jour en arrière-plan (version plus récente sur cette machine) : nouvelles skills et nouveaux agents actifs à la prochaine session.'];
+  } catch {
+    return [];
+  }
+}
 
 /** Actions à effet extérieur lancées sans résultat enregistré (session coupée) : vérifier l'état réel avant toute relance. */
 function intentWarnings(store: BrainStore): string[] {
@@ -384,6 +413,44 @@ export function fileEdited(store: BrainStore, input: HookInput): HookOutput {
   const taskId = (input.agent_id && state.agentTasks?.[input.agent_id]) || state.currentTask;
   store.log({ type: 'file.edited', ...ids(input), ...(taskId ? { taskId } : {}), data: { file: rel, tool: input.tool_name } });
   return OK;
+}
+
+/** Texte écrit par l'outil : contenu entier (Write) ou fragments remplaçants (Edit, MultiEdit). */
+function writtenText(ti: Record<string, unknown>): string {
+  if (typeof ti['content'] === 'string') return ti['content'];
+  if (typeof ti['new_string'] === 'string') return ti['new_string'];
+  const edits = ti['edits'];
+  return Array.isArray(edits) ? edits.map((e) => String((e as Record<string, unknown>)?.['new_string'] ?? '')).join('\n') : '';
+}
+
+/**
+ * PostToolUse Edit/Write : contrôle immédiat du code écrit. Silencieux quand tout va bien (aucun jeton) ; sinon un
+ * avertissement court renvoyé à l'agent, ou un retour bloquant pour un défaut de sécurité (secret en dur, injection, eval).
+ */
+export function codeCheck(store: BrainStore, input: HookInput): HookOutput {
+  const ti = input.tool_input ?? {};
+  const raw = String(ti['file_path'] ?? '');
+  if (!raw) return OK;
+  const cfg = store.config().codeCheck;
+  if (cfg?.enabled === false) return OK;
+  const rel = relativeToProject(store, raw);
+  if (rel.startsWith('..')) return OK;
+  const text = writtenText(ti);
+  if (!text) return OK;
+  let total = 0;
+  try {
+    const abs = path.isAbsolute(raw) ? raw : path.join(store.paths.root, raw);
+    total = (readText(abs) ?? text).split(/\r?\n/).length;
+  } catch {
+    total = text.split(/\r?\n/).length;
+  }
+  const findings = checkCode(rel, text, total, { ...DEFAULT_LIMITS, ...Object.fromEntries(Object.entries(cfg ?? {}).filter(([k, v]) => k !== 'enabled' && typeof v === 'number')) });
+  if (!findings.length) return OK;
+  store.log({ type: 'code.check', ...ids(input), data: { file: rel, rules: findings.map((f) => f.rule) } });
+  const message = formatFindings(rel, findings);
+  return findings.some((f) => f.severity === 'block')
+    ? { exitCode: 0, json: { decision: 'block', reason: message, hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: message } } }
+    : { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: message } } };
 }
 
 export function skillUsed(store: BrainStore, input: HookInput): HookOutput {
@@ -730,6 +797,7 @@ export const HANDLERS: Record<string, (store: BrainStore, input: HookInput) => H
   'session-start': sessionStart,
   'guard-command': guardCommand,
   'command-done': commandDone,
+  'code-check': codeCheck,
   'guard-file': guardFile,
   'agent-spawn': agentSpawn,
   'subagent-start': subagentStart,

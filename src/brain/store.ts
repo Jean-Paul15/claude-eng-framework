@@ -31,6 +31,10 @@ export interface FrameworkConfig {
    * Tout reste journalisé et les instantanés automatiques (avant suppression, reset, réécriture) restent pris : tout est annulable.
    */
   bypass?: { enabled: boolean; since?: string };
+  /** Mise à jour automatique au démarrage d'une session quand le framework de la machine est plus récent (défaut : oui). */
+  autoUpgrade?: boolean;
+  /** Contrôle immédiat du code écrit (hook PostToolUse) : seuils ajustables, désactivable. */
+  codeCheck?: { enabled?: boolean; maxFileLines?: number; maxLineLength?: number; maxIndentLevels?: number };
   /** Fichiers de secrets que l'humain autorise l'agent à lire/écrire (clés de test ou de développement). */
   secrets?: { allow: string[] };
   installedSkills: string[];
@@ -72,6 +76,8 @@ export interface BrainState {
   lastCheckpoint?: CheckpointRecord;
   interruption?: Interruption;
   editsSinceCheckpoint: number;
+  /** Dernière mise à jour automatique lancée (une seule à la fois, au plus toutes les 10 min). */
+  autoUpgradeAt?: string;
   /** Actions à effet extérieur lancées et pas encore closes par leur résultat. */
   openIntents?: ExternalIntent[];
   /** Dernier rappel (non bloquant) de checkpoint volontaire affiché par le hook Stop : au plus un toutes les 2 h. */

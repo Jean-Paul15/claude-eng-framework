@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { frameworkFingerprint, registerProject } from '../app/registry.js';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { reconcile } from '../domain/policy.js';
@@ -44,6 +45,8 @@ export function locateFramework(fromUrl = import.meta.url): FrameworkRoot | unde
 
 export interface Manifest {
   frameworkVersion: string;
+  /** Empreinte du framework installé (voir app/registry.ts) : différente de celle de la machine → mise à jour. */
+  frameworkBuild?: string;
   installedAt: string;
   files: Record<string, string>;
 }
@@ -252,7 +255,9 @@ export function install(opts: InstallOptions): InstallReport {
   }
 
   if (!opts.dryRun) {
-    writeJsonAtomic(paths.manifest, w.newManifest);
+    const build = frameworkFingerprint(fw.root);
+    writeJsonAtomic(paths.manifest, { ...w.newManifest, ...(build ? { frameworkBuild: build } : {}) });
+    registerProject(root, fw.root);
     const store = new BrainStore(root);
     writeTextAtomic(paths.index, renderIndex(store));
     store.log({ type: 'session.start', data: { source: 'init', frameworkVersion: fw.version, riskLevel: policy.riskLevel, skills: config.installedSkills.length } });

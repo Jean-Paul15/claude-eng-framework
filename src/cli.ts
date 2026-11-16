@@ -12,6 +12,7 @@ import { secretsCommand } from './cli/commands/secrets.js';
 import { configCommand } from './cli/commands/config.js';
 import { relayCommand, teamCommand } from './cli/commands/team.js';
 import { bypassCommand } from './cli/commands/bypass.js';
+import { upgradeAll } from './cli/commands/upgrade-all.js';
 import { briefCommand, similarCommand } from './cli/commands/context.js';
 
 const HELP = `ceng — framework d'ingénierie autonome pour Claude Code
@@ -19,7 +20,7 @@ const HELP = `ceng — framework d'ingénierie autonome pour Claude Code
 Installation & lancement
   init [--yes] [--dry-run] [--goal "…"] [--risk|--autonomy|--budget|--parallelism …] [--code-graph on|off] [--install-graphify]
   run [--goal "…"] [--model opus|sonnet] [--headless] [--resume] [--dry-run]          Ouvre la session orchestrateur
-  upgrade | doctor | profile | uninstall --yes [--purge]
+  upgrade [--all] | doctor | profile | uninstall --yes [--purge]   (--all : tous les projets de cette machine ; sinon mise à jour auto au démarrage de session)
 
 Travail (utilisé par l'orchestrateur et les agents)
   task add --title … --kind … [--complexity 1-5 --risk --ambiguity --novelty --arch --context S|M|L]
@@ -75,7 +76,7 @@ export async function main(argv: string[]): Promise<void> {
       return;
     }
     case 'init': return initCommand(rest, 'init');
-    case 'upgrade': return initCommand(['--yes', ...rest], 'upgrade');
+    case 'upgrade': return rest.includes('--all') ? upgradeAll(rest.filter((a) => a !== '--all')) : initCommand(['--yes', ...rest], 'upgrade');
     case 'run': return runCommand(rest);
     case 'doctor': return doctorCommand(rest);
     case 'profile': return profileCommand(rest);
