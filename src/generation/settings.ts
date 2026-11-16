@@ -42,6 +42,7 @@ export function frameworkHooks(): Record<string, HookGroup[]> {
     ],
     PostToolUse: [
       { matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [hook('file-edited', { async: true, timeout: 10 })] },
+      { matcher: 'Bash|PowerShell', hooks: [hook('command-done', { timeout: 10 })] },
       { matcher: 'Skill', hooks: [hook('skill-used', { timeout: 10 })] },
       { matcher: 'AskUserQuestion', hooks: [hook('question-answered', { timeout: 10 })] },
     ],

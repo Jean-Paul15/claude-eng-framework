@@ -2,7 +2,7 @@
 
 « Les fichiers existent » ne prouve rien. Voici ce qui est testé, et comment.
 
-## Suite automatisée (`npm test`, 253 tests répartis en 50 suites, Node test runner, sans dépendance)
+## Suite automatisée (`npm test`, 256 tests répartis en 51 suites, Node test runner, sans dépendance)
 
 | Fichier | Ce qui est prouvé |
 |---|---|

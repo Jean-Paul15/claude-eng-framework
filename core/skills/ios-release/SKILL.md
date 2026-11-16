@@ -8,6 +8,31 @@ description: Préparer et publier une app mobile (Flutter en priorité) sur iOS,
 Issu de vraies soumissions (projet izyGo, octobre 2026, Windows + Codemagic). À relire AVANT de lancer un build ou de
 soumettre. Jamais de clé `.p8`, de mot de passe ou de jeton dans Git, un chat ou un e-mail : variables chiffrées de la CI.
 
+## 0. Lire TOUTES les règles d'Apple, au début — et les suivre sans exception
+Les règles d'Apple sont la référence ; cette skill n'en est qu'un résumé d'expérience. Au **cadrage** de toute app iOS
+(puis avant chaque soumission, car elles changent), un agent `ceng-researcher` lit ces pages officielles **en entier**
+et produit `.ceng/brain/research/apple-rules.md` (date de lecture, puis une ligne par règle qui touche CE projet :
+numéro, exigence, écran ou fonction concerné, comment on s'y conforme). L'orchestrateur lit cette synthèse, pas les
+pages ; chaque tâche iOS la reçoit dans son brief ; la gate `compliance` vérifie la conformité point par point.
+Aucune règle n'est jugée « secondaire » : un doute → la lecture la plus stricte.
+| Source officielle | Ce qu'on y prend |
+|---|---|
+| [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) | toutes les règles de relecture (sécurité, performance, business, design, légal) |
+| [App Review — vue d'ensemble et rejets fréquents](https://developer.apple.com/distribute/app-review/) | préparation, causes de rejet les plus courantes |
+| [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/) | conception iOS / iPadOS : navigation, contrôles, typographie, accessibilité |
+| [HIG — Sign in with Apple](https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple) | bouton affiché en évidence, **pas plus petit que les autres boutons de connexion, placé au-dessus d'eux** dans une pile, visible sans défiler ; styles et libellés autorisés |
+| [Offrir la suppression de compte](https://developer.apple.com/support/offering-account-deletion-in-your-app/) | parcours de suppression dans l'app, révocation des jetons Sign in with Apple |
+| [App Privacy details](https://developer.apple.com/app-store/app-privacy-details/) | déclaration des données collectées dans App Store Connect |
+| [Privacy manifest](https://developer.apple.com/documentation/bundleresources/privacy-manifest-files) et [API à raison déclarée](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api) | `PrivacyInfo.xcprivacy`, SDK tiers concernés |
+| [App Tracking Transparency](https://developer.apple.com/documentation/apptrackingtransparency) | quand et comment demander le suivi |
+| [In-App Purchase](https://developer.apple.com/in-app-purchase/) et [Abonnements](https://developer.apple.com/app-store/subscriptions/) | achats, restauration, présentation des offres |
+| [Exigences à venir](https://developer.apple.com/news/upcoming-requirements/) | versions minimales de Xcode/SDK, nouvelles obligations datées |
+| [Aide App Store Connect](https://developer.apple.com/help/app-store-connect/) et [formats de captures](https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications) | fiche, captures, TestFlight, soumission |
+| [Marketing et marques Apple](https://developer.apple.com/app-store/marketing/guidelines/) | badges, usage des noms et visuels Apple |
+| [Contrat de licence du programme développeur](https://developer.apple.com/support/terms/apple-developer-program-license-agreement/) | obligations contractuelles (données, publicité, chiffrement) |
+Android visé aussi : même démarche avec le [Centre de règles Google Play](https://play.google.com/about/developer-content-policy/)
+(données, permissions sensibles, suppression de compte, contenu des utilisateurs).
+
 ## 1. Penser iOS dès le développement (pas à la soumission)
 - **Pas d'inscription forcée (règle 5.1.1(v), rejet réel sur izyGo le 2026-11-02)** : tout ce qui n'a pas besoin d'un
   compte (parcourir, consulter, rechercher, simuler un prix) s'utilise sans compte ; la connexion n'est demandée qu'au
@@ -39,7 +64,8 @@ soumettre. Jamais de clé `.p8`, de mot de passe ou de jeton dans Git, un chat o
   En travaillant, garder cette liste en tête et **chercher la règle à jour** dès qu'une fonction touche un sujet sensible
   (paiement, données, contenu des utilisateurs, santé, enfants, jeux d'argent, crypto, IA générative) — skill `research`.
 - **Suppression de compte dans l'app** obligatoire (et révocation du jeton Sign in with Apple à la suppression).
-- **Connexion tierce** (Google, Facebook…) → proposer aussi Sign in with Apple.
+- **Connexion tierce** (Google, Facebook…) → proposer aussi Sign in with Apple, **en premier** (au-dessus des autres
+  boutons), pas plus petit qu'eux, visible sans défiler (HIG).
 - **Achats** : un bien numérique consommé dans l'app passe par l'achat in-app ; un bien ou service consommé hors de
   l'app (billet, course, livraison) peut être payé autrement (règle 3.1.3(e)) — le dire dans les notes de relecture.
 - **Fonctions qu'Apple réserve à certaines entités** (ex. vente de vols aériens, règle 5.1.1(ix)) : drapeau de

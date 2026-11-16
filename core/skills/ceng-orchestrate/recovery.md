@@ -19,3 +19,9 @@
   courant est pris avant : le rollback est lui-même annulable. Les fichiers créés après le checkpoint sont conservés.
 - Préfère « nouvelle stratégie » au rollback quand le travail partiel est sain ; rollback quand l'approche est fausse.
 - Jamais `git reset --hard` / `git clean -f` / `git checkout -- .` : ces commandes exigent l'humain (le hook les bloque).
+
+## Action à effet extérieur interrompue
+Le brief de session signale « action(s) à effet extérieur lancée(s) sans résultat enregistré » (déploiement, migration
+distante, publication, infrastructure, push) : la session précédente a été coupée entre le lancement et le résultat.
+Vérifier l'état réel d'abord (statut du déploiement, `migration list` distant, version publiée, `git ls-remote`) ;
+relancer seulement ce qui n'a pas eu lieu — jamais à l'aveugle (double migration, double publication).

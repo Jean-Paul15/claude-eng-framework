@@ -59,11 +59,21 @@ export interface Interruption {
   detail?: string;
 }
 
+/** Action à effet extérieur lancée dont le résultat n'a pas encore été enregistré (voir app/intents.ts). */
+export interface ExternalIntent {
+  command: string;
+  rules: string[];
+  at: string;
+  sessionId?: string;
+}
+
 export interface BrainState {
   currentTask?: string;
   lastCheckpoint?: CheckpointRecord;
   interruption?: Interruption;
   editsSinceCheckpoint: number;
+  /** Actions à effet extérieur lancées et pas encore closes par leur résultat. */
+  openIntents?: ExternalIntent[];
   /** Dernier rappel (non bloquant) de checkpoint volontaire affiché par le hook Stop : au plus un toutes les 2 h. */
   checkpointReminderAt?: string;
   sessions: number;

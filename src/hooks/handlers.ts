@@ -19,6 +19,7 @@ import { currentDelegation } from '../app/delegation.js';
 import { graphDisabledByEnv, graphifyAvailable, refreshIfNeeded } from '../app/codegraph.js';
 import { classifyTeamTool } from '../domain/team.js';
 import { mainRoot } from '../app/relay.js';
+import { closeIntent, externalEffects, openIntent, unresolvedIntents } from '../app/intents.js';
 
 /**
  * Gestionnaires de hooks Claude Code. Chaque gestionnaire reçoit l'entrée JSON du hook et renvoie
@@ -182,11 +183,22 @@ export function sessionStart(store: BrainStore, input: HookInput): HookOutput {
   });
   removeOrphanTemps(store.paths.brain);
   store.log({ type: 'session.start', ...(input.session_id ? { sessionId: input.session_id } : {}), data: { source } });
-  const brief = [resumeBrief(store, source), ...stageNotes(store), ...machineWarnings(store)].join('\n');
+  const brief = [resumeBrief(store, source), ...intentWarnings(store), ...stageNotes(store), ...machineWarnings(store)].join('\n');
   return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: brief } } };
 }
 
 const BYPASS_NOTE = `BYPASS TOTAL (décidé par l'humain) : aucune validation, aucun refus du framework — suppressions, push, déploiements, migrations, infrastructure, fichiers .env et garde-fous compris. N'attends aucune approbation et ne pose pas de question d'autorisation : agis. Secrets : utilise-les sans afficher leurs valeurs (noms de variables, \`${CLI_INVOCATION} secrets keys\`) ; lis-les si la tâche l'exige, sans jamais les recopier dans un rapport, un log ou un commit. Instantané automatique avant suppression/reset (annulable : \`${CLI_INVOCATION} rollback\`) ; checkpoint volontaire avant tout ce qui sort de la machine. Questions de direction : seulement si l'impact est fort, sinon ta recommandation devient la décision.`;
+
+/** Actions à effet extérieur lancées sans résultat enregistré (session coupée) : vérifier l'état réel avant toute relance. */
+function intentWarnings(store: BrainStore): string[] {
+  const open = unresolvedIntents(store);
+  if (!open.length) return [];
+  return [
+    `⚠ ${open.length} action(s) à effet extérieur lancée(s) sans résultat enregistré (session interrompue) — vérifier l'état RÉEL avant toute relance (déploiement en ligne ? migration appliquée ? paquet publié ? push présent sur le distant ?), ne jamais rejouer à l'aveugle :`,
+    ...open.map((i) => `  - ${i.at.slice(0, 16).replace('T', ' ')} [${i.rules.join(', ')}] ${i.command.slice(0, 160)}`),
+    "  Relancer seulement si elle n'a pas eu lieu (une relance qui aboutit clôt l'intention).",
+  ];
+}
 
 /** Au stade prototype, l'orchestrateur doit savoir que les validations courantes sont levées (et ce qui reste soumis à l'humain). */
 function stageNotes(store: BrainStore): string[] {
@@ -211,7 +223,33 @@ function machineWarnings(store: BrainStore): string[] {
 /** Suppression que même le stade prototype ne laisse pas passer : hors du projet, internes git, mémoire du framework. */
 const UNRECOVERABLE_DELETION = /hors du projet|racine du projet|: \.git(\/|$)|: \.ceng\/brain/;
 
+/**
+ * PreToolUse Bash/PowerShell : décision des garde-fous, puis, si l'action à effet extérieur n'est pas refusée, ouverture de son
+ * intention (close par `commandDone` au retour du résultat).
+ */
 export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
+  const out = guardCommandDecision(store, input);
+  const command = String(input.tool_input?.['command'] ?? '');
+  const decision = (out.json?.['hookSpecificOutput'] as { permissionDecision?: string } | undefined)?.permissionDecision;
+  if (command && out.exitCode === 0 && decision !== 'deny') {
+    try {
+      const rules = externalEffects(command, shellOf(String(input.tool_name ?? '')));
+      if (rules.length) openIntent(store, command, rules, input.session_id);
+    } catch {
+      // le journal d'intention est un filet : il ne bloque jamais une commande
+    }
+  }
+  return out;
+}
+
+/** PostToolUse Bash/PowerShell : le résultat est revenu, l'intention éventuelle est close (aucune écriture sinon). */
+export function commandDone(store: BrainStore, input: HookInput): HookOutput {
+  const command = String(input.tool_input?.['command'] ?? '');
+  if (command) closeIntent(store, command, input.session_id);
+  return OK;
+}
+
+function guardCommandDecision(store: BrainStore, input: HookInput): HookOutput {
   const command = String(input.tool_input?.['command'] ?? '');
   if (!command) return OK;
   const shell = shellOf(String(input.tool_name ?? ''));
@@ -691,6 +729,7 @@ function ids(input: HookInput) {
 export const HANDLERS: Record<string, (store: BrainStore, input: HookInput) => HookOutput> = {
   'session-start': sessionStart,
   'guard-command': guardCommand,
+  'command-done': commandDone,
   'guard-file': guardFile,
   'agent-spawn': agentSpawn,
   'subagent-start': subagentStart,

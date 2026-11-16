@@ -33,8 +33,9 @@ parler de temps en temps, il ne contrôle pas chaque étape. Ce qui suit est sa 
 1. Lire le cahier des charges et tout code de référence indiqué. Lister : utilisateurs et rôles, parcours clés,
    surfaces (web, mobile, tablette, backoffice, API), données, intégrations (paiement, cartes, notifications, IA),
    contraintes (légales, données personnelles — skill `legal-governance`, délais, budget d'exploitation).
-   **App mobile visée (iOS surtout) : les règles des magasins entrent AU CADRAGE, pas à la soumission.** Lire la
-   skill `ios-release` § 1 et l'appliquer au plan et aux écrans : navigation sans compte jusqu'au moment où il est
+   **App mobile visée (iOS surtout) : les règles des magasins entrent AU CADRAGE, pas à la soumission.** Faire lire
+   par `ceng-researcher` toutes les pages officielles listées dans la skill `ios-release` § 0 (synthèse
+   `.ceng/brain/research/apple-rules.md`, appliquée sans exception), puis la skill `ios-release` § 1 et l'appliquer au plan et aux écrans : navigation sans compte jusqu'au moment où il est
    indispensable (5.1.1(v), rejet réel), suppression de compte, achats in-app ou paiement externe selon la nature du bien,
    permissions refusables avec alternative, connexion respectueuse si connexion sociale, contenu des utilisateurs
    modérable. Côté Android : règles Google Play équivalentes (données, permissions sensibles, suppression de compte).
