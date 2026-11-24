@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { exists, readJson, writeJsonAtomic } from '../infra/fs.js';
+import { exists, listFiles, readJson, writeJsonAtomic } from '../infra/fs.js';
 
 /**
  * Registre local des projets initialisés sur CETTE machine (`~/.ceng/registry.json`, ou `$CENG_HOME`) et empreinte du
@@ -38,6 +38,27 @@ export function registerProject(projectRoot: string, frameworkRoot: string): voi
   } catch {
     // commodité de la machine : son échec n'empêche jamais une installation
   }
+}
+
+const STACK_FILES = new Set(['package.json', 'pubspec.yaml', 'pyproject.toml', 'requirements.txt', 'go.mod', 'Cargo.toml', 'composer.json', 'Gemfile', 'pom.xml', 'build.gradle', 'build.gradle.kts', 'config.toml', 'Dockerfile']);
+
+/**
+ * Empreinte de la pile du projet : manifestes présents (racine et deux niveaux) avec taille et date. Quand elle change, les commandes des
+ * gates et les skills de la pile sont à re-détecter (`ceng upgrade`) : sur un projet vide à l'init, build, tests et lint restent « skipped »
+ * tant que personne n'a relancé la découverte.
+ */
+export function stackFingerprint(root: string): string {
+  const hash = createHash('sha256');
+  for (const f of listFiles(root, { maxDepth: 2, maxFiles: 5000 }).files.filter((x) => STACK_FILES.has(path.posix.basename(x)))) {
+    try {
+      const st = fs.statSync(path.join(root, f));
+      hash.update(`${f}:${st.size}:${Math.round(st.mtimeMs)}
+`);
+    } catch {
+      /* fichier disparu entre-temps */
+    }
+  }
+  return hash.digest('hex').slice(0, 16);
 }
 
 /**

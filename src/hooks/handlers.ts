@@ -29,7 +29,7 @@ import { graphDisabledByEnv, graphifyAvailable, refreshIfNeeded } from '../app/c
 import { classifyTeamTool } from '../domain/team.js';
 import { mainRoot } from '../app/relay.js';
 import { checkCode, DEFAULT_LIMITS, formatFindings } from '../domain/code-check.js';
-import { frameworkCli, frameworkFingerprint, readRegistry, upgradeInBackground } from '../app/registry.js';
+import { frameworkCli, frameworkFingerprint, readRegistry, upgradeInBackground, stackFingerprint } from '../app/registry.js';
 import { closeIntent, externalEffects, openIntent, unresolvedIntents } from '../app/intents.js';
 
 /**
@@ -217,8 +217,11 @@ function autoUpgrade(store: BrainStore): string[] {
     if (!fw || path.resolve(fw) === path.resolve(store.paths.root)) return [];
     const cli = frameworkCli(fw);
     const build = cli ? frameworkFingerprint(fw) : undefined;
-    const installed = readJson<{ frameworkBuild?: string }>(store.paths.manifest)?.frameworkBuild;
-    if (!cli || !build || build === installed) return [];
+    const man = readJson<{ frameworkBuild?: string; stackBuild?: string }>(store.paths.manifest);
+    const installed = man?.frameworkBuild;
+    // Anciennes installations (sans empreinte de pile) : pas de mise à jour en rafale, la prochaine la renseigne.
+    const stackChanged = man?.stackBuild !== undefined && man.stackBuild !== stackFingerprint(store.paths.root);
+    if (!cli || !build || (build === installed && !stackChanged)) return [];
     const last = store.state().autoUpgradeAt;
     if (last && Date.now() - Date.parse(last) < 10 * 60_000) return [];
     store.updateState((s) => {
@@ -226,7 +229,7 @@ function autoUpgrade(store: BrainStore): string[] {
     });
     upgradeInBackground(cli, store.paths.root);
     store.log({ type: 'session.start', data: { autoUpgrade: true, from: installed ?? 'inconnu', to: build } });
-    return ['Framework ceng mis à jour en arrière-plan (version plus récente sur cette machine) : nouvelles skills et nouveaux agents actifs à la prochaine session.'];
+    return [stackChanged && build === installed ? 'Pile du projet modifiée : commandes des gates et skills re-détectées en arrière-plan (actives à la prochaine session).' : 'Framework ceng mis à jour en arrière-plan (version plus récente sur cette machine) : nouvelles skills et nouveaux agents actifs à la prochaine session.'];
   } catch {
     return [];
   }

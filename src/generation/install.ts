@@ -1,5 +1,5 @@
 import * as fs from 'node:fs';
-import { frameworkFingerprint, registerProject } from '../app/registry.js';
+import { frameworkFingerprint, stackFingerprint, registerProject } from '../app/registry.js';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { reconcile } from '../domain/policy.js';
@@ -47,6 +47,8 @@ export interface Manifest {
   frameworkVersion: string;
   /** Empreinte du framework installé (voir app/registry.ts) : différente de celle de la machine → mise à jour. */
   frameworkBuild?: string;
+  /** Empreinte de la pile du projet à l'installation : un changement relance la découverte (commandes des gates, skills). */
+  stackBuild?: string;
   installedAt: string;
   files: Record<string, string>;
 }
@@ -257,7 +259,7 @@ export function install(opts: InstallOptions): InstallReport {
 
   if (!opts.dryRun) {
     const build = frameworkFingerprint(fw.root);
-    writeJsonAtomic(paths.manifest, { ...w.newManifest, ...(build ? { frameworkBuild: build } : {}) });
+    writeJsonAtomic(paths.manifest, { ...w.newManifest, ...(build ? { frameworkBuild: build } : {}), stackBuild: stackFingerprint(root) });
     registerProject(root, fw.root);
     const store = new BrainStore(root);
     writeTextAtomic(paths.index, renderIndex(store));

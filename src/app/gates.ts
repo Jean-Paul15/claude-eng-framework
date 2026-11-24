@@ -179,7 +179,7 @@ export function runGates(store: BrainStore, taskId: string, only?: GateId[]): Ga
     if (kind === 'command') {
       const cmd = commandFor(req.gate, config.commands);
       if (!cmd) {
-        outcome = { gate: req.gate, status: 'skipped', required: req.required, detail: 'Aucune commande détectée pour ce projet (configurer `.ceng/config.json` → commands si l\'outil existe).' };
+        outcome = { gate: req.gate, status: 'skipped', required: req.required, detail: 'Aucune commande détectée pour ce projet (`ceng upgrade` si la pile vient d\'être posée ; sinon `.ceng/config.json` → commands).' };
       } else if (ran.has(cmd)) {
         // Même commande pour deux gates (ex. `flutter analyze` = lint + typecheck) : exécutée une seule fois.
         outcome = { ...ran.get(cmd)!, gate: req.gate, required: req.required };
