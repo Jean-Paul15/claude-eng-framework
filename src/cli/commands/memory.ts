@@ -1,3 +1,4 @@
+import { familyOf, type Usage } from '../../app/usage.js';
 import * as fs from 'node:fs';
 import { inboxItems } from '../../app/inbox.js';
 import { listFeatures } from '../../app/features.js';
@@ -185,13 +186,24 @@ export function reportCommand(argv: string[]): void {
   });
   const byModel: Record<string, number> = {};
   for (const e of events.filter((x) => x.type === 'agent.spawn' && x.data?.['phase'] !== 'started')) byModel[e.model ?? 'inherit'] = (byModel[e.model ?? 'inherit'] ?? 0) + 1;
+  // Jetons réels des sous-agents (lus dans leur transcription à l'arrêt), par famille de modèle et par tâche.
+  const tokens: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number; agents: number }> = {};
+  const byTask: Record<string, number> = {};
+  for (const e of events.filter((x) => x.type === 'agent.stop' && x.data?.['usage'])) {
+    const u = e.data!['usage'] as Usage;
+    const t = (tokens[familyOf(u.model)] ??= { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, agents: 0 });
+    t.input += u.input; t.output += u.output; t.cacheRead += u.cacheRead; t.cacheWrite += u.cacheWrite; t.agents += 1;
+    if (e.taskId) byTask[e.taskId] = (byTask[e.taskId] ?? 0) + u.input + u.output + u.cacheWrite;
+  }
+  const fmt = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)} k` : String(n));
   const human = [
     `Délégations par modèle : ${Object.entries(byModel).map(([k, v]) => `${k}=${v}`).join(' · ') || 'aucune'}`,
     `Escalades : ${events.filter((e) => e.type === 'escalation.opened').length} · conflits : ${events.filter((e) => e.type === 'conflict.detected').length} · verdicts de garde : ${events.filter((e) => e.type === 'guard.verdict').length} · interruptions : ${events.filter((e) => e.type === 'session.interrupted').length}`,
+    `Jetons réels des sous-agents : ${Object.entries(tokens).map(([k, t]) => `${k} ${t.agents} agent(s), entrée ${fmt(t.input)} · sortie ${fmt(t.output)} · cache lu ${fmt(t.cacheRead)} / écrit ${fmt(t.cacheWrite)}`).join(' | ') || 'aucune mesure (transcription indisponible)'}`,
     '',
     ...rows.map((r) => `${r.id} ${r.status.padEnd(11)} ${r.kind.padEnd(9)} ${r.route.padEnd(32)} revue=${r.review} tentatives=${r.attempts}${r.failures ? ` (échecs ${r.failures})` : ''}${r.escalated ? ' ESCALADÉE' : ''}\n     agents: ${r.agents.join(', ') || '—'} · gates: ${r.gates.join(' ') || '—'}${r.doneBecause ? `\n     terminé : ${r.doneBecause}` : ''}`),
   ].join('\n');
-  out(p, human, { byModel, tasks: rows });
+  out(p, human, { byModel, tokens, tokensByTask: byTask, tasks: rows });
 }
 
 export function adaptCommand(argv: string[]): void {

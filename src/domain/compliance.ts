@@ -29,8 +29,18 @@ export const MECHANISMS: readonly Mechanism[] = [
 
 export type ComplianceStatus = 'implemented' | 'waived' | 'missing';
 
+/** Mécanisme propre au projet (nouvelle loi, nouveau traitement, exigence d'un client) : identifiant `X-01`, `X-02`… */
+export const CUSTOM_ID = /^X-\d{2}$/;
+
 export interface ManifestEntry {
-  status: Exclude<ComplianceStatus, 'missing'>;
+  /** `pending` : déclaré obligatoire, pas encore construit (traité comme manquant). */
+  status: Exclude<ComplianceStatus, 'missing'> | 'pending';
+  /** Titre d'un mécanisme du projet (obligatoire pour `X-xx`). */
+  title?: string;
+  /** Un mécanisme du projet qui exige un test pour être déclaré réalisé. */
+  needsTest?: boolean;
+  /** Raison d'ajout : loi, incident, exigence (une ligne, pour la relecture). */
+  because?: string;
   files?: string[];
   tests?: string[];
   /** Fichier de la décision (`.ceng/brain/decisions/…`) qui écarte le mécanisme. */

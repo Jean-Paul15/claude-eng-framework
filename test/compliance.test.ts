@@ -89,3 +89,36 @@ describe('socle, ready et gates (G-2, G-6, S-01)', () => {
     assert.match(run('data-map').stdout, /Carte des données écrite/);
   });
 });
+
+describe('socle évolutif : base minimale, pas liste figée', () => {
+  let dir = '';
+  const run = (...a: string[]) => cli(dir, a);
+  before(() => {
+    dir = sandbox('api-backend');
+    assert.equal(cli(dir, ['init', '--yes', '--goal', 'API']).code, 0);
+    run('task', 'add', '--title', 'Comptes', '--kind', 'chore', '--domains', 'auth,pii');
+  });
+  after(() => rm(dir));
+
+  it('un mécanisme du projet s\'ajoute, compte comme manquant, puis se déclare', () => {
+    assert.notEqual(run('compliance', 'add', 'C-15', '--title', 'x').code, 0, 'identifiant X-xx seulement');
+    assert.equal(run('compliance', 'add', 'X-01', '--title', 'Registre des consentements parentaux', '--because', 'loi mineurs 2027', '--test').code, 0);
+    assert.match(run('compliance', 'status').stdout, /✖ X-01 Registre des consentements parentaux — à construire \(loi mineurs 2027\)/);
+    fs.writeFileSync(path.join(dir, 'parental.sql'), 'select 1;');
+    fs.writeFileSync(path.join(dir, 'parental.test.sql'), 'select 1;');
+    assert.match(run('compliance', 'set', 'X-01', '--files', 'parental.sql').stdout, /X-01 déclaré/);
+    assert.match(run('compliance', 'status').stdout, /✖ X-01 .*test exigé/);
+    run('compliance', 'set', 'X-01', '--files', 'parental.sql', '--tests', 'parental.test.sql');
+    assert.match(run('compliance', 'status').stdout, /✔ X-01/);
+  });
+
+  it('veille légale : une recherche de plus de 12 mois fait échouer ready, une récente non', () => {
+    const f = path.join(dir, '.ceng/brain/research/legal-fr.md');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, '# RGPD\n');
+    assert.match(run('ready').stdout, /✔ Veille légale à jour/);
+    const old = new Date(Date.now() - 400 * 86_400_000);
+    fs.utimesSync(f, old, old);
+    assert.match(run('ready').stdout, /✖ Veille légale à jour .*mois/);
+  });
+});

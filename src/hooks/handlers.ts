@@ -3,6 +3,7 @@ import { runShell, tail } from '../infra/exec.js';
 import * as fs from 'node:fs';
 import { readVetted, unvettedDeps } from '../app/deps.js';
 import { logAnswers } from '../app/answers-log.js';
+import { readUsage } from '../app/usage.js';
 import { isUsageLimit, scheduleResume, setThrottle } from '../app/throttle.js';
 import { isFrozen } from '../app/contracts.js';
 import { inboxItems, inboxSummary } from '../app/inbox.js';
@@ -567,7 +568,9 @@ export function subagentStop(store: BrainStore, input: HookInput): HookOutput {
   const message = String(input.last_assistant_message ?? '');
   const handedBack = Boolean(input.agent_id && store.state().handbackReports?.[input.agent_id]);
   const hasReport = message.includes(REPORT_MARKER) || handedBack;
-  store.log({ type: 'agent.stop', ...ids(input), ...(taskId ? { taskId } : {}), data: { hasReport } });
+  const transcript = String(input['agent_transcript_path'] ?? '');
+  const usage = transcript ? readUsage(transcript) : undefined; // mesure réelle des jetons, jamais bloquante
+  store.log({ type: 'agent.stop', ...ids(input), ...(taskId ? { taskId } : {}), data: { hasReport, ...(usage ? { usage } : {}) } });
   if (input.agent_id && input.agent_id in (store.state().runningAgents ?? {})) {
     store.updateState((s) => {
       const running = { ...(s.runningAgents ?? {}) };

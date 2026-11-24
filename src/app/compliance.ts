@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { complianceApplies, MECHANISMS, type ComplianceStatus, type Manifest, type Mechanism } from '../domain/compliance.js';
+import { complianceApplies, CUSTOM_ID, MECHANISMS, type ComplianceStatus, type Manifest, type Mechanism } from '../domain/compliance.js';
 import { exists, readJson, writeJsonAtomic } from '../infra/fs.js';
 import { listDecisions } from './decisions.js';
 import type { BrainStore } from '../brain/store.js';
@@ -21,11 +21,20 @@ export function applies(store: BrainStore): boolean {
   return complianceApplies(domains);
 }
 
+/** Socle de base + mécanismes ajoutés par le projet (`ceng compliance add X-01 --title …`). */
+export function allMechanisms(manifest: Manifest): Mechanism[] {
+  const custom = Object.entries(manifest)
+    .filter(([id, e]) => CUSTOM_ID.test(id) && e.title)
+    .map(([id, e]) => ({ id, title: e.title!, needsTest: e.needsTest === true }));
+  return [...MECHANISMS, ...custom];
+}
+
 export function checkCompliance(store: BrainStore): ComplianceRow[] {
   const manifest = readManifest(store);
   const alive = new Set(listDecisions(store).map((d) => d.file));
-  return MECHANISMS.map((mechanism) => {
+  return allMechanisms(manifest).map((mechanism) => {
     const e = manifest[mechanism.id];
+    if (e?.status === 'pending') return { mechanism, status: 'missing' as const, detail: `à construire${e.because ? ` (${e.because})` : ''}` };
     if (!e) return { mechanism, status: 'missing' as const, detail: 'non déclaré' };
     if (e.status === 'waived') {
       const ok = Boolean(e.decision) && alive.has(path.basename(e.decision!));

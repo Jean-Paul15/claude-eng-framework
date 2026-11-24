@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dataMapProblems } from './data-map.js';
 import { applies, missingMechanisms } from './compliance.js';
@@ -144,8 +145,15 @@ export function runChecks(store: BrainStore): ReadyCheck[] {
   const clientLeak = s.code.filter((f) => /(^|\/)(lib|web|client|public|app)\//.test(f) && /(SERVICE_ROLE|sb_secret_|SUPABASE_SECRET_KEY)/.test(s.text(f)) && !/(^|\/)(supabase\/functions|server|api|functions)\//.test(f));
   add('client-keys', "Clé d'administration absente du code client", clientLeak.length ? 'fail' : 'pass', clientLeak.length ? clientLeak.slice(0, 4).join(', ') : 'aucune', 'la clé secrète ne vit que côté serveur (fonction, API)');
   if (regulated) {
-    const legal = s.files.some((f) => /^\.ceng\/brain\/research\/legal-/.test(f)) || exists(path.join(store.paths.research, 'legal.md'));
+    const legalFiles = store.listDir(store.paths.research).filter((f) => /^legal-.*\.md$/.test(f));
+    const legal = legalFiles.length > 0;
     add('legal-research', 'Cadrage légal fait', legal ? 'pass' : 'fail', legal ? 'recherche légale présente' : 'aucune recherche légale par pays', 'ceng-researcher : lire les textes officiels des pays visés → research/legal-<pays>.md');
+    // Les lois évoluent : la recherche légale se relit au moins une fois par an (ou décision `ready:legal-fresh`).
+    const oldest = legalFiles.map((f) => fs.statSync(path.join(store.paths.research, f)).mtimeMs).sort((a, b) => a - b)[0];
+    if (oldest !== undefined) {
+      const months = Math.floor((Date.now() - oldest) / (30 * 86_400_000));
+      add('legal-fresh', 'Veille légale à jour (moins de 12 mois)', months >= 12 ? 'fail' : 'pass', months >= 12 ? `recherche légale vieille de ${months} mois` : `recherche de ${months} mois`, '`ceng-researcher` relit les textes officiels (nouvelles lois, délais, durées) → ajouter les mécanismes manquants (`ceng compliance add X-01 …`) et mettre à jour research/legal-<pays>.md');
+    }
     const pages = (re: RegExp) => s.files.some((f) => re.test(f.toLowerCase()));
     const ok = pages(/privacy|confidentialit/) && pages(/terms|conditions|cgu|cgv/);
     add('legal-pages', 'Pages légales (confidentialité, conditions)', ok ? 'pass' : 'fail', ok ? 'présentes' : 'confidentialité ou conditions introuvables', 'créer les pages accessibles sans compte, reliées aux versions de politique (C-01)');

@@ -5,6 +5,12 @@ description: Socle obligatoire de tout produit avec comptes ou données personne
 
 # Socle de conformité — construit dans l'incrément 1, pas avant la mise en production
 
+**C'est la base minimale, pas une liste figée ni exhaustive.** Les lois évoluent, les produits aussi : un nouveau pays, une nouvelle
+catégorie de données, un nouveau tiers, une exigence d'un client ou d'un magasin, un incident → un mécanisme s'ajoute
+(`ceng compliance add X-01 --title "…" --because "<loi ou exigence>"`, puis `compliance set X-01 --files … --tests …`), et `ceng ready`
+l'exige comme les autres. Chaque nouvelle fonctionnalité se demande « quelle donnée, quelle finalité, quel tiers, quelle loi nouvelle ? »
+avant d'être codée. La recherche légale (`research/legal-<pays>.md`) se relit au moins une fois par an (contrôle `legal-fresh`).
+
 L'agent n'est pas juriste : il rend obligatoires des **mécanismes techniques** reconnus (RGPD et équivalents) ; la loi du pays est lue à
 la source (`ceng-researcher`, § « Cadrage légal ») et une relecture par un juriste avant la première mise en production est recommandée.
 **Déclenchement** : dès qu'il y a des comptes ou une donnée personnelle (nom, e-mail, téléphone, position, photo, identifiant d'appareil,
@@ -96,7 +102,7 @@ finalité ou de tiers. `ceng-researcher` lit les textes officiels des pays cité
 une décision à impact fort pour l'humain, avec la recommandation d'une relecture par un juriste.
 
 ## Dans ceng
-`ceng compliance status|set|waive` tient le manifeste `.ceng/brain/compliance.json` : un mécanisme est `implemented` (fichiers et tests
+`ceng compliance status|add|set|waive` tient le manifeste `.ceng/brain/compliance.json` : un mécanisme est `implemented` (fichiers et tests
 qui existent), `waived` (décision de l'humain) ou `missing` ; `ceng ready` échoue tant qu'un mécanisme applicable manque.
 `ceng data-map` génère la carte des données depuis les migrations ; la gate `privacy` exige un commentaire de classification sur toute
 colonne personnelle ajoutée. Skills voisines : `security`, `legal-governance`, `database`, `dependencies`.
