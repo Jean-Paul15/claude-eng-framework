@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import { readVetted, unvettedDeps } from '../app/deps.js';
 import { logAnswers } from '../app/answers-log.js';
+import { listRules } from '../app/rules.js';
 import { recall, renderRecall } from '../app/recall.js';
 import { tokenize } from '../domain/similarity.js';
 import { isManifest } from '../domain/deps.js';
@@ -481,7 +482,7 @@ export function codeCheck(store: BrainStore, input: HookInput): HookOutput {
   } catch {
     total = text.split(/\r?\n/).length;
   }
-  const findings = checkCode(rel, text, total, { ...DEFAULT_LIMITS, ...Object.fromEntries(Object.entries(cfg ?? {}).filter(([k, v]) => k !== 'enabled' && typeof v === 'number')) });
+  const findings = checkCode(rel, text, total, { ...DEFAULT_LIMITS, ...Object.fromEntries(Object.entries(cfg ?? {}).filter(([k, v]) => k !== 'enabled' && typeof v === 'number')) }, listRules(store));
   if (!findings.length && !depNote) return OK;
   if (!findings.length) return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: depNote! } } };
   store.log({ type: 'code.check', ...ids(input), data: { file: rel, rules: findings.map((f) => f.rule) } });

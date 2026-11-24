@@ -25,6 +25,7 @@ export const SKILLS: AssetSpec[] = [
   { name: 'ceng-setup', when: always, why: 'Installation, mise à jour et diagnostic du framework — voyage avec le dépôt (nouvelle machine, clone).' },
   { name: 'ceng-delivery', when: always, why: 'Du cahier des charges à la livraison : cadrage court, agile accéléré, artefacts exécutables, décisions production.' },
   // Toujours installées (skills ET agents créatifs) : un projet qui part d'un cahier des charges n'a pas encore d'UI détectable, le routage envoie pourtant ses tâches `design` vers ceng-creative-director ; une skill non utilisée ne coûte que sa description.
+  { name: 'ceng-spec-intake', when: always, why: 'Lecture d\'un cahier des charges (PDF, images) dans un contexte séparé : exigences numérotées, maquettes.' },
   { name: 'ux-principles', when: always, why: "Révélation progressive, budget d'écran, élévation sobre, typographie choisie, responsive mobile/tablette." },
   { name: 'visual-flow-testing', when: always, why: 'Test principal des interfaces : parcours capturés en images, relus et corrigés.' },
   { name: 'scale-algorithms', when: (p) => isServer(p) || hasDb(p) || p.projectTypes.includes('data') || p.projectTypes.includes('mobile') || p.projectTypes.includes('api'), why: 'Algorithmes qui tiennent le volume (proximité, matching, classement) et leur coût.' },

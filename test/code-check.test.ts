@@ -73,3 +73,22 @@ describe('migrations SQL écrites à la main', () => {
     assert.deepEqual(sql('db/migrations/20260101_init.ts', 'drop table old;'), []);
   });
 });
+
+describe('règles de contrôle propres au projet (N-06)', () => {
+  it('appliquées sur le glob, ignorées ailleurs ou si invalides ; ajout, liste, retrait', () => {
+    const custom = [{ id: 'R01', pattern: 'fetch[(]', message: 'utiliser le client http du projet', glob: 'src/**/*.ts' }, { pattern: '(', message: 'invalide' }];
+    const run = (file: string) => checkCode(file, 'const r = await fetch(url);', 1, undefined, custom).map((f) => f.rule);
+    assert.deepEqual(run('src/api/user.ts'), ['projet-R01']);
+    assert.deepEqual(run('scripts/tool.ts'), []);
+    const dir = sandbox('api-backend');
+    dirs.push(dir);
+    assert.equal(cli(dir, ['init', '--yes']).code, 0);
+    assert.notEqual(cli(dir, ['rule', 'add', '--pattern', '(', '--message', 'x']).code, 0);
+    assert.equal(cli(dir, ['rule', 'add', '--pattern', 'requests[.]get[(]', '--message', 'timeout obligatoire']).code, 0);
+    assert.match(cli(dir, ['rule', 'list']).stdout, /R01/);
+    const file = path.join(dir, 'app', 'x.py');
+    const r = runtimeHook(dir, 'code-check', { tool_name: 'Write', tool_input: { file_path: file, content: 'r = requests.get(u)\n' } });
+    assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /timeout obligatoire/);
+    assert.equal(cli(dir, ['rule', 'remove', 'R01']).code, 0);
+  });
+});

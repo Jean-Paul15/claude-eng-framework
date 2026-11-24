@@ -48,20 +48,10 @@ parler de temps en temps, il ne contrôle pas chaque étape. Ce qui suit est sa 
    données compris). Une invite, quatre questions : pays où le produit est proposé, public (mineurs possibles ?), données sensibles
    (santé, position précise, pièce d'identité, paiement), contact pour les droits et les alertes ; `ceng-researcher` lit les textes officiels
    de ces pays → `.ceng/brain/research/legal-<pays>.md`. Le reste prend des valeurs prudentes notées en hypothèse.
-   **Cahier des charges en PDF (ou images, maquettes, captures)** — le lire en entier, une fois, sans le relire ensuite :
-   - Pages lues par lots (outil Read avec `pages`, 20 pages au plus par lecture) : texte ET images de chaque page sont vus
-     (maquettes, schémas, tableaux, captures). Gros document → découpé entre plusieurs `ceng-researcher` (un lot de pages
-     chacun), qui renvoient chacun une synthèse.
-   - Images extraites en pleine résolution dans `docs/spec/assets/` (PyMuPDF : `page.get_images()` + `extract_image`, ou
-     `pdfimages -png` ; `pdftoppm -r 150` pour une page entière), nommées `p<page>-<n>-<sujet>.png`.
-   - Synthèse unique `.ceng/brain/spec.md` : une section par partie du cahier, exigences numérotées (EX-001…) avec la page
-     source, et pour chaque maquette son image, l'écran qu'elle décrit et ce qui est imposé (contenu, ordre, style) ou
-     seulement indicatif. C'est elle que lisent l'orchestrateur et les briefs (`--ref docs/spec/assets/...`), jamais le PDF.
-   - Les maquettes deviennent des références du test visuel : la capture livrée est relue à côté de l'image du cahier ;
-     écart volontaire (meilleure UX, règle d'un magasin) → noté dans la synthèse avec la raison.
-   - Chaque exigence est tracée jusqu'à une tâche et un test (« EX-014 → T-0031 ») ; la livraison finale liste celles couvertes.
-   Après `spec.md` : une fonctionnalité par capacité ou parcours (`ceng feature add --name … --summary … --spec EX-001`) ; les tâches
-   s'y rattachent (`task add --feature F-xxx`) — c'est la mémoire de « ce qu'on a déjà », consultée à chaque demande.
+   **Cahier des charges en PDF (ou images, maquettes, captures)** : lancer la skill `ceng-spec-intake <chemin>` (contexte séparé : le
+   document n'entre jamais dans ta conversation). Elle écrit `.ceng/brain/spec.md` (exigences EX-001…, page source, maquettes imposées ou
+   indicatives) et `docs/spec/assets/`, et te rend les trous à impact fort. Chaque exigence est tracée jusqu'à une tâche (`task add --spec
+   EX-xxx`) et un test ; la livraison finale liste celles couvertes (`ceng ready`).
 2. Repérer **seulement les vrais trous** : ce qui change l'architecture, le modèle de données, la facture ou le légal.
    Le reste se décide (bonne pratique du domaine) et se note comme hypothèse.
 3. **Une seule invite** (`AskUserQuestion`, 1 à 4 questions groupées, recommandation en premier) si le cahier est

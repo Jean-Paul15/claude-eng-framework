@@ -38,5 +38,8 @@ recommended:
 - <…>
 minor:
 - <…>
+rule_candidates: <motif récurrent qui mérite une règle de contrôle : expression + message, ou « aucun »>
 ```
+`rule_candidates` : une erreur que tu retrouves (ou qui a déjà été corrigée ailleurs) devient une règle — l'orchestrateur lance
+`ceng rule add --pattern "<regex>" --message "…" [--glob "…"]` et le contrôle immédiat la détecte à chaque écriture.
 `verdict: fail` dès qu'un constat est bloquant. L'orchestrateur enregistre la gate `review`.

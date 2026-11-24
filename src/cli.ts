@@ -15,6 +15,7 @@ import { bypassCommand } from './cli/commands/bypass.js';
 import { advisorCommand } from './cli/commands/advisor.js';
 import { depCommand } from './cli/commands/dep.js';
 import { featureCommand } from './cli/commands/feature.js';
+import { ruleCommand } from './cli/commands/rule.js';
 import { complianceCommand } from './cli/commands/compliance.js';
 import { dataMapCommand, readyCommand } from './cli/commands/ready.js';
 import { upgradeAll } from './cli/commands/upgrade-all.js';
@@ -56,6 +57,7 @@ Bypass total (décision humaine)
   ready                      Contrôle « prêt pour la production » (variables d'environnement, secrets, CI, santé, conformité…)
   compliance status|set|waive  Socle de conformité (politiques, consentements, conservation, audit, anomalies, incidents)
   data-map                   Carte des données personnelles générée depuis les migrations
+  rule add|list|remove       Règles de contrôle du code propres au projet (une erreur relevée ne se réécrit plus)
   dep check [noms…]|list|baseline  Vérifie les dépendances (licence, maintenance, vulnérabilités, usage) dans les registres publics
   advisor [fable|opus|sonnet|off]  Conseiller de Claude Code (modèle plus fort consulté aux décisions clés), lancé avec --advisor
 
@@ -116,6 +118,7 @@ export async function main(argv: string[]): Promise<void> {
     case 'advisor': return advisorCommand(rest);
     case 'dep': return depCommand(rest);
     case 'feature': return featureCommand(rest);
+    case 'rule': return ruleCommand(rest);
     case 'compliance': return complianceCommand(rest);
     case 'ready': return readyCommand(rest);
     case 'data-map': return dataMapCommand(rest);

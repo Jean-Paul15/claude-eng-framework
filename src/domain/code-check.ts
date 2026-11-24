@@ -1,3 +1,4 @@
+import { matchesAny } from './globs.js';
 import { parseTables } from './data-map.js';
 /**
  * Contrôle immédiat du code qui vient d'être écrit (hook PostToolUse) : mauvais motifs connus, fichiers et lignes trop
@@ -70,7 +71,13 @@ const RULES: PatternRule[] = [
 const INDENT_UNIT = 2;
 
 /** Analyse le texte nouveau d'un fichier (et la taille totale du fichier). Rien pour un fichier qui n'est pas du code. */
-export function checkCode(file: string, newText: string, totalLines: number, limits: CodeCheckLimits = DEFAULT_LIMITS): Finding[] {
+export interface CustomRule {
+  pattern: string;
+  message: string;
+  glob?: string;
+}
+
+export function checkCode(file: string, newText: string, totalLines: number, limits: CodeCheckLimits = DEFAULT_LIMITS, custom: readonly (CustomRule & { id?: string })[] = []): Finding[] {
   const path = file.replace(/\\/g, '/');
   if (!CODE_EXT.test(path) || SKIP_PATH.test(path)) return [];
   // Migrations : seules celles écrites à la main en SQL sont contrôlées (les autres, générées par un ORM, sont ignorées).
@@ -102,6 +109,19 @@ export function checkCode(file: string, newText: string, totalLines: number, lim
   }
 
   if (/\.sql$/i.test(path)) findings.push(...checkSql(path, newText));
+
+  // Règles du projet : une leçon apprise (revue, incident) qui ne doit plus pouvoir être réécrite.
+  for (const r of custom) {
+    if (r.glob && !matchesAny(path, [r.glob])) continue;
+    let re: RegExp;
+    try {
+      re = new RegExp(r.pattern);
+    } catch {
+      continue;
+    }
+    const at = lines.findIndex((l) => re.test(l));
+    if (at >= 0) findings.push({ rule: `projet${r.id ? `-${r.id}` : ''}`, severity: 'warn', message: r.message, line: at + 1 });
+  }
 
   if (totalLines > limits.maxFileLines && !isTest) {
     findings.push({ rule: 'long-file', severity: 'warn', message: `fichier de ${totalLines} lignes (> ${limits.maxFileLines}) : le scinder par responsabilité (sans reformater tout le fichier dans ce changement)` });

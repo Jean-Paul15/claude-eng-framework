@@ -78,3 +78,12 @@ describe('assets du cœur', () => {
     assert.equal(JSON.parse(desc), tricky.description);
   });
 });
+
+describe('taille des skills du cœur (rattachées après compaction : 5 000 premiers jetons chacune)', () => {
+  it('ceng-orchestrate et ceng-delivery restent sous 16 000 octets', () => {
+    for (const s of ['ceng-orchestrate', 'ceng-delivery']) {
+      const size = fs.statSync(path.join(CORE, 'skills', s, 'SKILL.md')).size;
+      assert.ok(size <= 16_000, `${s} : ${size} octets`);
+    }
+  });
+});
