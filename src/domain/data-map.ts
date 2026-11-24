@@ -12,6 +12,8 @@ export interface TableDef {
   columns: string[];
   /** Corps de la déclaration (indices de liaison à une personne). */
   body: string;
+  /** Colonne ajoutée à une table existante (`alter table … add column`), pas une création. */
+  alter?: true;
 }
 
 export interface Classification {
@@ -65,7 +67,7 @@ export function parseTables(sqlRaw: string): TableDef[] {
     out.push({ name: tableName(m[1]!), columns, body });
   }
   for (const m of sql.matchAll(/alter\s+table\s+(?:only\s+)?(?:if\s+exists\s+)?([\w."`]+)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?([\w"`]+)([^;]*)/gi)) {
-    out.push({ name: tableName(m[1]!), columns: [ident(m[2]!)], body: m[3] ?? '' });
+    out.push({ name: tableName(m[1]!), columns: [ident(m[2]!)], body: m[3] ?? '', alter: true });
   }
   return out;
 }

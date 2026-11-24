@@ -445,6 +445,12 @@ function dependencyNote(store: BrainStore): string | undefined {
   }
 }
 
+/** PostToolUse d'écriture : suivi du fichier modifié puis contrôle du code, en un seul processus. */
+export function afterEdit(store: BrainStore, input: HookInput): HookOutput {
+  fileEdited(store, input);
+  return codeCheck(store, input);
+}
+
 /** Texte écrit par l'outil : contenu entier (Write) ou fragments remplaçants (Edit, MultiEdit). */
 function writtenText(ti: Record<string, unknown>): string {
   if (typeof ti['content'] === 'string') return ti['content'];
@@ -912,6 +918,7 @@ export const HANDLERS: Record<string, (store: BrainStore, input: HookInput) => H
   'agent-spawn': agentSpawn,
   'subagent-start': subagentStart,
   'file-edited': fileEdited,
+  'after-edit': afterEdit,
   'skill-used': skillUsed,
   'agent-handback': agentHandback,
   'subagent-stop': subagentStop,

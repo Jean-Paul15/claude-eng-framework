@@ -167,6 +167,7 @@ function chooseImplementer(task: Task, ctx: RoutingContext, f: ImplementerFlags)
     f.reasons.push('UI avec direction créative existante : exécutant frontend, sans réinvention du design.');
     return { agent: 'ceng-frontend-executor', model: 'sonnet', effort };
   }
+  if (task.kind === 'ui') f.reasons.push("Aucune direction créative : créer d'abord une tâche --kind design (design system dans le code), sinon l'écran sera générique.");
   if (task.kind === 'test') return { agent: 'ceng-tester', model: 'sonnet', effort };
 
   const mechanical = a.complexity <= 1 && a.risk <= 1 && a.ambiguity <= 2 && !f.critical;

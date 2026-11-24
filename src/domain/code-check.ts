@@ -1,3 +1,4 @@
+import { parseTables } from './data-map.js';
 /**
  * Contrôle immédiat du code qui vient d'être écrit (hook PostToolUse) : mauvais motifs connus, fichiers et lignes trop
  * longs, imbrication profonde. Pur et rapide (expressions régulières, aucune analyse lourde) : il ne remplace pas le lint
@@ -24,7 +25,7 @@ export interface CodeCheckLimits {
 export const DEFAULT_LIMITS: CodeCheckLimits = { maxFileLines: 500, maxLineLength: 160, maxIndentLevels: 6 };
 
 const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|vue|svelte|py|rb|go|rs|java|kt|kts|swift|dart|php|cs|sql)$/i;
-const SKIP_PATH = /(^|\/)(node_modules|dist|build|out|coverage|vendor|\.dart_tool|\.ceng|graphify-out|__generated__|generated|migrations?)(\/|$)|\.(min|d|g|freezed)\.[a-z]+$|\.lock$/i;
+const SKIP_PATH = /(^|\/)(node_modules|dist|build|out|coverage|vendor|\.dart_tool|\.ceng|graphify-out|__generated__|generated)(\/|$)|\.(min|d|g|freezed)\.[a-z]+$|\.lock$/i;
 const TEST_PATH = /(^|\/)(test|tests|__tests__|spec|integration_test|e2e)(\/|$)|[._-](test|spec)\.[a-z]+$|_test\.[a-z]+$/i;
 
 interface PatternRule {
@@ -72,6 +73,8 @@ const INDENT_UNIT = 2;
 export function checkCode(file: string, newText: string, totalLines: number, limits: CodeCheckLimits = DEFAULT_LIMITS): Finding[] {
   const path = file.replace(/\\/g, '/');
   if (!CODE_EXT.test(path) || SKIP_PATH.test(path)) return [];
+  // Migrations : seules celles écrites à la main en SQL sont contrôlées (les autres, générées par un ORM, sont ignorées).
+  if (/(^|\/)migrations?\//i.test(path) && !/\.sql$/i.test(path)) return [];
   const isTest = TEST_PATH.test(path);
   const findings: Finding[] = [];
   const lines = newText.split(/\r?\n/);
@@ -98,10 +101,54 @@ export function checkCode(file: string, newText: string, totalLines: number, lim
     if (deepAt >= 0) findings.push({ rule: 'deep-nesting', severity: 'warn', line: deepAt + 1, message: 'imbrication très profonde : extraire une fonction ou un composant, retours anticipés' });
   }
 
+  if (/\.sql$/i.test(path)) findings.push(...checkSql(path, newText));
+
   if (totalLines > limits.maxFileLines && !isTest) {
     findings.push({ rule: 'long-file', severity: 'warn', message: `fichier de ${totalLines} lignes (> ${limits.maxFileLines}) : le scinder par responsabilité (sans reformater tout le fichier dans ce changement)` });
   }
   return findings;
+}
+
+/**
+ * Migrations SQL écrites à la main : là où une erreur coûte le plus. Avertissements seulement (jamais bloquants) :
+ * table sans RLS exposée par l'API (projets Supabase), clé étrangère sans index, destruction sans garde.
+ */
+function checkSql(file: string, text: string): Finding[] {
+  const out: Finding[] = [];
+  const tables = parseTables(text).filter((t) => !t.alter);
+  if (/(^|\/)supabase\//i.test(file)) {
+    const noRls = tables.filter((t) => !new RegExp(`alter\\s+table\\s+(?:only\\s+)?(?:[\\w"]+\\.)?"?${t.name}"?\\s+enable\\s+row\\s+level\\s+security`, 'i').test(text) && /create\s+table/i.test(text));
+    if (noRls.length) out.push({ rule: 'rls-missing', severity: 'warn', message: `table ${noRls.map((t) => t.name).join(', ')} sans « enable row level security » : exposée par l'API sans politique d'accès` });
+  }
+  const unindexed: string[] = [];
+  for (const t of tables) {
+    for (const def of splitDefs(t.body)) {
+      const col = /^\s*"?(\w+)"?\s+[^,]*\breferences\b/i.exec(def)?.[1];
+      if (!col || /\b(primary\s+key|unique)\b/i.test(def)) continue;
+      if (!new RegExp(`create\\s+(?:unique\\s+)?index[^;]*\\(\\s*"?${col}\\b`, 'i').test(text)) unindexed.push(`${t.name}.${col}`);
+    }
+  }
+  if (unindexed.length) out.push({ rule: 'fk-no-index', severity: 'warn', message: `clé étrangère sans index : ${unindexed.slice(0, 4).join(', ')} (jointures et suppressions en cascade lentes)` });
+  const lines = text.split(/\r?\n/);
+  const at = lines.findIndex((l, i) => /^\s*(drop\s+(table|column)|truncate)\b/i.test(l) && !/expand\/contract|irréversible/i.test(`${lines[i - 1] ?? ''} ${l}`));
+  if (at >= 0) out.push({ rule: 'destructive-migration', severity: 'warn', line: at + 1, message: 'suppression de table ou de colonne : prévoir expand/contract ou noter « -- irréversible : raison » sur la ligne précédente' });
+  return out;
+}
+
+function splitDefs(body: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of body) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) {
+      out.push(cur);
+      cur = '';
+    } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur);
+  return out;
 }
 
 /** Message court à renvoyer à l'agent (une ligne par constat). */

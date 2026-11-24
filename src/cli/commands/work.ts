@@ -22,7 +22,7 @@ function refreshIndex(store: BrainStore): void {
   writeTextAtomic(store.paths.index, renderIndex(store));
 }
 
-export function formatRoute(t: Task, r: RouteDecision): string {
+export function formatRoute(t: Task, r: RouteDecision, bypass = false): string {
   return [
     `${t.id} — ${t.title} [${t.kind}]`,
     `Exécution : ${r.executor === 'direct' ? 'directe (orchestrateur)' : `déléguée → ${r.implementer.agent}`} · modèle ${r.implementer.model} · effort ${r.implementer.effort} · coût relatif ${r.costIndex}`,
@@ -31,7 +31,7 @@ export function formatRoute(t: Task, r: RouteDecision): string {
     `Gates : ${r.gates.map((g) => `${g.gate}${g.required ? '' : '?'}`).join(', ')}`,
     r.checkpointBefore ? 'Checkpoint AVANT modification.' : '',
     r.escalate.required ? `⚠ ESCALADE → ${r.escalate.to} : ${r.escalate.reason}` : '',
-    r.humanApproval.required ? `⚠ APPROBATION HUMAINE : ${r.humanApproval.reason}` : '',
+    r.humanApproval.required ? (bypass ? `Approbation humaine levée (bypass total) : ${r.humanApproval.reason}` : `⚠ APPROBATION HUMAINE : ${r.humanApproval.reason}`) : '',
     'Pourquoi :',
     ...r.reasons.map((x) => `  - ${x}`),
   ].filter(Boolean).join('\n');
@@ -112,7 +112,7 @@ export function taskCommand(argv: string[]): void {
         t.domains.length ? `Domaines : ${t.domains.join(', ')}` : '',
         ...t.attempts.map((a) => `  tentative ${a.n} ${a.agent}/${a.model} ${a.outcome}${a.reason ? ` — ${a.reason}` : ''}`),
         ...t.gates.map((g) => `  gate ${g.gate}: ${g.status}${g.required ? '' : ' (optionnelle)'}`),
-        t.route ? `\n${formatRoute(t, t.route)}` : '',
+        t.route ? `\n${formatRoute(t, t.route, store.config().bypass?.enabled === true)}` : '',
       ].filter(Boolean).join('\n');
       out(p, human, t);
       return;
@@ -127,7 +127,7 @@ export function taskCommand(argv: string[]): void {
       if (model && !['haiku', 'sonnet', 'opus'].includes(model)) throw new UsageError('--model : haiku|sonnet|opus');
       const t = startTask(store, requirePositional(p, 0, 'tâche'), str(p, 'agent'), model, str(p, 'strategy'));
       refreshIndex(store);
-      out(p, `${t.id} démarrée (tentative ${t.attempts.length}).\n${formatRoute(t, t.route!)}`, t);
+      out(p, `${t.id} démarrée (tentative ${t.attempts.length}).\n${formatRoute(t, t.route!, store.config().bypass?.enabled === true)}`, t);
       return;
     }
     case 'done': {
@@ -165,7 +165,7 @@ export function routeCommand(argv: string[]): void {
   const p = parse(argv, { dir: { type: 'string' } });
   const store = storeFor(str(p, 'dir'));
   const t = routeAndStore(store, requirePositional(p, 0, 'tâche'));
-  out(p, formatRoute(t, t.route!), t.route);
+  out(p, formatRoute(t, t.route!, store.config().bypass?.enabled === true), t.route);
 }
 
 export function planCommand(argv: string[]): void {

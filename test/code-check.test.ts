@@ -34,7 +34,7 @@ describe('contrôle immédiat du code écrit', () => {
 
   it('hors code (docs, migrations, générés) : ignoré', () => {
     assert.deepEqual(rules('README.md', 'console.log(x) // TODO'), []);
-    assert.deepEqual(rules('supabase/migrations/001.sql', 'select * from t;'), []);
+    assert.deepEqual(rules('db/migrations/20260101_init.ts', 'console.log(x)'), []); // migration générée par un ORM : ignorée (le SQL écrit à la main, lui, est contrôlé)
     assert.deepEqual(rules('lib/model.g.dart', 'print(x)'), []);
   });
 
@@ -52,5 +52,24 @@ describe('contrôle immédiat du code écrit', () => {
     assert.deepEqual(run('export const ok = 1;\n'), {});
     assert.match(run('console.log(1)\n').hookSpecificOutput?.additionalContext ?? '', /debug-leftover/);
     assert.equal(run('const q = `DELETE FROM t WHERE id = ${id}`;\n').decision, 'block');
+  });
+});
+
+describe('migrations SQL écrites à la main', () => {
+  const sql = (file: string, text: string) => checkCode(file, text, text.split('\n').length).map((f) => f.rule);
+  it('table sans RLS dans un projet Supabase', () => {
+    assert.ok(sql('supabase/migrations/001_init.sql', 'create table notes (id uuid primary key, body text);').includes('rls-missing'));
+    assert.ok(!sql('supabase/migrations/001_init.sql', 'create table notes (id uuid primary key);\nalter table notes enable row level security;').includes('rls-missing'));
+    assert.ok(!sql('db/migrations/001_init.sql', 'create table notes (id uuid primary key);').includes('rls-missing'), 'hors supabase/');
+  });
+  it('clé étrangère sans index, puis avec', () => {
+    const t = 'create table orders (id uuid primary key, user_id uuid references users(id));';
+    assert.ok(sql('db/migrations/002.sql', t).includes('fk-no-index'));
+    assert.ok(!sql('db/migrations/002.sql', `${t}\ncreate index orders_user on orders (user_id);`).includes('fk-no-index'));
+  });
+  it('destruction sans garde, et migration générée par un ORM ignorée', () => {
+    assert.ok(sql('db/migrations/003.sql', 'drop table old;').includes('destructive-migration'));
+    assert.ok(!sql('db/migrations/003.sql', '-- irréversible : table abandonnée depuis 2025\ndrop table old;').includes('destructive-migration'));
+    assert.deepEqual(sql('db/migrations/20260101_init.ts', 'drop table old;'), []);
   });
 });

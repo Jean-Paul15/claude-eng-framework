@@ -22,7 +22,7 @@ describe('carte des données (G-3)', () => {
   it('lit les colonnes, ignore les contraintes, repère les tables personnelles', () => {
     const t = parseTables(MIGRATION);
     assert.deepEqual(t[0]!.columns, ['id', 'user_id', 'phone', 'birth_date']);
-    assert.deepEqual(t[1], { name: 'orders', columns: ['note'], body: ' text' });
+    assert.deepEqual(t[1], { name: 'orders', columns: ['note'], body: ' text', alter: true });
   });
   it('signale les colonnes non classées et les classifications incomplètes', () => {
     const p = classificationProblems(parseTables(MIGRATION), parseComments(MIGRATION));
