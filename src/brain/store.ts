@@ -102,6 +102,8 @@ export interface BrainState {
   compactions?: number;
   /** Éléments de mémoire déjà rappelés dans la session (pas de répétition). */
   recalled?: { session: string; ids: string[] };
+  /** Session pour laquelle la boîte de décisions a déjà été signalée. */
+  inboxSession?: string;
   contextWarnLevel?: number;
   /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
   graphDirty?: boolean;

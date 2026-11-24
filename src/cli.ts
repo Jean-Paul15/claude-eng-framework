@@ -15,6 +15,7 @@ import { bypassCommand } from './cli/commands/bypass.js';
 import { advisorCommand } from './cli/commands/advisor.js';
 import { depCommand } from './cli/commands/dep.js';
 import { featureCommand } from './cli/commands/feature.js';
+import { contractCommand, inboxCommand, incrementCommand } from './cli/commands/governance.js';
 import { ruleCommand } from './cli/commands/rule.js';
 import { complianceCommand } from './cli/commands/compliance.js';
 import { dataMapCommand, readyCommand } from './cli/commands/ready.js';
@@ -58,6 +59,9 @@ Bypass total (décision humaine)
   compliance status|set|waive  Socle de conformité (politiques, consentements, conservation, audit, anomalies, incidents)
   data-map                   Carte des données personnelles générée depuis les migrations
   rule add|list|remove       Règles de contrôle du code propres au projet (une erreur relevée ne se réécrit plus)
+  inbox                      Tout ce qui attend l'humain (décisions bloquantes, à confirmer), trié
+  contract freeze|bump|list  Contrats partagés gelés : un sous-agent ne les modifie pas
+  increment close <groupe>   Clôture d'un incrément (tout terminé, vu, testé) et rapport
   dep check [noms…]|list|baseline  Vérifie les dépendances (licence, maintenance, vulnérabilités, usage) dans les registres publics
   advisor [fable|opus|sonnet|off]  Conseiller de Claude Code (modèle plus fort consulté aux décisions clés), lancé avec --advisor
 
@@ -118,6 +122,9 @@ export async function main(argv: string[]): Promise<void> {
     case 'advisor': return advisorCommand(rest);
     case 'dep': return depCommand(rest);
     case 'feature': return featureCommand(rest);
+    case 'contract': return contractCommand(rest);
+    case 'inbox': return inboxCommand(rest);
+    case 'increment': return incrementCommand(rest);
     case 'rule': return ruleCommand(rest);
     case 'compliance': return complianceCommand(rest);
     case 'ready': return readyCommand(rest);

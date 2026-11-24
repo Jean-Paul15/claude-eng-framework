@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import { readVetted, unvettedDeps } from '../app/deps.js';
 import { logAnswers } from '../app/answers-log.js';
+import { isFrozen } from '../app/contracts.js';
+import { inboxItems, inboxSummary } from '../app/inbox.js';
 import { listRules } from '../app/rules.js';
 import { recall, renderRecall } from '../app/recall.js';
 import { tokenize } from '../domain/similarity.js';
@@ -351,6 +353,11 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
       }
     }
   }
+  // Contrat gelé : seul l'orchestrateur le change (`ceng contract bump`) ; le verrou reste en bypass (il évite un conflit, pas une action).
+  if (input.agent_id && isFrozen(store, rel)) {
+    store.log({ type: 'conflict.detected', ...ids(input), data: { file: rel, frozenContract: true, prevented: true } });
+    return preToolDecision('deny', `${rel} est un contrat gelé : ne pas le modifier. Décris le changement nécessaire dans ton rapport (status: blocked) ; l'orchestrateur le change par \`${CLI_INVOCATION} contract bump\`.`);
+  }
   // Stade prototype : fichier de garde-fous, CI ou infra modifiable sans validation (la règle `ask` native est levée aussi).
   if (bypass) return verdict.freed?.length ? allowInBypass(store, input, rel, verdict.freed[0]) : allowDecision('Bypass total.');
   return verdict.freed?.length ? allowInPrototype(store, input, verdict.freed, rel) : OK;
@@ -396,7 +403,9 @@ export function subagentStart(store: BrainStore, input: HookInput): HookOutput {
   let taskId: string | undefined;
   store.updateState((s) => {
     const pending = s.pendingSpawns ?? [];
-    const i = pending.findIndex((p) => p.agentType === input.agent_type);
+    const resumedTask = s.agentTasks?.[agentId];
+    const i = resumedTask ? -1 : pending.findIndex((p) => p.agentType === input.agent_type);
+    if (resumedTask) taskId = resumedTask; // reprise (SendMessage) : même agent, même tâche
     if (i >= 0) {
       taskId = pending[i]!.taskId;
       pending.splice(i, 1);
@@ -678,8 +687,18 @@ export function graphRefresh(store: BrainStore, input: HookInput): HookOutput {
 /** UserPromptSubmit : l'humain est là (base de la détection d'absence) ; /ceng-orchestrate active le pilote automatique. */
 export function userPrompt(store: BrainStore, input: HookInput): HookOutput {
   if (markHumanActive(store, String(input['prompt'] ?? ''), input.session_id)) clearRefusals(store);
-  const notes = [recallNote(store, String(input['prompt'] ?? ''), input.session_id), contextRotNote(store, String(input['transcript_path'] ?? ''))].filter(Boolean);
+  const notes = [inboxNote(store, input.session_id), recallNote(store, String(input['prompt'] ?? ''), input.session_id), contextRotNote(store, String(input['transcript_path'] ?? ''))].filter(Boolean);
   return notes.length ? { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: notes.join('\n') } } } : OK;
+}
+
+/** Au premier message d'une session : ce qui attend l'humain (une ligne), pour que l'orchestrateur le lui pose tout de suite. */
+function inboxNote(store: BrainStore, sessionId?: string): string | undefined {
+  if (store.state().inboxSession === (sessionId ?? '')) return undefined;
+  store.updateState((s) => {
+    s.inboxSession = sessionId ?? '';
+  });
+  const items = inboxItems(store);
+  return items.length ? `[ceng] En attente de l'humain : ${inboxSummary(items)} (\`${CLI_INVOCATION} inbox\`) : les lui poser avec l'outil de questions, bloquantes d'abord, quatre par appel.` : undefined;
 }
 
 /** Mots de la demande qui comptent : en dessous de 4, c'est une réponse courte (« oui », « continue »), pas une demande. */

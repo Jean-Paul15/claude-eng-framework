@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { listContracts } from '../../app/contracts.js';
 import { relevantDecisions } from '../../app/decisions.js';
 import { recall } from '../../app/recall.js';
 import { findSimilar } from '../../app/similar.js';
@@ -82,6 +83,7 @@ export function briefCommand(argv: string[]): void {
     ...section('Références à reprendre et adapter (copier la logique éprouvée, ne pas réécrire de zéro) :', refs.map((r) => `  - ${r}`)),
     ...section('Existant proche à RÉUTILISER ou étendre (vérifier avant de créer quoi que ce soit) :', similar.map(candidateLine)),
     ...section('Décisions en vigueur (lire celles qui concernent la tâche) :', decisions),
+    ...section('Contrats gelés (lecture seule : tout changement passe par l\'orchestrateur, dis-le dans ton rapport) :', listContracts(store).map((x) => `  - ${x.file} (v${x.version})`)),
     ...section('Rapports des dépendances :', reports),
     'Critères d\'acceptation :',
     ...(task.acceptance.length ? task.acceptance.map((a) => `  - ${a}`) : ['  - <critères vérifiables>']),

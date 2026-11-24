@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import { dataMapProblems } from './data-map.js';
 import { applies, missingMechanisms } from './compliance.js';
+import { contractDrift, listContracts } from './contracts.js';
 import { listDecisions } from './decisions.js';
 import { runSecretsGate } from './gates.js';
 import { currentDeps } from './deps.js';
@@ -119,6 +120,9 @@ export function runChecks(store: BrainStore): ReadyCheck[] {
     const open = ids.filter((i) => !covered.has(i));
     add('spec', 'Exigences du cahier des charges couvertes', open.length ? 'fail' : 'pass', open.length ? `sans tâche : ${open.slice(0, 8).join(', ')}` : `${ids.length} exigence(s) rattachée(s)`, 'task add --spec EX-xxx pour chacune (ou la retirer du cahier par une décision)');
   }
+
+  const drift = contractDrift(store);
+  if (listContracts(store).length) add('contracts', 'Contrats gelés inchangés', drift.length ? 'fail' : 'pass', drift.length ? `modifiés sans bump : ${drift.map((d) => d.file).join(', ')}` : 'inchangés', '`ceng contract bump <fichier> --reason …` après un changement voulu');
 
   // Décisions à impact fort en attente
   const pending = decisions.filter((d) => /EN ATTENTE/i.test(d.text.slice(0, 400)) && /impact d'un changement : fort/i.test(d.text.slice(0, 400)));
