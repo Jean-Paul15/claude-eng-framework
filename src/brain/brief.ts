@@ -2,6 +2,7 @@ import { readyTasks } from '../domain/taskgraph.js';
 import type { Task } from '../domain/types.js';
 import { exists, readText } from '../infra/fs.js';
 import { ADVISOR_GUIDANCE } from '../domain/advisor.js';
+import { activeThrottle } from '../app/throttle.js';
 import { listDecisions } from '../app/decisions.js';
 import { listFeatures } from '../app/features.js';
 import { CLI_INVOCATION } from './paths.js';
@@ -126,6 +127,8 @@ export function resumeBrief(store: BrainStore, source: string): string {
     const n = (s: string) => features.filter((f) => f.status === s).length;
     parts.push(`Fonctionnalités : ${n('delivered')} livrée(s), ${n('in_progress')} en cours, ${n('decided')} décidée(s), ${n('rejected')} écartée(s) — .ceng/brain/FEATURES.md ; les consulter AVANT de créer (\`ceng similar\`).`);
   }
+  const throttle = activeThrottle(store);
+  if (throttle) parts.push(`Frein de limite d'usage actif jusqu'à ${throttle.until.slice(11, 16)} UTC : Opus seulement pour décider, Sonnet produit, un agent à la fois, pas d'exploration large.`);
   const advisor = store.config().advisor?.model;
   if (advisor) parts.push(ADVISOR_GUIDANCE);
   if (tasks.length === 0) parts.push('Aucune tâche : bootstrap nécessaire (objectif → architecture → graphe de tâches) via /ceng-orchestrate.');

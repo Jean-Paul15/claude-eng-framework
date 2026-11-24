@@ -4,6 +4,7 @@ import { TASK_KINDS, type Assessment, type Level, type ModelTier, type Task, typ
 import { exists } from '../infra/fs.js';
 import { Git } from '../infra/git.js';
 import { ensureBaseline } from './deps.js';
+import { activeThrottle } from './throttle.js';
 import { onTaskDone } from './features.js';
 import type { BrainStore } from '../brain/store.js';
 
@@ -92,7 +93,11 @@ export function routeAndStore(store: BrainStore, id: string): Task {
   const task = store.updateTasks((tasks) => {
     const t = tasks.find((x) => x.id === id.toUpperCase());
     if (!t) throw new Error(`Tâche ${id} introuvable.`);
-    t.route = routeTask(t, { policy: config.policy, ...(overrides ? { overrides } : {}), hasCreativeDirection });
+    const throttled = activeThrottle(store);
+    // Limite d'usage atteinte : routage économe jusqu'à la réinitialisation (les planchers des domaines critiques restent, voir routing.ts).
+    const policy = throttled ? { ...config.policy, budget: 'economy' as const, maxParallel: 1 } : config.policy;
+    t.route = routeTask(t, { policy, ...(overrides ? { overrides } : {}), hasCreativeDirection });
+    if (throttled) t.route.reasons.unshift(`Frein de limite d'usage actif jusqu'à ${throttled.until.slice(11, 16)} UTC : budget économe, un agent à la fois.`);
     t.updatedAt = now();
     return t;
   });

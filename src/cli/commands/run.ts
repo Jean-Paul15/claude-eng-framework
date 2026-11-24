@@ -1,3 +1,4 @@
+import { clearThrottle, shouldAbortResume, waitUntilReset } from '../../app/throttle.js';
 import { spawn } from 'node:child_process';
 import * as path from 'node:path';
 import { run as exec } from '../../infra/exec.js';
@@ -93,7 +94,7 @@ export async function runCommand(argv: string[]): Promise<void> {
     model: { type: 'string' }, goal: { type: 'string' }, headless: { type: 'boolean' }, resume: { type: 'boolean' }, effort: { type: 'string' },
     'dry-run': { type: 'boolean' }, dir: { type: 'string' },
     unattended: { type: 'boolean' }, 'max-hours': { type: 'string' }, 'max-runs': { type: 'string' }, 'max-budget-usd': { type: 'string' },
-    'permission-mode': { type: 'string' }, 'wait-minutes': { type: 'string' },
+    'permission-mode': { type: 'string' }, 'wait-minutes': { type: 'string' }, 'resume-after-limit': { type: 'boolean' },
   });
   const root = path.resolve(str(p, 'dir') ?? process.cwd());
   const store = new BrainStore(root);
@@ -103,6 +104,21 @@ export async function runCommand(argv: string[]): Promise<void> {
   const effort = str(p, 'effort');
   if (effort && !['low', 'medium', 'high', 'xhigh', 'max'].includes(effort)) throw new UsageError('--effort : low|medium|high|xhigh|max');
   const goal = str(p, 'goal');
+  if (bool(p, 'resume-after-limit')) {
+    // Reprise automatique (programmée par le hook StopFailure) : attendre la réinitialisation, abandonner si l'humain a repris la main.
+    const wait = waitUntilReset(store, 15 * 60_000);
+    process.stderr.write(`[ceng] reprise automatique dans ${Math.round(wait / 60_000)} min (réinitialisation de la limite d'usage).\n`);
+    await new Promise((resolve) => setTimeout(resolve, wait));
+    if (shouldAbortResume(store)) {
+      clearThrottle(store);
+      process.stderr.write("[ceng] l'humain a déjà repris la main : reprise automatique annulée.\n");
+      return;
+    }
+    clearThrottle(store);
+    store.log({ type: 'unattended.run', data: { resumedAfterLimit: true } });
+    await runUnattended(store, { ...(model ? { model } : {}), maxHours: 10, maxRuns: 30, waitMinutes: 15, permissionMode: store.config().bypass?.enabled ? 'bypassPermissions' : 'auto', dryRun: false });
+    return;
+  }
   if (bool(p, 'unattended')) {
     await runUnattended(store, {
       ...(model ? { model } : {}), ...(goal ? { goal } : {}),

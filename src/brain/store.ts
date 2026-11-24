@@ -37,6 +37,8 @@ export interface FrameworkConfig {
   contextGuard?: { enabled?: boolean; warnKb?: number };
   /** Conseiller (outil `advisor` de Claude Code) : un modèle plus fort consulté aux moments clés. Décision de l'humain (coût). */
   advisor?: { model: string };
+  /** Reprise automatique après une limite d'usage (décision de l'humain) : le travail repart seul, en mode sans humain. */
+  autoResume?: { enabled: boolean };
   /** Contrôle immédiat du code écrit (hook PostToolUse) : seuils ajustables, désactivable. */
   codeCheck?: { enabled?: boolean; maxFileLines?: number; maxLineLength?: number; maxIndentLevels?: number };
   /** Fichiers de secrets que l'humain autorise l'agent à lire/écrire (clés de test ou de développement). */
@@ -104,6 +106,10 @@ export interface BrainState {
   recalled?: { session: string; ids: string[] };
   /** Session pour laquelle la boîte de décisions a déjà été signalée. */
   inboxSession?: string;
+  /** Frein de limite d'usage : routage économe jusqu'à la réinitialisation. */
+  throttle?: { since: string; until: string };
+  /** Reprise automatique déjà programmée (une seule par projet). */
+  resumeAt?: string;
   contextWarnLevel?: number;
   /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
   graphDirty?: boolean;

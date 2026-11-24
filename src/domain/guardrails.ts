@@ -52,6 +52,7 @@ const APPROVAL: Rule[] = [
   { id: 'config-apply', pattern: /\b(cli\.js|ceng)\s+config\s+detect\b[^|;&\n]*--apply\b/, reason: 'Réécriture des commandes de gates dans .ceng/config.json (fichier de garde-fous) : décision humaine.' },
   { id: 'team-mode', pattern: /\b(cli\.js|ceng)\s+team\s+(on|off)\b/, reason: 'Mode équipe autonome : activer ou couper change le niveau des garde-fous, décision humaine.' },
   { id: 'bypass-mode', pattern: /\b(cli\.js|ceng)\s+bypass\s+(on|off)\b/, reason: 'Bypass total : activer ou couper la suppression de toutes les validations est une décision humaine.' },
+  { id: 'auto-resume', pattern: /\b(cli\.js|ceng)\s+config\s+auto-resume\s+on\b/, reason: "Activer la reprise automatique (le travail repart seul, sans humain) est une décision de l'humain." },
   { id: 'compliance-waive', pattern: /\b(cli\.js|ceng)\s+compliance\s+waive\b/, reason: "Écarter un mécanisme de conformité (RGPD, sécurité) est une décision de l'humain, tracée." },
   { id: 'advisor-config', pattern: /\b(cli\.js|ceng)\s+advisor\s+(fable|opus|sonnet|claude-)/, reason: "Activer le conseiller (modèle plus fort, facturé en jetons ou crédits d'usage) est une décision de l'humain." },
   { id: 'config-stage', pattern: /\b(cli\.js|ceng)\s+config\s+stage\s+(prototype|production)\b/, reason: 'Changer le stade du projet (prototype/production) modifie le niveau des garde-fous : décision humaine.' },
@@ -172,7 +173,7 @@ function readsSecretFile(segment: string, allowed: readonly string[] = []): bool
 }
 
 /** Sous-commandes de la CLI ceng qui sont des décisions humaines (autoriser des secrets, réécrire la configuration des gates). */
-const CENG_HUMAN_RULES = new Set(['secrets-allow', 'config-apply', 'config-stage', 'team-mode', 'bypass-mode', 'compliance-waive', 'advisor-config']);
+const CENG_HUMAN_RULES = new Set(['secrets-allow', 'config-apply', 'config-stage', 'team-mode', 'bypass-mode', 'compliance-waive', 'advisor-config', 'auto-resume']);
 
 function cengHumanDecision(unit: Statement): Rule | undefined {
   return APPROVAL.find((r) => CENG_HUMAN_RULES.has(r.id) && r.pattern.test(unit.live));
@@ -281,7 +282,7 @@ export function approvalTriggers(command: string, shell: ShellKind = 'bash'): Tr
 }
 
 /** Règles dont l'autorisation ne vaut jamais pour une seconde exécution (destruction, réécriture, décision de sécurité). */
-const SINGLE_USE_RULES = new Set(['delete', 'delete-outside', 'config-stage', 'team-mode', 'bypass-mode', 'compliance-waive', 'advisor-config', 'git-discard', 'git-force-push', 'git-history-rewrite', 'gh-destructive', 'secrets-allow', 'secrets-mgmt', 'config-apply', 'kill-all']);
+const SINGLE_USE_RULES = new Set(['delete', 'delete-outside', 'config-stage', 'team-mode', 'bypass-mode', 'compliance-waive', 'advisor-config', 'auto-resume', 'git-discard', 'git-force-push', 'git-history-rewrite', 'gh-destructive', 'secrets-allow', 'secrets-mgmt', 'config-apply', 'kill-all']);
 /** Mots qui signalent une opération destructive de données ou d'infrastructure, quelle que soit la règle qui l'a déclenchée. */
 const DESTRUCTIVE_WORDS = /\b(drop|truncate|delete|destroy|uninstall|reset|flush|downgrade|purge|rollback|undo|wipe)\b|--force-reset/i;
 

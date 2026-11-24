@@ -1,3 +1,4 @@
+import { waitUntilReset } from '../../app/throttle.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readyTasks } from '../../domain/taskgraph.js';
@@ -94,8 +95,9 @@ export async function runUnattended(store: BrainStore, opts: UnattendedOptions):
     fs.closeSync(fd);
     const interruption = store.state().interruption;
     if (interruption && ['rate_limit', 'overloaded', 'server_error'].includes(interruption.type)) {
-      say(`interruption (${interruption.type}) : attente ${opts.waitMinutes} min puis reprise.`);
-      await sleep(opts.waitMinutes * 60_000);
+      const wait = waitUntilReset(store, opts.waitMinutes * 60_000);
+      say(`interruption (${interruption.type}) : attente ${Math.round(wait / 60_000)} min (jusqu'à la réinitialisation si elle est connue) puis reprise.`);
+      await sleep(wait);
       continue;
     }
     stalls = signature(store) === before ? stalls + 1 : 0;

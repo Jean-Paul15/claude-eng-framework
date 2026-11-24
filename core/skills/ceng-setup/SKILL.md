@@ -34,6 +34,8 @@ poses les questions à l'humain, puis tu passes ses réponses en options.**
    - conseiller (advisor) : un modèle plus fort consulté aux décisions clés, fonction expérimentale de Claude Code ; Fable exige
      l'accès Fable et peut se facturer en crédits d'usage. Proposer : `fable` si l'humain y a accès (Recommandé), `opus`, ou aucun ;
      puis `ceng advisor <modèle>`. Ne l'active jamais sans sa réponse ;
+   - reprise automatique après une limite d'usage : le travail repart seul à la réinitialisation, en mode sans humain (actions à
+     approbation consignées, jamais exécutées sauf bypass). Non par défaut ; `ceng config auto-resume on` seulement s'il répond oui ;
    - objectif du projet en une phrase ;
    - installer graphify (graphe de code automatique, sans coût IA) ? oui par défaut.
 3. Lance : `ceng init --yes --risk <…> --autonomy <…> --budget <…> --parallelism <…> --goal "<…>" --install-graphify`

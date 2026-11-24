@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import { readVetted, unvettedDeps } from '../app/deps.js';
 import { logAnswers } from '../app/answers-log.js';
+import { isUsageLimit, scheduleResume, setThrottle } from '../app/throttle.js';
 import { isFrozen } from '../app/contracts.js';
 import { inboxItems, inboxSummary } from '../app/inbox.js';
 import { listRules } from '../app/rules.js';
@@ -669,6 +670,10 @@ export function stopFailure(store: BrainStore, input: HookInput): HookOutput {
     s.interruption = { type, at: new Date().toISOString(), ...(input['error_message'] ? { detail: String(input['error_message']).slice(0, 300) } : {}) };
   });
   store.log({ type: 'session.interrupted', ...ids(input), data: { type } });
+  if (isUsageLimit(type)) {
+    setThrottle(store);
+    scheduleResume(store);
+  }
   return OK;
 }
 
