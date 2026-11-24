@@ -1,6 +1,7 @@
 import { readyTasks } from '../domain/taskgraph.js';
 import type { Task } from '../domain/types.js';
 import { exists, readText } from '../infra/fs.js';
+import { ADVISOR_GUIDANCE } from '../domain/advisor.js';
 import { listDecisions } from '../app/decisions.js';
 import { CLI_INVOCATION } from './paths.js';
 import type { BrainStore } from './store.js';
@@ -118,6 +119,8 @@ export function resumeBrief(store: BrainStore, source: string): string {
     return text.includes("prise sans l'humain") && (!sinceHuman || (text.match(/^date: (\S+)/m)?.[1] ?? '') >= sinceHuman.slice(0, 10));
   });
   if (autonomous.length) parts.push(`Décisions prises sans l'humain à lui signaler brièvement (et à confirmer via l'invite si PROVISOIRE ou EN ATTENTE) : ${autonomous.map((f) => f.replace(/\.md$/, '')).join(', ')}.`);
+  const advisor = store.config().advisor?.model;
+  if (advisor) parts.push(ADVISOR_GUIDANCE);
   if (tasks.length === 0) parts.push('Aucune tâche : bootstrap nécessaire (objectif → architecture → graphe de tâches) via /ceng-orchestrate.');
   if (source === 'compact') parts.push('Le contexte vient d\'être compacté : relire le rapport de la tâche en cours avant d\'agir.');
   parts.push(`Commandes : \`${CLI_INVOCATION} resume\` (détail), \`task next\`, \`route <id>\`, \`checkpoint\`.`);

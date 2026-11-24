@@ -33,6 +33,10 @@ export interface FrameworkConfig {
   bypass?: { enabled: boolean; since?: string };
   /** Mise à jour automatique au démarrage d'une session quand le framework de la machine est plus récent (défaut : oui). */
   autoUpgrade?: boolean;
+  /** Alerte « contexte chargé » (context rot) : taille de la transcription au-delà de laquelle prévenir (ko, défaut 1200). */
+  contextGuard?: { enabled?: boolean; warnKb?: number };
+  /** Conseiller (outil `advisor` de Claude Code) : un modèle plus fort consulté aux moments clés. Décision de l'humain (coût). */
+  advisor?: { model: string };
   /** Contrôle immédiat du code écrit (hook PostToolUse) : seuils ajustables, désactivable. */
   codeCheck?: { enabled?: boolean; maxFileLines?: number; maxLineLength?: number; maxIndentLevels?: number };
   /** Fichiers de secrets que l'humain autorise l'agent à lire/écrire (clés de test ou de développement). */
@@ -94,6 +98,9 @@ export interface BrainState {
   agentStartedAt?: Record<string, string>;
   /** Sous-agents qui ont remis leur rapport par l'outil SubagentHandback (le dernier message ne le contient alors pas). */
   handbackReports?: Record<string, true>;
+  /** Compactions de la session principale et dernier palier d'alerte « contexte chargé » déjà signalé (0 = aucun). */
+  compactions?: number;
+  contextWarnLevel?: number;
   /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
   graphDirty?: boolean;
   /** Mode sans humain : compteur de relances et détection d'absence de progression. */

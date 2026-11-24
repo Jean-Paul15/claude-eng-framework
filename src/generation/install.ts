@@ -226,6 +226,7 @@ export function install(opts: InstallOptions): InstallReport {
     // Décisions humaines : une mise à jour ne les annule jamais.
     ...(previousConfig?.team ? { team: previousConfig.team } : {}),
     ...(previousConfig?.bypass ? { bypass: previousConfig.bypass } : {}),
+    ...(previousConfig?.advisor ? { advisor: previousConfig.advisor } : {}),
     installedSkills: [...skillSel.selected.map((s) => s.name), ...generated.map((g) => g.name)],
     installedAgents: agentSel.selected.map((a) => a.name),
     createdAt: previousConfig?.createdAt ?? new Date().toISOString(),

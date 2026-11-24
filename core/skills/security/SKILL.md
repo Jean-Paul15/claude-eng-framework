@@ -18,7 +18,7 @@ Se poser la question **avant** d'écrire la première ligne, pas en relecture.
 - **A01 Contrôle d'accès** : autorisation vérifiée côté serveur sur **chaque** ressource (BOLA/IDOR), refus par
   défaut, pas d'élévation via paramètres ; SSRF : liste d'autorisation d'hôtes, pas d'URL arbitraire côté serveur.
 - **A02 Configuration** : pas de debug/CORS `*`/en-têtes manquants en prod ; secrets hors code.
-- **A03 Chaîne d'approvisionnement** : dépendance nouvelle justifiée, versions épinglées, lockfile, audit.
+- **A03 Chaîne d'approvisionnement** : dépendance nouvelle vérifiée (`ceng dep check`, skill `dependencies`) et justifiée, versions épinglées, lockfile, audit.
 - **A04 Crypto** : bibliothèques standard, pas de crypto maison ; hachage de mots de passe (argon2/bcrypt) ; TLS.
 - **A05 Injection** : requêtes paramétrées, pas de concaténation dans SQL/shell/templates ; encodage de sortie
   contextuel (XSS) ; `execFile` avec arguments plutôt qu'un shell.

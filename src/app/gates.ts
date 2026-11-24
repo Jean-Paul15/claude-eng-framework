@@ -9,6 +9,7 @@ import { runShell, tail } from '../infra/exec.js';
 import { exists, listFiles, readJson, readText, writeTextAtomic } from '../infra/fs.js';
 import { Git } from '../infra/git.js';
 import { redact } from '../domain/secrets.js';
+import { runDependenciesGate } from './deps.js';
 import type { BrainStore } from '../brain/store.js';
 import type { Commands } from '../discovery/profile.js';
 
@@ -175,6 +176,8 @@ export function runGates(store: BrainStore, taskId: string, only?: GateId[]): Ga
       }
     } else if (req.gate === 'secrets') {
       outcome = { gate: req.gate, required: req.required, ...runSecretsGate(root, files()) };
+    } else if (req.gate === 'dependencies') {
+      outcome = { gate: req.gate, required: req.required, ...runDependenciesGate(store, task) };
     } else if (req.gate === 'diagrams') {
       const confirmed = task.gates.find((g) => g.gate === 'diagrams' && g.status === 'pass' && !(g.detail ?? '').startsWith('Diagrammes à jour'));
       outcome = confirmed ? { gate: req.gate, status: 'pass', required: req.required, detail: confirmed.detail ?? 'confirmé' } : { gate: req.gate, required: req.required, ...runDiagramsGate(root, task, files()) };

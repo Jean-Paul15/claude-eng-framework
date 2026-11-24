@@ -22,6 +22,7 @@ export const GATE_KINDS: Record<GateId, GateKind> = {
   ux: 'agent',
   docs: 'agent',
   diagrams: 'builtin',
+  dependencies: 'builtin',
   review: 'agent',
   'security-review': 'agent',
   'architecture-review': 'agent',
@@ -67,6 +68,7 @@ export function selectGates(task: Task, review: ReviewLevel, policy: EffectivePo
     add('lint', a.risk >= 2 || policy.quality !== 'light', 'Conventions et défauts statiques du projet.');
     add('unit', true, 'Les tests existants et nouveaux doivent passer.');
     add('secrets', true, 'Aucun secret ne doit entrer dans le dépôt (scanner intégré, coût quasi nul).');
+    add('dependencies', true, 'Toute dépendance ajoutée est vérifiée dans son registre (licence, maintenance, vulnérabilités, usage) : `ceng dep check`.');
   }
   if (changesCode && (a.risk >= 3 || a.complexity >= 3 || critical || task.kind === 'migration')) {
     add('integration', critical || a.risk >= 4, 'Frontières I/O touchées ou risque ≥ 3.');

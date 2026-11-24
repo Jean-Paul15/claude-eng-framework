@@ -49,6 +49,8 @@ export function buildUnattendedArgs(store: BrainStore, opts: UnattendedOptions, 
     : '/ceng-orchestrate MODE SANS HUMAIN (lis .claude/skills/ceng-orchestrate/unattended.md) — reprends le travail depuis le Project Brain et enchaîne les tâches faisables ; ne pose aucune question.';
   const args = ['-p', prompt, '--model', model, '--permission-mode', opts.permissionMode, '--permission-prompts', 'none', '--output-format', 'text'];
   if (opts.maxBudgetUsd) args.push('--max-budget-usd', opts.maxBudgetUsd);
+  const advisor = store.config().advisor?.model;
+  if (advisor && process.env['CLAUDE_CODE_DISABLE_ADVISOR_TOOL'] !== '1') args.push('--advisor', advisor);
   return args;
 }
 

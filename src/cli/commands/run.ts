@@ -49,6 +49,10 @@ export function buildLaunchPlan(store: BrainStore, opts: { model?: string; goal?
   const notes: string[] = [];
   const args: string[] = ['--model', model];
   if (opts.effort) args.push('--effort', opts.effort);
+  if (config.advisor?.model && process.env['CLAUDE_CODE_DISABLE_ADVISOR_TOOL'] !== '1') {
+    args.push('--advisor', config.advisor.model);
+    notes.push(`Conseiller : ${config.advisor.model} (--advisor ; fonction expérimentale, Claude Code ne l'attache que si son classement égale ou dépasse celui du modèle principal).`);
+  }
   const prompt = `/ceng-orchestrate${opts.goal ? ` ${opts.goal}` : ''}`;
   if (opts.resume) args.push('--continue');
   if (config.bypass?.enabled && !opts.headless) {

@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import { readVetted, unvettedDeps } from '../app/deps.js';
+import { isManifest } from '../domain/deps.js';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { classifyCommand, classifyFileRead, classifyFileWrite, isSingleUseCommand, parseDeletion, splitCommand, type CommandContext } from '../domain/guardrails.js';
@@ -184,6 +187,8 @@ export function sessionStart(store: BrainStore, input: HookInput): HookOutput {
       s.runningAgents = {};
       s.agentStartedAt = {};
       s.handbackReports = {};
+      s.compactions = 0;
+      s.contextWarnLevel = 0;
     }
   });
   removeOrphanTemps(store.paths.brain);
@@ -426,6 +431,17 @@ export function fileEdited(store: BrainStore, input: HookInput): HookOutput {
   return OK;
 }
 
+/** Dépendance ajoutée à un manifeste sans vérification : l'agent doit la choisir en connaissance de cause, tout de suite. */
+function dependencyNote(store: BrainStore): string | undefined {
+  try {
+    if (!readVetted(store)) return undefined;
+    const missing = unvettedDeps(store);
+    return missing.length ? `[ceng] Dépendance(s) non vérifiée(s) : ${missing.map((d) => d.name).join(', ')} — lancer \`${CLI_INVOCATION} dep check\` (licence, maintenance, vulnérabilités, usage) AVANT de continuer ; une alternative déjà présente ou la bibliothèque standard fait-elle l'affaire ?` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Texte écrit par l'outil : contenu entier (Write) ou fragments remplaçants (Edit, MultiEdit). */
 function writtenText(ti: Record<string, unknown>): string {
   if (typeof ti['content'] === 'string') return ti['content'];
@@ -446,6 +462,7 @@ export function codeCheck(store: BrainStore, input: HookInput): HookOutput {
   if (cfg?.enabled === false) return OK;
   const rel = relativeToProject(store, raw);
   if (rel.startsWith('..')) return OK;
+  const depNote = isManifest(rel) ? dependencyNote(store) : undefined;
   const text = writtenText(ti);
   if (!text) return OK;
   let total = 0;
@@ -456,9 +473,10 @@ export function codeCheck(store: BrainStore, input: HookInput): HookOutput {
     total = text.split(/\r?\n/).length;
   }
   const findings = checkCode(rel, text, total, { ...DEFAULT_LIMITS, ...Object.fromEntries(Object.entries(cfg ?? {}).filter(([k, v]) => k !== 'enabled' && typeof v === 'number')) });
-  if (!findings.length) return OK;
+  if (!findings.length && !depNote) return OK;
+  if (!findings.length) return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: depNote! } } };
   store.log({ type: 'code.check', ...ids(input), data: { file: rel, rules: findings.map((f) => f.rule) } });
-  const message = formatFindings(rel, findings);
+  const message = [formatFindings(rel, findings), depNote].filter(Boolean).join('\n');
   return findings.some((f) => f.severity === 'block')
     ? { exitCode: 0, json: { decision: 'block', reason: message, hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: message } } }
     : { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: message } } };
@@ -523,6 +541,9 @@ export function preCompact(store: BrainStore, input: HookInput): HookOutput {
     done: `Checkpoint automatique avant compaction (${input.trigger ?? 'auto'})`,
     next: state.lastCheckpoint?.next ?? 'Relire .ceng/brain/INDEX.md et la tâche en cours',
     auto: true,
+  });
+  store.updateState((s) => {
+    s.compactions = (s.compactions ?? 0) + 1;
   });
   store.log({ type: 'compaction', ...ids(input), data: { trigger: input.trigger ?? 'auto' } });
   // La sortie standard d'un hook PreCompact sert d'instructions au résumé de compaction.
@@ -647,7 +668,34 @@ export function graphRefresh(store: BrainStore, input: HookInput): HookOutput {
 /** UserPromptSubmit : l'humain est là (base de la détection d'absence) ; /ceng-orchestrate active le pilote automatique. */
 export function userPrompt(store: BrainStore, input: HookInput): HookOutput {
   if (markHumanActive(store, String(input['prompt'] ?? ''), input.session_id)) clearRefusals(store);
-  return OK;
+  const rot = contextRotNote(store, String(input['transcript_path'] ?? ''));
+  return rot ? { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: rot } } } : OK;
+}
+
+/**
+ * Contexte long = précision en baisse (« context rot »). Au message de l'humain, si la transcription est lourde ou déjà
+ * compactée plusieurs fois, l'orchestrateur est prévenu UNE fois par palier : checkpoint précis puis nouvelle session
+ * (le Brain porte la suite). Mesure approchée (taille du fichier de transcription), réglable : `contextGuard.warnKb`.
+ */
+function contextRotNote(store: BrainStore, transcript: string): string | undefined {
+  const cfg = store.config().contextGuard;
+  if (cfg?.enabled === false) return undefined;
+  const warnKb = cfg?.warnKb ?? 1200;
+  let kb = 0;
+  try {
+    kb = transcript ? Math.round(fs.statSync(transcript).size / 1024) : 0;
+  } catch {
+    kb = 0;
+  }
+  const state = store.state();
+  const compactions = state.compactions ?? 0;
+  const level = kb >= warnKb * 2 ? 2 : kb >= warnKb || compactions >= 2 ? 1 : 0;
+  if (level === 0 || level <= (state.contextWarnLevel ?? 0)) return undefined;
+  store.updateState((s) => {
+    s.contextWarnLevel = level;
+  });
+  store.log({ type: 'session.start', data: { contextRot: true, kb, compactions } });
+  return `[ceng] Contexte chargé (transcription ~${kb} ko, ${compactions} compaction(s)) : un contexte long dégrade la précision. À la fin de l'étape en cours : \`${CLI_INVOCATION} checkpoint --done "…" --next "…"\` précis, puis une nouvelle session reprend depuis le Brain (\`${CLI_INVOCATION} run --resume\`). Les recherches volumineuses partent chez \`ceng-scout\`.`;
 }
 
 /**

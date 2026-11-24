@@ -12,6 +12,8 @@ import { secretsCommand } from './cli/commands/secrets.js';
 import { configCommand } from './cli/commands/config.js';
 import { relayCommand, teamCommand } from './cli/commands/team.js';
 import { bypassCommand } from './cli/commands/bypass.js';
+import { advisorCommand } from './cli/commands/advisor.js';
+import { depCommand } from './cli/commands/dep.js';
 import { upgradeAll } from './cli/commands/upgrade-all.js';
 import { briefCommand, similarCommand } from './cli/commands/context.js';
 
@@ -47,6 +49,8 @@ Commandes de gates
 
 Bypass total (décision humaine)
   bypass status|on|off       Aucune validation ni refus (bypassPermissions) ; journal et instantanés conservés
+  dep check [noms…]|list|baseline  Vérifie les dépendances (licence, maintenance, vulnérabilités, usage) dans les registres publics
+  advisor [fable|opus|sonnet|off]  Conseiller de Claude Code (modèle plus fort consulté aux décisions clés), lancé avec --advisor
 
 Équipe de sessions (plusieurs agents en parallèle)
   team status|on|off [--allow mcp__serveur__outil] [--defer mcp__serveur__outil]
@@ -102,6 +106,8 @@ export async function main(argv: string[]): Promise<void> {
     case 'config': return configCommand(rest);
     case 'team': return teamCommand(rest);
     case 'bypass': return bypassCommand(rest);
+    case 'advisor': return advisorCommand(rest);
+    case 'dep': return depCommand(rest);
     case 'similar': return similarCommand(rest);
     case 'brief': return briefCommand(rest);
     case 'relay': return relayCommand(rest);

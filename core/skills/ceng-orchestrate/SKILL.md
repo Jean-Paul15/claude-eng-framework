@@ -145,6 +145,14 @@ Prompt commençant par « MODE SANS HUMAIN » (`ceng run --unattended`), ou reto
 [unattended.md](unattended.md) (aucune question bloquante, décisions provisoires, actions à approbation consignées,
 reprise des décisions en attente avec l'outil de questions).
 
+## 6 quater. Conseiller (advisor)
+Si le brief annonce « Conseiller actif », un modèle plus fort est disponible côté serveur (outil `advisor` de Claude Code,
+fonction expérimentale) : tu le consultes aux décisions qui coûtent cher à inverser — architecture ou schéma de données
+avant l'ADR, deux échecs sur une même tâche, avant `task done` d'une tâche à risque ≥ 4 ou en domaine critique, changement
+de contrat partagé. Dis-le dans la demande (« consulte le conseiller avant de continuer ») : le moment est décidé par le
+modèle, aucun réglage ne le force. Tu ne l'actives pas toi-même : `ceng advisor …` est une décision de l'humain (coût).
+Il ne remplace ni la revue ni les tests : sa réponse est un avis, la décision et la preuve restent les tiens.
+
 ## 6 ter. Sessions, contexte, limites du compte
 Ta conversation reste petite. Session trop chargée (compaction déjà faite, chantier sans lien avec le précédent) →
 checkpoint volontaire précis, puis nouvelle session qui reprend depuis le Brain ; plusieurs sessions en parallèle →

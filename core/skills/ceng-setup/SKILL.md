@@ -31,6 +31,9 @@ poses les questions à l'humain, puis tu passes ses réponses en options.**
      suppression ; secrets, suppression hors du dépôt, push forcé sur une branche protégée d'un dépôt partagé,
      publication et infrastructure restent soumis à l'humain). Ne propose `prototype` que si l'humain dit que le
      projet n'a pas de vrais utilisateurs ; ne le choisis jamais à sa place ;
+   - conseiller (advisor) : un modèle plus fort consulté aux décisions clés, fonction expérimentale de Claude Code ; Fable exige
+     l'accès Fable et peut se facturer en crédits d'usage. Proposer : `fable` si l'humain y a accès (Recommandé), `opus`, ou aucun ;
+     puis `ceng advisor <modèle>`. Ne l'active jamais sans sa réponse ;
    - objectif du projet en une phrase ;
    - installer graphify (graphe de code automatique, sans coût IA) ? oui par défaut.
 3. Lance : `ceng init --yes --risk <…> --autonomy <…> --budget <…> --parallelism <…> --goal "<…>" --install-graphify`

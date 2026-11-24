@@ -3,6 +3,7 @@ import { findCycle, missingDeps, nextId } from '../domain/taskgraph.js';
 import { TASK_KINDS, type Assessment, type Level, type ModelTier, type Task, type TaskKind } from '../domain/types.js';
 import { exists } from '../infra/fs.js';
 import { Git } from '../infra/git.js';
+import { ensureBaseline } from './deps.js';
 import type { BrainStore } from '../brain/store.js';
 
 /** Cas d'usage autour des tâches : création, routage, transitions d'état. */
@@ -126,6 +127,11 @@ export function startTask(store: BrainStore, id: string, agent?: string, model?:
   store.updateState((s) => {
     s.currentTask = task.id;
   });
+  try {
+    ensureBaseline(store); // les dépendances déjà présentes ne seront pas rejugées ; seules les suivantes le seront
+  } catch {
+    /* jamais bloquant */
+  }
   const attempt = task.attempts.at(-1)!;
   store.log({ type: 'task.started', taskId: task.id, model: attempt.model, data: { attempt: attempt.n, agent: attempt.agent, strategy } });
   return task;
