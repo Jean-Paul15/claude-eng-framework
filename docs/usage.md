@@ -119,6 +119,29 @@ l'activation). Ce qui reste, parce que ça ne freine rien : tout est journalisé
 une suppression ou un reset (`ceng rollback`), les secrets sont utilisés sans être affichés quand c'est possible et ne sont
 jamais recopiés dans un rapport, un log ou un commit, et deux agents parallèles ne s'écrasent pas le même fichier.
 
+## Livrer sans rien oublier ni rien laisser passer
+
+Ce que Claude consulte et vérifie tout seul, et les commandes qui le portent (toutes en `ceng <commande>`) :
+
+| Besoin | Commande | Ce que ça garantit |
+|---|---|---|
+| Ne pas refaire ce qui existe | `feature add/list/reject`, `similar`, `task add --extends F-xxx` | à chaque demande, Claude voit ce qui est déjà livré, en cours ou écarté ; une tâche proche d'une existante est refusée sans justification |
+| Ne pas reposer une question | `decision supersede/reject`, `.ceng/brain/answers.md` | les réponses données et les décisions mortes sont retrouvées |
+| Savoir ce qui t'attend | `inbox`, `report --html` | décisions bloquantes d'abord, puis à confirmer ; page unique lisible sur téléphone |
+| Livrer en incréments | `increment close <groupe>` | tout est terminé, vu en captures, testé |
+| Geler un contrat entre agents | `contract freeze/bump` | un sous-agent ne modifie pas l'API ou le schéma |
+| Prêt pour la production | `ready` | variables d'environnement documentées, secrets, migrations, CI, santé, suivi d'erreurs, conformité, coûts |
+| Conformité (RGPD et équivalents) | `compliance status/set`, `data-map` | politiques versionnées et ré-acceptation, consentements, conservation, audit, anomalies, incidents |
+| Dépendances | `dep check [noms]` | licence, maintenance, vulnérabilités, usage, nom usurpé ; gate `dependencies` |
+| Performance et coûts | `perf show`, `cost add`, `cost --users N` | une dégradation de plus de 10 % bloque ; la facture mensuelle est connue |
+| Après un déploiement | `verify` | le déploiement est vérifié, pas supposé |
+| App iOS | `store check` | motifs de rejet Apple détectables avant la soumission |
+| Règles du projet | `rule add --pattern … --message …` | une erreur relevée ne se réécrit plus |
+| Conseiller | `advisor fable|opus|sonnet|off` | un modèle plus fort consulté aux décisions clés (`--advisor`, fonction expérimentale de Claude Code) |
+| Limites du compte | `config throttle`, `config auto-resume on`, `config tests-watch on` | routage économe jusqu'à la réinitialisation, reprise automatique, tests en arrière-plan |
+
+L'état d'application des propositions d'amélioration est dans [docs/propositions/STATUT.md](propositions/STATUT.md).
+
 ## 5. Plusieurs sessions en équipe, sans humain devant l'écran
 
 Quand plusieurs sessions Claude Code travaillent en parallèle (une copie de travail chacune), deux choses évitent que tout s'arrête

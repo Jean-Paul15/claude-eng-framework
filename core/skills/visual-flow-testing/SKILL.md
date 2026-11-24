@@ -75,6 +75,8 @@ Regarder vraiment l'image (outil de lecture d'image), pas seulement vérifier qu
     (vérifier l'état en base / l'API après l'action, pas seulement l'écran) ?
 
 ## 4. Boucle
+**Modèle de l'auditeur** : Sonnet par défaut (la grille ci-dessous est explicite, il l'applique bien) ; Opus (paramètre `model` à la délégation)
+seulement pour la tâche `design` initiale et les tâches à risque ≥ 4 — le plafond hebdomadaire d'Opus est préservé.
 **Tours de critique** : un agent critique (`ceng-quality-auditor`) relit les captures avec la grille et renvoie des écarts
 classés ; l'exécutant corrige ; nouvelles captures (tour 2, tour 3…). L'humain voit les vraies captures à la fin de l'incrément, dans le rapport de livraison (jamais des
 maquettes) ; sa validation n'est pas attendue pour clore la tâche.

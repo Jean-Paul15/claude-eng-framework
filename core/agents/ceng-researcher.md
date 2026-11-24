@@ -5,6 +5,7 @@ model: sonnet
 effort: medium
 color: orange
 disallowedTools: Agent, Edit, NotebookEdit
+omitClaudeMd: true
 skills:
   - research
 ---

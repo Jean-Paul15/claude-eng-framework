@@ -172,6 +172,10 @@ export function completionCheck(store: BrainStore, task: Task): CompletionCheck 
       if (!exists(store.paths.report(task.id))) missing.push(`report (rapport .ceng/brain/reports/${task.id}.md absent)`);
       continue;
     }
+    if (req.gate === 'unit' && result?.status === 'skipped' && ['feature', 'bug', 'refactor', 'security'].includes(task.kind)) {
+      missing.push('unit (aucune commande de test : `ceng upgrade` pour détecter celle de la pile, ou --waive "raison")');
+      continue;
+    }
     if (!result || !['pass', 'skipped', 'waived'].includes(result.status)) missing.push(`${req.gate} (${result?.status ?? 'non exécutée'})`);
   }
   return { ok: missing.length === 0, missing };

@@ -1,7 +1,7 @@
 ---
 name: ceng-quality-auditor
 description: Audit de l'implémentation réelle face à la direction créative et aux exigences de qualité (cohérence visuelle, motion, rythme, responsive, performance, accessibilité). Produit un rapport d'écarts classé renvoyé aux exécutants ; ne réécrit pas le code.
-model: opus
+model: sonnet
 effort: high
 color: purple
 disallowedTools: Agent, NotebookEdit
