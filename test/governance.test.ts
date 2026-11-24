@@ -68,3 +68,30 @@ describe('clôture d\'incrément (N-04)', () => {
   });
   it('groupe vide : échec explicite', () => assert.equal(run('increment', 'close', 'inconnu').code, 1));
 });
+
+describe('acceptation par défaut des décisions provisoires (S-07)', () => {
+  it('faible impact, 7 jours et 2 sessions : acceptée ; impact fort ou trop récente : inchangée', () => {
+    run('decision', 'add', '--title', 'Police des titres', '--context', 'c', '--decision', 'd', '--consequences', 'q', '--status', 'provisional', '--impact', 'low');
+    run('decision', 'add', '--title', 'Schéma des paiements', '--context', 'c', '--decision', 'd', '--consequences', 'q', '--status', 'provisional', '--impact', 'high');
+    const files = fs.readdirSync(path.join(dir, '.ceng/brain/decisions'));
+    const low = files.find((f) => f.includes('police'))!;
+    const high = files.find((f) => f.includes('schema'))!;
+    const sf = path.join(dir, '.ceng/brain/state.json');
+    const msg = (s: string) => runtimeHook(dir, 'user-prompt', { prompt: 'oui', session_id: s });
+    const old = new Date(Date.now() - 8 * 86_400_000).toISOString();
+    const set = (fn: (st: Record<string, unknown>) => void) => {
+      const st = JSON.parse(fs.readFileSync(sf, 'utf8'));
+      fn(st);
+      fs.writeFileSync(sf, JSON.stringify(st));
+    };
+    msg('p1'); // 1re session : comptée, pas encore acceptée
+    assert.match(fs.readFileSync(path.join(dir, '.ceng/brain/decisions', low), 'utf8'), /PROVISOIRE/);
+    set((st) => {
+      const seen = st['inboxSeen'] as Record<string, { first: string; sessions: number }>;
+      for (const k of Object.keys(seen)) seen[k]!.first = old;
+    });
+    msg('p2'); // 2e session, > 7 jours
+    assert.match(fs.readFileSync(path.join(dir, '.ceng/brain/decisions', low), 'utf8'), /acceptée \(confirmée par défaut\)/);
+    assert.match(fs.readFileSync(path.join(dir, '.ceng/brain/decisions', high), 'utf8'), /PROVISOIRE/, 'impact fort : jamais seule');
+  });
+});

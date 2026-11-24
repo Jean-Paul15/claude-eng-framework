@@ -84,12 +84,14 @@ describe('planification du parallélisme', () => {
     assert.equal(adapted.batches[0]!.mode, 'sequential');
   });
 
-  it('périmètre non déclaré : isolement en worktree', () => {
+  it('périmètre non déclaré : la tâche s\'exécute seule, en séquence', () => {
     const plan = planExecution([
       task('T-0001', { files: [], assessment: { complexity: 3 } }),
       task('T-0002', { files: ['api/**'], assessment: { complexity: 3 } }),
     ], ctx());
-    assert.equal(plan.batches[0]!.isolation, 'worktree');
+    assert.equal(plan.batches[0]!.mode, 'sequential');
+    assert.deepEqual(plan.batches[0]!.tasks, ['T-0001']);
+    assert.ok(plan.deferred.some((d) => d.task === 'T-0002'));
   });
 
   it('chemin critique prioritaire', () => {

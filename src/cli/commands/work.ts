@@ -185,7 +185,7 @@ export function planCommand(argv: string[]): void {
   const human = [
     ...plan.reasons,
     ...plan.batches.map((b, i) => [
-      `\nLot ${i + 1} — ${b.mode}${b.isolation === 'worktree' ? ' (worktrees isolés)' : ''}`,
+      `\nLot ${i + 1} — ${b.mode}`,
       ...b.tasks.map((id) => {
         const t = routed.find((x) => x.id === id)!;
         return `  ${id} ${t.title} → ${t.route!.executor === 'direct' ? 'direct' : `${t.route!.implementer.agent}/${t.route!.implementer.model}/${t.route!.implementer.effort}`}`;

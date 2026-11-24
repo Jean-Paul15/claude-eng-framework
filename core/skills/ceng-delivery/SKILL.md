@@ -111,7 +111,7 @@ les remplacent). Les diagrammes sont **mis à jour dans la même tâche** que le
 1. **Contrat d'abord** (tâche bloquante courte) : schéma de données SQL + contrat d'API (OpenAPI/types partagés) +
    design system commun (tokens partagés web/mobile quand c'est possible). Figé (`--interfaces`).
 2. **Mocks issus du contrat** : chaque front avance contre un serveur simulé généré du contrat, sans attendre l'API.
-3. **Une piste par surface**, fichiers disjoints, worktrees si besoin (`ceng plan` le décide) : API · web · mobile ·
+3. **Une piste par surface**, fichiers disjoints (`ceng plan` le décide) : API · web · mobile ·
    backoffice. Au plus 3-4 agents qui écrivent en même temps.
 4. Intégration à chaque incrément : tests de contrat des deux côtés, parcours bout en bout capturés sur chaque surface.
 5. Backoffice : mêmes principes UX (skill `ux-principles`), densité plus forte, actions en masse, journal d'audit,

@@ -46,7 +46,7 @@ Ordre de préférence, du moins cher au plus cher : **direct → séquentiel →
 - Tâches triviales : faites en direct, sans agent.
 - Lot parallèle : des tâches prêtes, **sans recouvrement de fichiers** (détecté sur les globs, de façon conservatrice),
   dans la limite de `maxParallel`. Il faut au moins deux tâches substantielles, sinon le parallélisme ne rapporte rien.
-- Une tâche sans périmètre déclaré passe en tête de lot avec `isolation: worktree`, ou est différée.
+- Une tâche sans périmètre déclaré s'exécute seule, en séquence (ou est différée) : pas de copie de travail isolée, car rien ne réintègre son résultat dans le dépôt principal.
 - Chemin critique prioritaire : les tâches qui débloquent le plus d'autres tâches passent en premier.
 - **Agent Team** seulement si : ≥ 3 tâches, contrat partagé (`--interfaces`) nécessitant une coordination directe,
   session interactive, teams activées et budget ≠ economy. Sinon des subagents parallèles suffisent : seuls leurs

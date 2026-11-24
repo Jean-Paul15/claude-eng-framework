@@ -50,7 +50,7 @@ export function planExecution(tasks: readonly Task[], ctx: PlannerContext): Exec
   // Les tâches triviales sont faites directement : lancer un agent pour elles coûterait plus que le travail.
   const trivial = ordered.filter(isTrivial);
   if (trivial.length > 0) {
-    batches.push({ mode: 'direct', tasks: trivial.map((t) => t.id), isolation: 'none', reasons: ['Tâches triviales : exécution directe par l\'orchestrateur.'] });
+    batches.push({ mode: 'direct', tasks: trivial.map((t) => t.id), reasons: ['Tâches triviales : exécution directe par l\'orchestrateur.'] });
   }
   const rest = ordered.filter((t) => !isTrivial(t));
   if (rest.length === 0) return { batches, deferred, reasons };
@@ -58,23 +58,33 @@ export function planExecution(tasks: readonly Task[], ctx: PlannerContext): Exec
   const maxParallel = Math.max(1, Math.min(ctx.policy.maxParallel, ctx.overrides?.maxParallel ?? Number.POSITIVE_INFINITY));
   if (ctx.policy.parallelism === 'off' || maxParallel === 1) {
     reasons.push(ctx.policy.parallelism === 'off' ? 'Parallélisme désactivé par la politique.' : 'Parallélisme réduit à 1 (adaptation après conflits).');
-    batches.push({ mode: 'sequential', tasks: [rest[0]!.id], isolation: 'none', reasons: ['Tâche prioritaire (chemin critique).'] });
+    batches.push({ mode: 'sequential', tasks: [rest[0]!.id], reasons: ['Tâche prioritaire (chemin critique).'] });
     for (const t of rest.slice(1)) deferred.push({ task: t.id, reason: 'exécution séquentielle' });
     return { batches, deferred, reasons };
   }
 
   // Sélection gloutonne d'un lot sans recouvrement de fichiers.
   const batch: Task[] = [];
+  let solo = false; // une tâche au périmètre inconnu occupe seule le lot
   for (const t of rest) {
+    if (solo) {
+      deferred.push({ task: t.id, reason: 'après une tâche au périmètre non déclaré, exécutée seule' });
+      continue;
+    }
     if (batch.length >= maxParallel) {
       deferred.push({ task: t.id, reason: `limite de parallélisme (${maxParallel})` });
       continue;
     }
     if (t.files.length === 0) {
-      // Périmètre inconnu : on ne peut prouver l'absence de conflit. Admis seulement en tête de lot,
-      // et alors le lot entier passe en worktrees isolés.
-      if (batch.length === 0) batch.push(t);
-      else deferred.push({ task: t.id, reason: 'périmètre de fichiers non déclaré (risque de conflit)' });
+      // Périmètre inconnu : on ne peut prouver l'absence de conflit. Seule en tête de lot, exécutée en séquence
+      // (pas de copie de travail isolée : rien ne saurait en réintégrer le résultat) ; sinon différée.
+      if (batch.length === 0) {
+        batch.push(t);
+        reasons.push(`${t.id} : périmètre de fichiers non déclaré, exécutée seule (déclarer --files pour la paralléliser).`);
+        solo = true;
+        continue;
+      }
+      deferred.push({ task: t.id, reason: 'périmètre de fichiers non déclaré (risque de conflit)' });
       continue;
     }
     const conflict = batch.find((b) => b.files.length > 0 && fileSetsOverlap(b.files, t.files));
@@ -88,12 +98,11 @@ export function planExecution(tasks: readonly Task[], ctx: PlannerContext): Exec
   const parallelCandidates = batch.filter(substantial);
   if (batch.length === 1 || parallelCandidates.length < 2) {
     if (batch.length > 1) reasons.push('Gain du parallélisme insuffisant (tâches trop petites) : exécution séquentielle.');
-    batches.push({ mode: 'sequential', tasks: [batch[0]!.id], isolation: 'none', reasons: ['Prochaine tâche du chemin critique.'] });
+    batches.push({ mode: 'sequential', tasks: [batch[0]!.id], reasons: ['Prochaine tâche du chemin critique.'] });
     for (const t of batch.slice(1)) deferred.push({ task: t.id, reason: 'séquentiel (gain parallèle insuffisant)' });
     return { batches, deferred, reasons };
   }
 
-  const isolation = batch.some((t) => t.files.length === 0) ? 'worktree' : 'none';
   const coordination = sharesInterface(batch);
   const teamOk =
     ctx.policy.parallelism === 'teams' &&
@@ -104,13 +113,13 @@ export function planExecution(tasks: readonly Task[], ctx: PlannerContext): Exec
 
   if (teamOk) {
     reasons.push(`${batch.length} tâches indépendantes en fichiers mais partageant un contrat : Agent Team (coordination directe entre agents).`);
-    batches.push({ mode: 'agent-team', tasks: batch.map((t) => t.id), isolation: 'none', reasons: ['Charte d\'équipe obligatoire ; propriété de fichiers par teammate.'] });
+    batches.push({ mode: 'agent-team', tasks: batch.map((t) => t.id), reasons: ['Charte d\'équipe obligatoire ; propriété de fichiers par teammate.'] });
   } else {
     const why: string[] = [`${batch.length} tâches sans recouvrement de fichiers : subagents parallèles (résumés seulement dans le contexte principal).`];
     if (coordination) why.push('Contrat partagé : le contrat est figé avant le lancement (ou Agent Team si disponibles).');
     if (ctx.policy.parallelism === 'teams' && !teamOk) why.push('Agent Team non retenue (critères : ≥ 3 tâches, contrat partagé, interactif, budget ≠ economy).');
     reasons.push(...why);
-    batches.push({ mode: 'parallel-subagents', tasks: batch.map((t) => t.id), isolation, reasons: isolation === 'worktree' ? ['Une tâche sans périmètre déclaré : worktree isolé.'] : [] });
+    batches.push({ mode: 'parallel-subagents', tasks: batch.map((t) => t.id), reasons: [] });
   }
   return { batches, deferred, reasons };
 }

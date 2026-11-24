@@ -46,16 +46,17 @@ a ses tests (`npm test`).
 Demandes de l'humain ajoutées en cours de route : conseiller (`ceng advisor`, `--advisor` au lancement), alerte de contexte chargé
 (`contextGuard`), vérification et choix des dépendances.
 
-## Non appliqué, et pourquoi
+## Décisions prises à la place de l'humain (les meilleures options, toutes réversibles)
 
-| Fiche | Raison |
-|---|---|
-| N-08 état injecté à l'ouverture de la skill | le hook de démarrage injecte déjà le même brief : aucun aller-retour n'est économisé |
-| N-10 avertissements groupés (`PostToolBatch`) | dépend d'un comportement non vérifié ; P-15 a déjà retiré un processus par écriture |
-| P-16 (rattachement agent → tâche en parallèle), partie « échange » | l'ordre réel des événements n'est pas documenté : à mesurer sur un vrai lot parallèle. La partie vérifiable (reprise d'un agent) est faite |
-| D-3 mémoire des sous-agents | activer `memory` rend l'écriture à un relecteur censé être en lecture seule ; à décider avec un essai |
-| D-4 worktrees : intégration | demande un essai réel (`isolation: "worktree"` puis `gate run`) |
-| S-07 acceptation automatique après 7 jours | demande de savoir si l'humain a vu la boîte : décision à poser |
+| Sujet | Décision | Pourquoi |
+|---|---|---|
+| D-3 mémoire des sous-agents | `memory: project` pour l'auditeur visuel seulement | il accumule les écarts récurrents du produit ; les relecteurs restent en lecture seule |
+| D-4 worktrees | retirés du planificateur : un périmètre inconnu s'exécute seul, en séquence | rien ne réintégrait le résultat d'une copie isolée (rapport, tâches, gates) |
+| S-07 acceptation automatique | une décision provisoire à faible impact vue sur 2 sessions pendant 7 jours sans objection est acceptée | évite l'encombrement de la boîte ; une décision à impact fort ou en attente ne change jamais seule |
+| P-16 échange de rattachement | non fait : le verrou entre agents reste strict | un échange automatique laisserait passer un agent qui sort de son périmètre ; le message de refus explique la reprise |
+| N-08 état injecté à l'ouverture de la skill | non fait | le hook de démarrage injecte déjà le même brief |
+| N-10 avertissements groupés | non fait | dépend d'un comportement non vérifié ; P-15 a déjà retiré un processus par écriture |
+| Conformité (4 questions) | réponses par défaut écrites dans la skill | voir `compliance-by-design` |
 
 ## À vérifier par un essai réel (non testable ici)
 

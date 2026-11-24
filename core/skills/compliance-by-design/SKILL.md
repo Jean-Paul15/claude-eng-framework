@@ -17,6 +17,12 @@ la source (`ceng-researcher`, § « Cadrage légal ») et une relecture par un j
 adresse IP rattachée à une personne). Un mécanisme ne s'écarte que par une décision tracée de l'humain. Chacun se réalise en SQL, ORM ou
 service selon la pile ; `reference.sql` (PostgreSQL, **modèle non exécuté : à tester et adapter**) donne les tables et fonctions.
 
+**Prototype (aucun utilisateur réel)** : le modèle de données et C-01 (politiques), C-03 (carte des données), C-06 (audit) se construisent dès
+le départ (coûteux à ajouter après coup) ; le reste est exigé au passage en production (`ceng config stage production`).
+**Réponses par défaut** (l'humain peut les changer par une décision) : anomalie sur un compte ordinaire → jetons suspendus automatiquement,
+sur un administrateur → alerte seule ; refus d'une nouvelle politique → accès limité à l'export et à la suppression du compte ;
+relecture par un juriste avant la première mise en production, une fois (politique de confidentialité, conditions, carte des données).
+
 ## Les 14 mécanismes (ce qu'il garantit · règles · test obligatoire)
 
 **C-01 Politiques versionnées et ré-acceptation** (RGPD 7, 13). On sait quelle version de chaque document chaque utilisateur a acceptée,

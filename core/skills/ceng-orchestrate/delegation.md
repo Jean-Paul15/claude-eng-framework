@@ -38,9 +38,10 @@ devient un teammate). N'envoie pas le contenu des skills : le worker les charge 
 
 ## Parallélisme (`ceng plan`)
 Le planner ne met dans un même lot que des tâches **sans recouvrement de fichiers**. Tu dois :
-1. Déclarer des `--files` précis à la création (sinon : séquentiel ou worktree isolé).
+1. Déclarer des `--files` précis à la création (sinon : la tâche s'exécute seule).
 2. Pour `parallel-subagents` : lancer les délégations du lot **dans un même message** avec
-   `run_in_background: true` ; `isolation: "worktree"` si le plan l'indique.
+   `run_in_background: true`. Pas de copie de travail isolée : rien ne réintègre son résultat (rapport, tâches, gates) dans le dépôt
+   principal ; un périmètre inconnu s'exécute seul, en séquence.
 3. Figer d'abord tout contrat partagé (`--interfaces`) : types, schéma d'API, format — sinon les workers divergent.
 4. À la fin du lot : `ceng conflicts` → intégration → tests globaux → revue ciblée → gates.
 Si les conflits se répètent, `ceng adapt` réduit le parallélisme : revois la découpe.

@@ -113,6 +113,8 @@ export interface BrainState {
   recalled?: { session: string; ids: string[] };
   /** Session pour laquelle la boîte de décisions a déjà été signalée. */
   inboxSession?: string;
+  /** Décisions à confirmer vues dans la boîte : première vue et nombre de sessions (acceptation par défaut au bout de 7 jours). */
+  inboxSeen?: Record<string, { first: string; sessions: number }>;
   /** Frein de limite d'usage : routage économe jusqu'à la réinitialisation. */
   throttle?: { since: string; until: string };
   /** Reprise automatique déjà programmée (une seule par projet). */

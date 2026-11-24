@@ -32,6 +32,23 @@ export function listDecisions(store: BrainStore): Decision[] {
     .filter((d) => !DEAD.test(d.status));
 }
 
+/**
+ * Une décision PROVISOIRE à faible impact que l'humain a vue (boîte de décisions signalée dans au moins deux sessions) pendant 7 jours
+ * sans objection devient acceptée : elle cesse d'encombrer la boîte. Une décision à impact fort ou EN ATTENTE ne change jamais seule.
+ */
+export const AUTO_ACCEPT_DAYS = 7;
+export const AUTO_ACCEPT_SESSIONS = 2;
+
+export function acceptByDefault(store: BrainStore, file: string, now = new Date()): boolean {
+  const abs = path.join(store.paths.decisions, file);
+  const text = readText(abs);
+  const head = text?.slice(0, 500) ?? '';
+  if (!text || !/PROVISOIRE/.test(head) || /impact d'un changement : fort/i.test(head)) return false;
+  fs.writeFileSync(abs, `${text.replace(/PROVISOIRE \(à confirmer\)/, 'acceptée (confirmée par défaut)').trimEnd()}\n\n## Confirmation\n${now.toISOString().slice(0, 10)} · aucune objection de l'humain en ${AUTO_ACCEPT_DAYS} jours (boîte de décisions vue sur ${AUTO_ACCEPT_SESSIONS} sessions ou plus).\n`);
+  store.log({ type: 'decision.recorded', data: { id: file.split('-').slice(0, 2).join('-'), acceptedByDefault: true } });
+  return true;
+}
+
 /** Fin de vie d'une décision : remplacée par une autre, ou rejetée. L'ADR reste lisible ; les briefs et le rappel l'ignorent. */
 export function endDecision(store: BrainStore, id: string, kind: 'supersede' | 'reject', reason: string, by?: string): string {
   const dir = store.paths.decisions;

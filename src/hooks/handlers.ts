@@ -6,6 +6,7 @@ import { logAnswers } from '../app/answers-log.js';
 import { readUsage } from '../app/usage.js';
 import { isUsageLimit, scheduleResume, setThrottle } from '../app/throttle.js';
 import { isFrozen } from '../app/contracts.js';
+import { acceptByDefault, AUTO_ACCEPT_DAYS, AUTO_ACCEPT_SESSIONS } from '../app/decisions.js';
 import { inboxItems, inboxSummary } from '../app/inbox.js';
 import { listRules } from '../app/rules.js';
 import { recall, renderRecall } from '../app/recall.js';
@@ -360,7 +361,7 @@ export function guardFile(store: BrainStore, input: HookInput): HookOutput {
       const owner = inProgress.find((t) => t.id !== myTask && active.has(t.id) && t.files.length > 0 && matchesAny(rel, t.files));
       if (owner && !inMyScope) {
         store.log({ type: 'conflict.detected', ...ids(input), taskId: myTask, data: { file: rel, owner: owner.id, prevented: true } });
-        return preToolDecision('deny', `${rel} appartient à la tâche en cours ${owner.id}. Ne pas l'éditer : décrire le changement nécessaire dans ton rapport (ou message au propriétaire en Agent Team).`);
+        return preToolDecision('deny', `${rel} appartient à la tâche en cours ${owner.id} (ta tâche : ${myTask}). Ne pas l'éditer : décrire le changement nécessaire dans ton rapport (status: blocked) ou message au propriétaire en Agent Team. Si ce fichier est bien dans TON périmètre, le rattachement agent → tâche a pu être inversé en lot parallèle : le dire dans le rapport, l'orchestrateur le corrigera (\`${CLI_INVOCATION} task show ${myTask}\`).`);
       }
     }
   }
@@ -741,12 +742,35 @@ export function userPrompt(store: BrainStore, input: HookInput): HookOutput {
   return notes.length ? { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: notes.join('\n') } } } : OK;
 }
 
+/** Compte les sessions où chaque décision à confirmer a été montrée ; au-delà de 7 jours et de 2 sessions sans objection : acceptée. */
+function promoteSeenDecisions(store: BrainStore, now = new Date()): void {
+  const seen = { ...(store.state().inboxSeen ?? {}) };
+  const alive = new Set<string>();
+  for (const i of inboxItems(store).filter((x) => x.level === 'confirm' && x.source === 'decision')) {
+    alive.add(i.ref);
+    const e = seen[i.ref] ?? { first: now.toISOString(), sessions: 0 };
+    e.sessions += 1;
+    const old = now.getTime() - Date.parse(e.first) >= AUTO_ACCEPT_DAYS * 86_400_000;
+    if (old && e.sessions >= AUTO_ACCEPT_SESSIONS && acceptByDefault(store, i.ref, now)) {
+      delete seen[i.ref];
+      alive.delete(i.ref);
+      continue;
+    }
+    seen[i.ref] = e;
+  }
+  for (const k of Object.keys(seen)) if (!alive.has(k)) delete seen[k];
+  store.updateState((s) => {
+    s.inboxSeen = seen;
+  });
+}
+
 /** Au premier message d'une session : ce qui attend l'humain (une ligne), pour que l'orchestrateur le lui pose tout de suite. */
 function inboxNote(store: BrainStore, sessionId?: string): string | undefined {
   if (store.state().inboxSession === (sessionId ?? '')) return undefined;
   store.updateState((s) => {
     s.inboxSession = sessionId ?? '';
   });
+  promoteSeenDecisions(store);
   const items = inboxItems(store);
   return items.length ? `[ceng] En attente de l'humain : ${inboxSummary(items)} (\`${CLI_INVOCATION} inbox\`) : les lui poser avec l'outil de questions, bloquantes d'abord, quatre par appel.` : undefined;
 }

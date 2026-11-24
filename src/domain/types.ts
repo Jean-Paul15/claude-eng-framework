@@ -196,7 +196,6 @@ export type ExecutionMode = 'direct' | 'sequential' | 'parallel-subagents' | 'ag
 export interface PlannedBatch {
   mode: ExecutionMode;
   tasks: string[];
-  isolation: 'none' | 'worktree';
   reasons: string[];
 }
 
