@@ -177,7 +177,7 @@ export interface RouteDecision {
 export const GATE_IDS = [
   'build', 'typecheck', 'lint', 'format', 'unit', 'integration', 'e2e', 'contract',
   'deps-audit', 'secrets', 'compliance', 'migration', 'performance', 'accessibility',
-  'visual', 'ux', 'docs', 'diagrams', 'dependencies', 'privacy', 'abuse-tests', 'ready', 'review', 'security-review', 'architecture-review', 'report', 'human-approval',
+  'visual', 'ux', 'docs', 'diagrams', 'dependencies', 'privacy', 'abuse-tests', 'ready', 'db-security', 'review', 'security-review', 'architecture-review', 'report', 'human-approval',
 ] as const;
 export type GateId = (typeof GATE_IDS)[number];
 

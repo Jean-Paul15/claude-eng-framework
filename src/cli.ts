@@ -15,6 +15,7 @@ import { bypassCommand } from './cli/commands/bypass.js';
 import { advisorCommand } from './cli/commands/advisor.js';
 import { depCommand } from './cli/commands/dep.js';
 import { featureCommand } from './cli/commands/feature.js';
+import { verifyCommand } from './cli/commands/verify.js';
 import { contractCommand, inboxCommand, incrementCommand } from './cli/commands/governance.js';
 import { ruleCommand } from './cli/commands/rule.js';
 import { complianceCommand } from './cli/commands/compliance.js';
@@ -62,6 +63,7 @@ Bypass total (décision humaine)
   inbox                      Tout ce qui attend l'humain (décisions bloquantes, à confirmer), trié
   contract freeze|bump|list  Contrats partagés gelés : un sous-agent ne les modifie pas
   increment close <groupe>   Clôture d'un incrément (tout terminé, vu, testé) et rapport
+  verify                     Vérification après déploiement (commands.smoke)
   dep check [noms…]|list|baseline  Vérifie les dépendances (licence, maintenance, vulnérabilités, usage) dans les registres publics
   advisor [fable|opus|sonnet|off]  Conseiller de Claude Code (modèle plus fort consulté aux décisions clés), lancé avec --advisor
 
@@ -122,6 +124,7 @@ export async function main(argv: string[]): Promise<void> {
     case 'advisor': return advisorCommand(rest);
     case 'dep': return depCommand(rest);
     case 'feature': return featureCommand(rest);
+    case 'verify': return verifyCommand(rest);
     case 'contract': return contractCommand(rest);
     case 'inbox': return inboxCommand(rest);
     case 'increment': return incrementCommand(rest);

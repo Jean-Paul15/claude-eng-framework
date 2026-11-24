@@ -26,6 +26,7 @@ export const GATE_KINDS: Record<GateId, GateKind> = {
   privacy: 'builtin',
   'abuse-tests': 'builtin',
   ready: 'builtin',
+  'db-security': 'builtin',
   review: 'agent',
   'security-review': 'agent',
   'architecture-review': 'agent',
@@ -78,6 +79,9 @@ export function selectGates(task: Task, review: ReviewLevel, policy: EffectivePo
   }
   if (changesCode && (task.kind === 'migration' || intersects(task.domains, ['database', 'database-migration', 'pii']))) {
     add('privacy', true, 'Toute colonne personnelle ajoutée est classée (catégorie, finalité, base légale, durée) : carte des données.');
+  }
+  if (changesCode && (task.kind === 'migration' || task.domains.includes('database'))) {
+    add('db-security', true, "Projet Supabase : chaque table créée a son test d'accès (pgTAP, `supabase/tests/`) et `supabase test db` passe.");
   }
   if (changesCode && securitySensitive && task.kind !== 'chore') {
     add('abuse-tests', true, "Domaine sensible : au moins un test de refus (accès d'autrui, jeton expiré, entrée invalide) accompagne le code.");

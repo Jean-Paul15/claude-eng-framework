@@ -9,7 +9,7 @@ import { runShell, tail } from '../infra/exec.js';
 import { exists, listFiles, readJson, readText, writeTextAtomic } from '../infra/fs.js';
 import { Git } from '../infra/git.js';
 import { redact } from '../domain/secrets.js';
-import { runPrivacyGate } from './data-map.js';
+import { runDbSecurityGate, runPrivacyGate } from './data-map.js';
 import { runDependenciesGate } from './deps.js';
 import { runReady } from './ready.js';
 import type { BrainStore } from '../brain/store.js';
@@ -195,6 +195,8 @@ export function runGates(store: BrainStore, taskId: string, only?: GateId[]): Ga
       outcome = { gate: req.gate, required: req.required, ...runSecretsGate(root, files()) };
     } else if (req.gate === 'privacy') {
       outcome = { gate: req.gate, required: req.required, ...runPrivacyGate(root, files()) };
+    } else if (req.gate === 'db-security') {
+      outcome = { gate: req.gate, required: req.required, ...runDbSecurityGate(store, files()) };
     } else if (req.gate === 'abuse-tests') {
       outcome = { gate: req.gate, required: req.required, ...runAbuseTestsGate(root, files()) };
     } else if (req.gate === 'ready') {

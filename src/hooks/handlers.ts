@@ -289,6 +289,10 @@ export function guardCommand(store: BrainStore, input: HookInput): HookOutput {
 export function commandDone(store: BrainStore, input: HookInput): HookOutput {
   const command = String(input.tool_input?.['command'] ?? '');
   if (command) closeIntent(store, command, input.session_id);
+  // Un déploiement ou une migration distante vient d'aboutir : « ça a tourné » ne veut pas dire « ça marche ».
+  if (command && externalEffects(command).some((r) => r === 'deploy' || r === 'prod-migrate')) {
+    return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: `[ceng] Mise en ligne terminée : lancer \`${CLI_INVOCATION} verify\` (vérification après déploiement) avant de la déclarer réussie ; échec → retour arrière du fournisseur puis tâche bug en priorité.` } } };
+  }
   return OK;
 }
 

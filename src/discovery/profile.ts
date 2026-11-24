@@ -20,6 +20,8 @@ export interface Commands {
   'deps-audit'?: string;
   migration?: string;
   performance?: string;
+  /** Vérification après déploiement : page d'accueil, point de santé et parcours principal en lecture seule. */
+  smoke?: string;
   dev?: string;
 }
 
