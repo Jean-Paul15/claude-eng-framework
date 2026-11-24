@@ -4,6 +4,7 @@ import { TASK_KINDS, type Assessment, type Level, type ModelTier, type Task, typ
 import { exists } from '../infra/fs.js';
 import { Git } from '../infra/git.js';
 import { ensureBaseline } from './deps.js';
+import { onTaskDone } from './features.js';
 import type { BrainStore } from '../brain/store.js';
 
 /** Cas d'usage autour des tâches : création, routage, transitions d'état. */
@@ -18,6 +19,7 @@ export interface NewTaskInput {
   domains?: string[];
   interfaces?: string[];
   group?: string;
+  feature?: string;
 }
 
 const now = () => new Date().toISOString();
@@ -57,6 +59,7 @@ export function createTask(store: BrainStore, input: NewTaskInput): Task {
       domains: input.domains ?? [],
       interfaces: input.interfaces ?? [],
       ...(input.group ? { group: input.group } : {}),
+      ...(input.feature ? { feature: input.feature } : {}),
       attempts: [],
       gates: [],
       createdAt: now(),
@@ -191,6 +194,11 @@ export function completeTask(store: BrainStore, id: string, evidence: string, wa
     if (s.currentTask === task.id) delete s.currentTask;
     delete s.interruption;
   });
+  try {
+    onTaskDone(store, task); // la fonctionnalité passe en « livrée » quand toutes ses tâches le sont
+  } catch {
+    /* jamais bloquant */
+  }
   store.log({ type: 'task.done', taskId: task.id, model: task.attempts.at(-1)?.model, data: { evidence, waiver, attempts: task.attempts.length, gates: task.gates.map((g) => `${g.gate}:${g.status}`) } });
   return task;
 }

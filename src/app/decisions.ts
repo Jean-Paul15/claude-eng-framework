@@ -32,6 +32,22 @@ export function listDecisions(store: BrainStore): Decision[] {
     .filter((d) => !DEAD.test(d.status));
 }
 
+/** Fin de vie d'une décision : remplacée par une autre, ou rejetée. L'ADR reste lisible ; les briefs et le rappel l'ignorent. */
+export function endDecision(store: BrainStore, id: string, kind: 'supersede' | 'reject', reason: string, by?: string): string {
+  const dir = store.paths.decisions;
+  const file = exists(dir) ? fs.readdirSync(dir).find((f) => f.startsWith(`${id.toUpperCase()}-`) || f === id) : undefined;
+  if (!file) throw new Error(`Décision ${id} introuvable (ADR-xxxx, voir .ceng/brain/decisions/).`);
+  if (kind === 'supersede' && !by) throw new Error('--by <ADR> obligatoire : la décision qui la remplace.');
+  if (!reason.trim()) throw new Error('--reason obligatoire : pourquoi.');
+  const abs = path.join(dir, file);
+  const text = readText(abs) ?? '';
+  const label = kind === 'supersede' ? `remplacée (par ${by!.toUpperCase()})` : 'rejetée';
+  const next = text.replace(/(statut\s*:\s*)[^·\n]+/i, `$1${label} `);
+  fs.writeFileSync(abs, `${next.trimEnd()}\n\n## Fin de vie\n${new Date().toISOString().slice(0, 10)} · ${label} : ${reason.trim()}\n`);
+  store.log({ type: 'decision.recorded', data: { id: file.split('-').slice(0, 2).join('-'), ended: kind, by: by ?? null } });
+  return store.paths.rel(abs);
+}
+
 /**
  * Les `limit` décisions les plus utiles à la tâche : celles dont le texte ressemble à son titre, ses domaines et ses
  * fichiers, complétées par les décisions structurantes (pile, schéma, direction créative) — jamais « les 12 dernières »,

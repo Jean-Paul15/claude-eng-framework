@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import { relevantDecisions } from '../../app/decisions.js';
+import { recall } from '../../app/recall.js';
 import { findSimilar } from '../../app/similar.js';
 import { routeAndStore } from '../../app/tasks.js';
 import { BrainStore } from '../../brain/store.js';
@@ -31,9 +32,13 @@ export function similarCommand(argv: string[]): void {
   const query = p.positionals.join(' ').trim();
   if (!query) throw new UsageError('Usage : ceng similar <termes de la demande…> [--limit 10]');
   const found = findSimilar(root, query, { limit: Number(str(p, 'limit') ?? '10') || 10 });
-  out(p, found.length
-    ? [`Existant proche de « ${query} » — lire ces fichiers (portions indiquées) et étendre/factoriser avant de créer :`, ...found.map(candidateLine)].join('\n')
-    : `Rien de proche de « ${query} » dans le code (vérifier aussi avec graphify query si le graphe existe) : création justifiée.`, found);
+  const store = new BrainStore(root);
+  const memory = store.isInitialized() ? recall(store, query, 8) : [];
+  const text = [
+    ...(memory.length ? [`Déjà dans la mémoire du projet (fonctionnalités, tâches, décisions, réponses de l'humain) :`, ...memory.map((h) => `  - ${h.line}`), ''] : []),
+    ...(found.length ? [`Existant proche de « ${query} » dans le code — lire ces fichiers (portions indiquées) et étendre/factoriser avant de créer :`, ...found.map(candidateLine)] : []),
+  ].join('\n');
+  out(p, text.trim() || `Rien de proche de « ${query} » (mémoire du projet et code ; vérifier aussi avec graphify query si le graphe existe) : création justifiée.`, { memory, code: found });
 }
 
 /** Fichiers existants couverts par les globs de la tâche (ce qu'elle a le droit de modifier). */

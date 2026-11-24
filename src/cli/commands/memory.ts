@@ -4,6 +4,7 @@ import { normalizeTopic, promotionCandidates, type Learning, type LearningKind }
 import { nextId } from '../../domain/taskgraph.js';
 import { applyRollback, createCheckpoint, planRollback } from '../../app/checkpoints.js';
 import { openEscalation, recordDecision, resolveEscalation } from '../../app/coordination.js';
+import { endDecision } from '../../app/decisions.js';
 import { renderIndex, resumeBrief, statusCounts } from '../../brain/brief.js';
 import { BrainStore } from '../../brain/store.js';
 import { exists, writeTextAtomic } from '../../infra/fs.js';
@@ -90,7 +91,13 @@ export function escalateCommand(argv: string[]): void {
 
 export function decisionCommand(argv: string[]): void {
   const [sub, ...rest] = argv;
-  if (sub !== 'add') throw new UsageError('ceng decision add --title … --context … --decision … --consequences … [--status accepted|provisional|pending] [--impact low|high] [--autonomous]');
+  if (sub === 'supersede' || sub === 'reject') {
+    const q = parse(rest, { dir: { type: 'string' }, by: { type: 'string' }, reason: { type: 'string' } });
+    const f = endDecision(storeFor(str(q, 'dir')), requirePositional(q, 0, 'décision'), sub, requireStr(q, 'reason'), str(q, 'by'));
+    out(q, `Décision ${sub === 'supersede' ? 'remplacée' : 'rejetée'} : ${f}`, { file: f });
+    return;
+  }
+  if (sub !== 'add') throw new UsageError('ceng decision supersede <ADR> --by <ADR> --reason … | reject <ADR> --reason … | add --title … --context … --decision … --consequences … [--status accepted|provisional|pending] [--impact low|high] [--autonomous]');
   const p = parse(rest, { dir: { type: 'string' }, title: { type: 'string' }, context: { type: 'string' }, decision: { type: 'string' }, consequences: { type: 'string' }, alternatives: { type: 'string' }, task: { type: 'string' }, status: { type: 'string' }, impact: { type: 'string' }, autonomous: { type: 'boolean' } });
   const status = str(p, 'status');
   if (status && !['accepted', 'provisional', 'pending'].includes(status)) throw new UsageError('--status : accepted|provisional|pending');

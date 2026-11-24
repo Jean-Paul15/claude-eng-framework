@@ -1,5 +1,8 @@
 import * as fs from 'node:fs';
 import { readVetted, unvettedDeps } from '../app/deps.js';
+import { logAnswers } from '../app/answers-log.js';
+import { recall, renderRecall } from '../app/recall.js';
+import { tokenize } from '../domain/similarity.js';
 import { isManifest } from '../domain/deps.js';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -668,8 +671,27 @@ export function graphRefresh(store: BrainStore, input: HookInput): HookOutput {
 /** UserPromptSubmit : l'humain est là (base de la détection d'absence) ; /ceng-orchestrate active le pilote automatique. */
 export function userPrompt(store: BrainStore, input: HookInput): HookOutput {
   if (markHumanActive(store, String(input['prompt'] ?? ''), input.session_id)) clearRefusals(store);
-  const rot = contextRotNote(store, String(input['transcript_path'] ?? ''));
-  return rot ? { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: rot } } } : OK;
+  const notes = [recallNote(store, String(input['prompt'] ?? ''), input.session_id), contextRotNote(store, String(input['transcript_path'] ?? ''))].filter(Boolean);
+  return notes.length ? { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: notes.join('\n') } } } : OK;
+}
+
+/** Mots de la demande qui comptent : en dessous de 4, c'est une réponse courte (« oui », « continue »), pas une demande. */
+const meaningful = (prompt: string): number => new Set(tokenize(prompt)).size;
+
+/**
+ * À chaque demande de l'humain : ce que la mémoire du projet contient déjà de proche (fonctionnalités livrées ou écartées,
+ * tâches, décisions, réponses données). Silencieux quand rien ne ressemble. Une fois par élément et par session.
+ */
+function recallNote(store: BrainStore, prompt: string, sessionId?: string): string | undefined {
+  if (prompt.startsWith('/') || meaningful(prompt) < 4) return undefined;
+  const seen = store.state().recalled ?? { session: '', ids: [] };
+  const known = seen.session === (sessionId ?? '') ? new Set(seen.ids) : new Set<string>();
+  const hits = recall(store, prompt).filter((h) => !known.has(h.id) || h.dead);
+  if (!hits.length) return undefined;
+  store.updateState((s) => {
+    s.recalled = { session: sessionId ?? '', ids: [...new Set([...known, ...hits.map((h) => h.id)])].slice(-60) };
+  });
+  return renderRecall(hits);
 }
 
 /**
@@ -859,6 +881,11 @@ export function questionAnswered(store: BrainStore, input: HookInput): HookOutpu
     });
   }
   markHumanAnswered(store);
+  try {
+    logAnswers(store, response, store.state().currentTask);
+  } catch {
+    /* la mémoire des réponses ne doit jamais bloquer */
+  }
   const feedback = answerFeedback(outcome);
   return feedback ? { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: feedback } } } : OK;
 }

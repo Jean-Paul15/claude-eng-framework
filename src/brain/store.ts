@@ -100,6 +100,8 @@ export interface BrainState {
   handbackReports?: Record<string, true>;
   /** Compactions de la session principale et dernier palier d'alerte « contexte chargé » déjà signalé (0 = aucun). */
   compactions?: number;
+  /** Éléments de mémoire déjà rappelés dans la session (pas de répétition). */
+  recalled?: { session: string; ids: string[] };
   contextWarnLevel?: number;
   /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
   graphDirty?: boolean;

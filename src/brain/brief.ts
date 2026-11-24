@@ -3,6 +3,7 @@ import type { Task } from '../domain/types.js';
 import { exists, readText } from '../infra/fs.js';
 import { ADVISOR_GUIDANCE } from '../domain/advisor.js';
 import { listDecisions } from '../app/decisions.js';
+import { listFeatures } from '../app/features.js';
 import { CLI_INVOCATION } from './paths.js';
 import type { BrainStore } from './store.js';
 
@@ -72,6 +73,7 @@ export function renderIndex(store: BrainStore): string {
     '- `project.md` profil technique détecté · `architecture.md` · `objective.md`',
     '- `decisions/` ADR · `reports/<tâche>.md` rapports d\'agents · `research/` notes de recherche',
     '- `assumptions.md` · `known-issues.md` · `escalations/` · `teams/` chartes d\'équipe',
+    ...(exists(`${p.brain}/FEATURES.md`) ? ['- `FEATURES.md` fonctionnalités décidées, livrées, écartées · `answers.md` réponses déjà données par l\'humain'] : []),
     ...(exists(`${p.brain}/spec.md`) ? ['- `spec.md` cahier des charges synthétisé (exigences EX-xxx)'] : []),
     ...(exists(`${p.brain}/chantiers`) ? ['- `chantiers/<nom>/` VISION.md et DECISIONS.md des grands chantiers'] : []),
     `- État machine : \`${CLI_INVOCATION} task list\`, \`${CLI_INVOCATION} resume\``,
@@ -119,6 +121,11 @@ export function resumeBrief(store: BrainStore, source: string): string {
     return text.includes("prise sans l'humain") && (!sinceHuman || (text.match(/^date: (\S+)/m)?.[1] ?? '') >= sinceHuman.slice(0, 10));
   });
   if (autonomous.length) parts.push(`Décisions prises sans l'humain à lui signaler brièvement (et à confirmer via l'invite si PROVISOIRE ou EN ATTENTE) : ${autonomous.map((f) => f.replace(/\.md$/, '')).join(', ')}.`);
+  const features = listFeatures(store);
+  if (features.length) {
+    const n = (s: string) => features.filter((f) => f.status === s).length;
+    parts.push(`Fonctionnalités : ${n('delivered')} livrée(s), ${n('in_progress')} en cours, ${n('decided')} décidée(s), ${n('rejected')} écartée(s) — .ceng/brain/FEATURES.md ; les consulter AVANT de créer (\`ceng similar\`).`);
+  }
   const advisor = store.config().advisor?.model;
   if (advisor) parts.push(ADVISOR_GUIDANCE);
   if (tasks.length === 0) parts.push('Aucune tâche : bootstrap nécessaire (objectif → architecture → graphe de tâches) via /ceng-orchestrate.');

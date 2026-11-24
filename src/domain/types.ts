@@ -67,6 +67,8 @@ export interface Task {
   /** Contrats partagés (ex. "api:/orders") : deux tâches qui partagent un contrat ont besoin de coordination. */
   interfaces: string[];
   group?: string;
+  /** Fonctionnalité du registre (`F-xxx`) que la tâche réalise ou étend. */
+  feature?: string;
   route?: RouteDecision;
   attempts: Attempt[];
   gates: GateResult[];

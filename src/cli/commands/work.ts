@@ -5,6 +5,8 @@ import { GATE_IDS, TASK_STATUSES, type ContextSize, type GateId, type GateStatus
 import { blockTask, completeTask, createTask, csv, failAttempt, parseKind, parseLevel, routeAndStore, setStatus, startTask } from '../../app/tasks.js';
 import { MIN_SHOTS, recordOutcomes, runGates, visualEvidence } from '../../app/gates.js';
 import { detectConflicts, writeTeamCharter } from '../../app/coordination.js';
+import { getFeature, linkTask } from '../../app/features.js';
+import { recall } from '../../app/recall.js';
 import { BrainStore } from '../../brain/store.js';
 import { renderIndex } from '../../brain/brief.js';
 import { writeTextAtomic } from '../../infra/fs.js';
@@ -46,6 +48,7 @@ const TASK_FLAGS = {
   accept: { type: 'string', multiple: true }, domains: { type: 'string' }, interfaces: { type: 'string' }, group: { type: 'string' },
   status: { type: 'string' }, evidence: { type: 'string' }, waive: { type: 'string' }, reason: { type: 'string' }, agent: { type: 'string' },
   model: { type: 'string' }, strategy: { type: 'string' }, dir: { type: 'string' },
+  feature: { type: 'string' }, extends: { type: 'string' }, new: { type: 'string' },
 } as const;
 
 export function taskCommand(argv: string[]): void {
@@ -56,9 +59,20 @@ export function taskCommand(argv: string[]): void {
     case 'add': {
       const context = (str(p, 'context') ?? 'M').toUpperCase() as ContextSize;
       if (!['S', 'M', 'L'].includes(context)) throw new UsageError('--context : S|M|L');
+      const title = requireStr(p, 'title');
+      const kind = parseKind(str(p, 'kind'));
+      // Garde anti-doublon : une fonctionnalité ou une tâche proche existe déjà → dire si on l'étend, ou pourquoi c'est nouveau.
+      const link = str(p, 'extends') ?? str(p, 'feature');
+      if (!link && !str(p, 'new') && ['feature', 'ui'].includes(kind)) {
+        const close = recall(store, title, 4).filter((h) => h.kind === 'feature' || h.kind === 'task');
+        if (close.length) {
+          throw new UsageError(`Existant proche de « ${title} » :\n${close.map((h) => `  - ${h.line}`).join('\n')}\nÉtendre : --extends F-xxx ; fonctionnalité déjà enregistrée : --feature F-xxx ; vraiment nouveau : --new "pourquoi ce n'est pas un doublon".`);
+        }
+      }
+      if (link) getFeature(store, link);
       const t = createTask(store, {
-        title: requireStr(p, 'title'),
-        kind: parseKind(str(p, 'kind')),
+        title,
+        kind,
         assessment: {
           complexity: parseLevel(str(p, 'complexity'), 'complexity', 2),
           risk: parseLevel(str(p, 'risk'), 'risk', 2),
@@ -73,7 +87,10 @@ export function taskCommand(argv: string[]): void {
         domains: csv(str(p, 'domains')),
         interfaces: csv(str(p, 'interfaces')),
         ...(str(p, 'group') ? { group: str(p, 'group')! } : {}),
+        ...(link ? { feature: link.toUpperCase() } : {}),
       });
+      if (link) linkTask(store, link, t.id);
+      if (str(p, 'new')) store.log({ type: 'task.created', taskId: t.id, data: { newBecause: str(p, 'new') } });
       refreshIndex(store);
       out(p, `${t.id} créée : ${t.title}`, t);
       return;

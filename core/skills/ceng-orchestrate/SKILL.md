@@ -65,9 +65,14 @@ journey, multi-surface → **diagramme obligatoire**, voir skill `ceng-delivery`
 chaque chose ; remplacer = supprimer l'ancien dans la même tâche (code mort, doublons, drapeaux et tests devenus inutiles) ;
 le legacy encore utilisé se retire en expand/contract avec une date, jamais laissé sans fin. Critère d'acceptation implicite
 de toute tâche qui remplace quelque chose : « l'ancien est supprimé ou planifié ».
-**Avant de créer une tâche de fonctionnalité : l'existant.** `ceng similar <termes du besoin>` (et `graphify query` si
-le graphe existe) : quelque chose de proche existe ou a été commencé → la tâche devient « étendre / terminer / factoriser
+**Avant de créer une tâche de fonctionnalité : l'existant.** Le hook te rappelle, à chaque demande de l'humain, ce que la
+mémoire contient déjà de proche (fonctionnalités livrées ou écartées, décisions, réponses données) : lis-le avant d'agir.
+`ceng similar <termes du besoin>` (mémoire puis code, et `graphify query` si le graphe existe) : quelque chose de proche existe ou a été commencé → la tâche devient « étendre / terminer / factoriser
 X », jamais « créer » une seconde version. Code de référence indiqué par l'humain → noté pour le brief (`--ref`).
+Registre `ceng feature` : une fonctionnalité par capacité visible de l'utilisateur ; `task add --extends F-xxx` (étendre),
+`--feature F-xxx` ou `--new "pourquoi ce n'est pas un doublon"` (obligatoire quand une fonctionnalité ou une tâche proche existe) ;
+`ceng feature reject F-xxx --reason …` garde la trace de ce qu'on a décidé de ne PAS faire ; `ceng decision supersede|reject`
+retire une décision morte. Une idée écartée ne se rouvre qu'en le disant à l'humain.
 Une tâche = un livrable vérifiable. Trop grosse (complexité 5 et ambiguë) → fais-la concevoir/découper par `ceng-principal`.
 
 ## 3. Décider qui travaille

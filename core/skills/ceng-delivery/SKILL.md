@@ -56,6 +56,8 @@ parler de temps en temps, il ne contrôle pas chaque étape. Ce qui suit est sa 
    - Les maquettes deviennent des références du test visuel : la capture livrée est relue à côté de l'image du cahier ;
      écart volontaire (meilleure UX, règle d'un magasin) → noté dans la synthèse avec la raison.
    - Chaque exigence est tracée jusqu'à une tâche et un test (« EX-014 → T-0031 ») ; la livraison finale liste celles couvertes.
+   Après `spec.md` : une fonctionnalité par capacité ou parcours (`ceng feature add --name … --summary … --spec EX-001`) ; les tâches
+   s'y rattachent (`task add --feature F-xxx`) — c'est la mémoire de « ce qu'on a déjà », consultée à chaque demande.
 2. Repérer **seulement les vrais trous** : ce qui change l'architecture, le modèle de données, la facture ou le légal.
    Le reste se décide (bonne pratique du domaine) et se note comme hypothèse.
 3. **Une seule invite** (`AskUserQuestion`, 1 à 4 questions groupées, recommandation en premier) si le cahier est
