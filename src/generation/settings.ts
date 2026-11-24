@@ -45,6 +45,7 @@ export function frameworkHooks(): Record<string, HookGroup[]> {
       { matcher: 'Edit|Write|MultiEdit', hooks: [hook('code-check', { timeout: 10 })] },
       { matcher: 'Bash|PowerShell', hooks: [hook('command-done', { timeout: 10 })] },
       { matcher: 'Skill', hooks: [hook('skill-used', { timeout: 10 })] },
+      { matcher: 'SubagentHandback', hooks: [hook('agent-handback', { timeout: 10 })] },
       { matcher: 'AskUserQuestion', hooks: [hook('question-answered', { timeout: 10 })] },
     ],
     SubagentStart: [{ hooks: [hook('subagent-start', { timeout: 10 })] }],

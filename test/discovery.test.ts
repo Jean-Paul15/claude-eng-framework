@@ -88,9 +88,10 @@ describe('découverte : le framework s\'adapte au projet', () => {
     const mobile = skills('mobile-app');
     for (const s of ['frontend', 'accessibility', 'creative-director', 'frontend-executor', 'quality-gate-auditor', 'database']) assert.ok(web.includes(s), `web: ${s}`);
     for (const s of ['backend', 'api-design', 'database', 'threat-modeling']) assert.ok(api.includes(s), `api: ${s}`);
-    assert.ok(!api.includes('frontend') && !api.includes('creative-director'));
+    // Le cahier des charges peut venir avant l'interface : les skills et agents créatifs sont toujours là (le routage y envoie les tâches design).
+    for (const s of ['creative-director', 'frontend-executor', 'quality-gate-auditor']) assert.ok(api.includes(s) && lib.includes(s), `toujours : ${s}`);
     assert.ok(mobile.includes('creative-director') && mobile.includes('accessibility'));
-    assert.ok(!lib.includes('frontend') && !lib.includes('database') && !lib.includes('backend'));
+    assert.ok(!lib.includes('database') && !lib.includes('backend'));
     for (const s of ['ceng-orchestrate', 'security', 'legal-governance', 'testing']) assert.ok(lib.includes(s), `toujours : ${s}`);
     assert.ok(lib.length < web.length, 'moins de skills = moins de contexte permanent');
   });

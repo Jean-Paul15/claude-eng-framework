@@ -45,6 +45,8 @@ export interface HookInput {
 
 export interface HookOutput {
   json?: Record<string, unknown>;
+  /** Texte brut sur la sortie standard (PreCompact : instructions pour le résumé de compaction). */
+  stdout?: string;
   stderr?: string;
   exitCode: number;
 }
@@ -181,6 +183,7 @@ export function sessionStart(store: BrainStore, input: HookInput): HookOutput {
     if (source === 'startup') {
       s.runningAgents = {};
       s.agentStartedAt = {};
+      s.handbackReports = {};
     }
   });
   removeOrphanTemps(store.paths.brain);
@@ -396,7 +399,15 @@ export function subagentStart(store: BrainStore, input: HookInput): HookOutput {
     s.agentStartedAt = { ...(s.agentStartedAt ?? {}), [agentId]: new Date().toISOString() };
   });
   store.log({ type: 'agent.spawn', ...ids(input), ...(taskId ? { taskId } : {}), data: { phase: 'started' } });
-  return OK;
+  if (!String(input.agent_type ?? '').startsWith('ceng-')) return OK;
+  // État du projet que le sous-agent ne peut pas deviner (même sans CLAUDE.md : ceng-scout).
+  const mode = bypassOn(store)
+    ? 'BYPASS TOTAL actif : aucune validation à attendre ; secrets utilisés sans être affichés ni recopiés.'
+    : stageOf(store) === 'prototype'
+      ? 'Stade prototype : migrations, suppressions et push du projet sans validation.'
+      : "Stade production : toute action à approbation humaine est remontée dans ton rapport, jamais tentée.";
+  const note = `[ceng] ${taskId ? `Tâche rattachée : ${taskId}. ` : ''}${mode} Termine par le bloc ${REPORT_MARKER}.`;
+  return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'SubagentStart', additionalContext: note } } };
 }
 
 export function fileEdited(store: BrainStore, input: HookInput): HookOutput {
@@ -453,6 +464,16 @@ export function codeCheck(store: BrainStore, input: HookInput): HookOutput {
     : { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: message } } };
 }
 
+/** PostToolUse SubagentHandback : le rapport passe par l'outil de remise, pas par le dernier message du sous-agent. */
+export function agentHandback(store: BrainStore, input: HookInput): HookOutput {
+  const id = input.agent_id;
+  if (!id || !String(input.tool_input?.['message'] ?? '').includes(REPORT_MARKER)) return OK;
+  store.updateState((s) => {
+    s.handbackReports = { ...(s.handbackReports ?? {}), [id]: true };
+  });
+  return OK;
+}
+
 export function skillUsed(store: BrainStore, input: HookInput): HookOutput {
   const skill = String(input.tool_input?.['skill'] ?? input.tool_input?.['name'] ?? '');
   if (skill) store.log({ type: 'skill.used', ...ids(input), data: { skill } });
@@ -464,7 +485,8 @@ export function subagentStop(store: BrainStore, input: HookInput): HookOutput {
   const agentType = input.agent_type ?? '';
   const taskId = input.agent_id ? store.state().agentTasks?.[input.agent_id] : undefined;
   const message = String(input.last_assistant_message ?? '');
-  const hasReport = message.includes(REPORT_MARKER);
+  const handedBack = Boolean(input.agent_id && store.state().handbackReports?.[input.agent_id]);
+  const hasReport = message.includes(REPORT_MARKER) || handedBack;
   store.log({ type: 'agent.stop', ...ids(input), ...(taskId ? { taskId } : {}), data: { hasReport } });
   if (input.agent_id && input.agent_id in (store.state().runningAgents ?? {})) {
     store.updateState((s) => {
@@ -474,6 +496,11 @@ export function subagentStop(store: BrainStore, input: HookInput): HookOutput {
       delete started[input.agent_id!];
       s.runningAgents = running;
       s.agentStartedAt = started;
+    });
+  }
+  if (input.agent_id && store.state().handbackReports?.[input.agent_id]) {
+    store.updateState((s) => {
+      if (s.handbackReports) delete s.handbackReports[input.agent_id!];
     });
   }
   if (!agentType.startsWith('ceng-') || hasReport || input.stop_hook_active) return OK;
@@ -498,7 +525,15 @@ export function preCompact(store: BrainStore, input: HookInput): HookOutput {
     auto: true,
   });
   store.log({ type: 'compaction', ...ids(input), data: { trigger: input.trigger ?? 'auto' } });
-  return OK;
+  // La sortie standard d'un hook PreCompact sert d'instructions au résumé de compaction.
+  return {
+    exitCode: 0,
+    stdout: [
+      'Dans le résumé, conserver : identifiant et titre des tâches ceng en cours, sous-agents lancés et tâche de chacun,',
+      "décisions prises pendant la session et leur raison, questions posées à l'humain et ses réponses, prochaine action exacte.",
+      "Ne pas conserver : contenu des fichiers lus, sorties d'outils, détail des explorations.",
+    ].join(' '),
+  };
 }
 
 /** Rappel de checkpoint volontaire : au plus un toutes les 2 h, et seulement si aucun n'a été pris depuis 2 h. */
@@ -803,6 +838,7 @@ export const HANDLERS: Record<string, (store: BrainStore, input: HookInput) => H
   'subagent-start': subagentStart,
   'file-edited': fileEdited,
   'skill-used': skillUsed,
+  'agent-handback': agentHandback,
   'subagent-stop': subagentStop,
   'pre-compact': preCompact,
   stop,

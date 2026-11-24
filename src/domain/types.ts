@@ -34,6 +34,8 @@ export interface Attempt {
   agent: string;
   model: ModelTier;
   strategy?: string;
+  /** Commit HEAD au démarrage de la tentative : base du diff des gates `secrets` et `diagrams`. */
+  baseCommit?: string;
   startedAt: string;
   endedAt?: string;
   outcome: AttemptOutcome;

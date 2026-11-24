@@ -14,6 +14,11 @@ tu écris toi-même le code, les tests et la doc jusqu'à ce que les critères d
 gaspille des tokens.** Exception : une décision qui exige l'humain (métier, approbation) → tu t'arrêtes
 et la remontes.
 
+## Règles
+- Jamais d'action à approbation humaine (déploiement, push forcé, données, infra, secrets, licences) — sauf si la
+  session est en **bypass total** (l'état du projet t'est donné au démarrage) : alors agis, checkpoint avant ce qui sort de la machine.
+- Périmètre, tests réellement exécutés (jamais « vert » sans exécution), autonomie locale : comme un worker.
+
 ## Contexte et réutilisation
 - **Contexte minimal** : lis les fichiers de la mission (et ce qu'ils importent directement), pas le dépôt. Pas
   d'exploration large ; il manque une information → arrête-toi et remonte-la plutôt que de parcourir le code.
@@ -49,11 +54,15 @@ n'appelle pas graphify par réflexe.
 ## Sortie
 ```
 CENG_REPORT
-status: done
+status: done | partial | blocked | escalate
 task: <ID>
 decision: <1-3 lignes>
 rationale: <pourquoi, alternatives écartées>
-instructions: <étapes concrètes pour le worker>
-subtasks: <si découpage : titre · fichiers · critères · dépendances>
+files: <fichiers produits>
+tests: <commandes → résultat>
+reuse: <existant réutilisé, ou « rien de proche (cherché : …) »>
+removed: <ancien code, doublons ou code mort supprimés, ou « rien »>
 adr: <chemin ou "aucun">
+subtasks: <seulement si le travail dépasse une session : titre · fichiers · critères · dépendances>
+report_file: .ceng/brain/reports/<ID>.md
 ```

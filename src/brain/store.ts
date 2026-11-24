@@ -92,6 +92,8 @@ export interface BrainState {
   runningAgents?: Record<string, string>;
   /** Heure de démarrage de chaque sous-agent de runningAgents (expiration d'un agent dont l'arrêt n'a jamais été signalé). */
   agentStartedAt?: Record<string, string>;
+  /** Sous-agents qui ont remis leur rapport par l'outil SubagentHandback (le dernier message ne le contient alors pas). */
+  handbackReports?: Record<string, true>;
   /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
   graphDirty?: boolean;
   /** Mode sans humain : compteur de relances et détection d'absence de progression. */

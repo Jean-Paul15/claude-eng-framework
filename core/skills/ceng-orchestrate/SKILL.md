@@ -35,7 +35,8 @@ ceng plan                       → lots prêts + mode (direct / séquentiel / s
 pour chaque lot :
   ceng task start <id>          → la route donne agent, modèle, effort, phases, gates
   [checkpoint si route.checkpointBefore]
-  exécuter les phases (direct, ou délégation : voir delegation.md)
+  exécuter les phases (direct, ou délégation : voir delegation.md ; phases du même agent = une seule délégation,
+  corrections = `SendMessage` au même agent)
   ceng gate run <id>            → gates commande/intégrées ; gates de revue → déléguer puis `ceng gate record`
   gates requises vertes → ceng task done <id> --evidence "…" ; commit logique
   échec → ceng task fail <id> --reason "cause précise" → la route re-calculée dit : nouvelle stratégie, escalade ou blocage
@@ -139,28 +140,10 @@ parce que ce n'est pas un frein : checkpoint volontaire avant ce qui sort de la 
 publication), instantanés automatiques avant suppression/reset, secrets utilisés sans être affichés (lus si la tâche
 l'exige, jamais recopiés dans un rapport, un log ou un commit). Tu ne l'actives ni ne le coupes de toi-même.
 
-## 6 bis. Mode sans humain (`ceng run --unattended`, « mode nuit »)
-Le prompt commence par « MODE SANS HUMAIN » : personne ne répondra.
-- Ne pose **aucune** question bloquante. Une question de direction prend **ta recommandation** comme **décision
-  provisoire** : checkpoint juste avant, ADR « PROVISOIRE : … » qui liste ce qui en dépend, choix isolé si cela ne coûte
-  presque rien (interface, configuration, module unique) pour qu'un changement ultérieur reste local. La question est
-  consignée dans `.ceng/brain/pending-approvals.md` (le hook le fait si tu utilises l'outil de questions).
-  Au bootstrap, consigne aussi les hypothèses dans `assumptions.md`.
-- Une action qui exige l'humain est refusée par le hook et consignée dans `pending-approvals.md` : ne réessaie pas,
-  ne la contourne pas. Bloque la tâche concernée (`task block --reason "attend validation humaine"`) et passe aux
-  tâches indépendantes.
-- Enchaîne les tâches (le hook Stop te relance tant qu'il reste du travail faisable). Checkpoint après chaque tâche.
-- Prudence accrue : pas de décision irréversible d'architecture sans ADR ; en cas de doute métier, choisir l'option
-  la plus réversible et la consigner.
-Au retour de l'humain : reprends `pending-approvals.md` et les tâches bloquées **avec l'outil de questions**, jamais
-sous forme de liste à lire : une décision par question (approuver / refuser / modifier ; pour une question en attente,
-l'hypothèse prise la nuit en option recommandée), par lots de 4 maximum. Applique chaque réponse (débloquer, reprendre,
-annuler) et coche la ligne. Une décision ignorée reste non cochée : elle sera reproposée. Si l'humain demande à revoir
-les décisions en attente (« montre-moi les décisions », « reprends l'invite »), repose-les de la même façon.
-**Changement de trajectoire** : si l'humain choisit une autre option qu'une décision provisoire, évalue l'impact
-(tâches et fichiers qui en dépendent, d'après l'ADR et `ceng log`), présente le coût en une phrase, puis soit rollback
-au checkpoint de la décision (peu de travail dépendant), soit tâches d'adaptation dans le graphe ; mets l'ADR à jour
-(« remplacée par … »). Une décision gardée telle quelle passe de PROVISOIRE à acceptée.
+## 6 bis. Mode sans humain
+Prompt commençant par « MODE SANS HUMAIN » (`ceng run --unattended`), ou retour de l'humain après une nuit : lis
+[unattended.md](unattended.md) (aucune question bloquante, décisions provisoires, actions à approbation consignées,
+reprise des décisions en attente avec l'outil de questions).
 
 ## 6 ter. Sessions, contexte, limites du compte
 Ta conversation reste petite. Session trop chargée (compaction déjà faite, chantier sans lien avec le précédent) →
@@ -175,4 +158,5 @@ Périodiquement (≈ toutes les 10 tâches) : `ceng adapt` pour ajuster la strat
 Livraison depuis un cahier des charges : skill `ceng-delivery`. UI : skills `ux-principles` et `visual-flow-testing` (le test du flux en images est le test principal d'une interface).
 Références (charger seulement si besoin) : [delegation.md](delegation.md) (briefs, parallélisme, Agent Teams, grand chantier à plusieurs agents) ·
 [bootstrap.md](bootstrap.md) (premier lancement) · [recovery.md](recovery.md) (reprise, rollback, échecs) ·
-[iteration.md](iteration.md) (cycle UNDERSTAND→DONE selon le risque).
+[iteration.md](iteration.md) (cycle UNDERSTAND→DONE selon le risque) ·
+[unattended.md](unattended.md) (mode sans humain, retour de l'humain).

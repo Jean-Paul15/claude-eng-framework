@@ -1,6 +1,7 @@
 import { readyTasks } from '../domain/taskgraph.js';
 import type { Task } from '../domain/types.js';
 import { exists, readText } from '../infra/fs.js';
+import { listDecisions } from '../app/decisions.js';
 import { CLI_INVOCATION } from './paths.js';
 import type { BrainStore } from './store.js';
 
@@ -70,6 +71,8 @@ export function renderIndex(store: BrainStore): string {
     '- `project.md` profil technique détecté · `architecture.md` · `objective.md`',
     '- `decisions/` ADR · `reports/<tâche>.md` rapports d\'agents · `research/` notes de recherche',
     '- `assumptions.md` · `known-issues.md` · `escalations/` · `teams/` chartes d\'équipe',
+    ...(exists(`${p.brain}/spec.md`) ? ['- `spec.md` cahier des charges synthétisé (exigences EX-xxx)'] : []),
+    ...(exists(`${p.brain}/chantiers`) ? ['- `chantiers/<nom>/` VISION.md et DECISIONS.md des grands chantiers'] : []),
     `- État machine : \`${CLI_INVOCATION} task list\`, \`${CLI_INVOCATION} resume\``,
   ];
   return out.filter((l, i, arr) => !(l === '' && arr[i - 1] === '')).join('\n') + '\n';
@@ -91,6 +94,15 @@ export function resumeBrief(store: BrainStore, source: string): string {
     if (lastFail) parts.push(`Dernier échec (${lastFail.agent}/${lastFail.model}) : ${lastFail.reason ?? 'raison non consignée'}.`);
     if (exists(p.report(current.id))) parts.push(`Rapport existant : .ceng/brain/reports/${current.id}.md`);
   }
+  // Lot parallèle : les autres tâches en cours et les sous-agents encore actifs, sinon une reprise les relance ou les oublie.
+  const others = tasks.filter((t) => t.status === 'in_progress' && t.id !== current?.id);
+  if (others.length) parts.push(`Aussi en cours : ${others.map((t) => `${t.id} ${t.title}`).join(' ; ')}.`);
+  const agentTasks = [...new Set(Object.values(state.runningAgents ?? {}).filter(Boolean))];
+  if (agentTasks.length) parts.push(`Sous-agents encore actifs sur : ${agentTasks.join(', ')} — attendre leur rapport, ne pas relancer ces tâches.`);
+  const decisions = listDecisions(store).slice(-5);
+  if (decisions.length) parts.push(`Décisions en vigueur (récentes ; toutes dans .ceng/brain/decisions/) : ${decisions.map((d) => d.title).join(' ; ')}.`);
+  const pointers = [exists(`${p.brain}/spec.md`) ? 'cahier des charges .ceng/brain/spec.md' : '', exists(`${p.brain}/chantiers`) ? 'chantiers .ceng/brain/chantiers/<nom>/VISION.md' : ''].filter(Boolean);
+  if (pointers.length) parts.push(`À relire si le travail y touche : ${pointers.join(' · ')}.`);
   const cp = state.lastCheckpoint;
   if (cp) parts.push(`Dernier checkpoint ${cp.id} (${cp.at}) — fait : ${cp.done} | prochaine étape : ${cp.next}${cp.failed ? ` | échec : ${cp.failed}` : ''}`);
   if (state.editsSinceCheckpoint > 0) parts.push(`${state.editsSinceCheckpoint} modification(s) de fichiers depuis ce checkpoint : vérifier \`git status\`/\`git diff\` avant de continuer.`);

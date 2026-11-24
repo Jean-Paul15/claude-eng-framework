@@ -3,7 +3,7 @@ import { planExecution } from '../../domain/planner.js';
 import { readyTasks } from '../../domain/taskgraph.js';
 import { GATE_IDS, TASK_STATUSES, type ContextSize, type GateId, type GateStatus, type ModelTier, type RouteDecision, type Task } from '../../domain/types.js';
 import { blockTask, completeTask, createTask, csv, failAttempt, parseKind, parseLevel, routeAndStore, setStatus, startTask } from '../../app/tasks.js';
-import { recordOutcomes, runGates } from '../../app/gates.js';
+import { MIN_SHOTS, recordOutcomes, runGates, visualEvidence } from '../../app/gates.js';
 import { detectConflicts, writeTeamCharter } from '../../app/coordination.js';
 import { BrainStore } from '../../brain/store.js';
 import { renderIndex } from '../../brain/brief.js';
@@ -183,7 +183,7 @@ export function planCommand(argv: string[]): void {
 
 export function gateCommand(argv: string[]): void {
   const [sub, ...rest] = argv;
-  const p = parse(rest, { dir: { type: 'string' }, only: { type: 'string' }, note: { type: 'string' } });
+  const p = parse(rest, { dir: { type: 'string' }, only: { type: 'string' }, note: { type: 'string' }, shots: { type: 'string' } });
   const store = storeFor(str(p, 'dir'));
   if (sub === 'run' || sub === 'list') {
     const id = requirePositional(p, 0, 'tâche');
@@ -213,7 +213,16 @@ export function gateCommand(argv: string[]): void {
     if (!['pass', 'fail', 'waived'].includes(status)) throw new UsageError('statut : pass|fail|waived');
     const t = store.task(id);
     const req = t.route?.gates.find((g) => g.gate === gate);
-    const note = requireStr(p, 'note', 'qui a vérifié quoi, constats');
+    let note = requireStr(p, 'note', 'qui a vérifié quoi, constats');
+    if (gate === 'visual' && status === 'pass') {
+      // Le test principal d'une interface se prouve : captures récentes du parcours, une par largeur au minimum.
+      const dir = path.resolve(store.paths.root, str(p, 'shots') ?? store.paths.shots(t.id));
+      const { fresh } = visualEvidence(dir, t.attempts[0]?.startedAt);
+      if (fresh < MIN_SHOTS) {
+        throw new UsageError(`Aucune capture récente suffisante (${fresh}/${MIN_SHOTS}) dans ${store.paths.rel(dir)} : capturer le parcours (skill visual-flow-testing, mobile + tablette + desktop), ou enregistrer \`waived\` avec la raison.`);
+      }
+      note = `${fresh} captures dans ${store.paths.rel(dir)} — ${note}`;
+    }
     recordOutcomes(store, t.id, [{ gate, status, required: req?.required ?? false, detail: note }]);
     out(p, `${t.id} · ${gate} = ${status}`, { gate, status });
     return;

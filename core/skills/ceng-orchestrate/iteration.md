@@ -16,7 +16,7 @@ La route (`ceng route`) en sélectionne les phases selon le risque. Repères :
 | Fin de phase parallèle | workers → tests individuels → intégration → détection de conflits → revue ciblée → gates |
 
 ## Refine
-Après la revue : corriger les constats **bloquants** (puis re-tester), traiter les « recommandés » s'ils sont
+Après la revue : corriger les constats **bloquants** en reprenant le même agent par `SendMessage` (puis re-tester), traiter les « recommandés » s'ils sont
 peu coûteux ou liés au risque, noter les « mineurs » sans bloquer. Ne pas réécrire ce qui fonctionne.
 
 ## Terminé = prouvé

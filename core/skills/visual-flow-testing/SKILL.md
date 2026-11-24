@@ -17,7 +17,7 @@ Persona : utilisateur pressé, mobile, une main
 Étapes : ouvrir → saisir destination → choisir option → confirmer → suivre le chauffeur
 Attendu à chaque étape : <ce qui doit être évident, l'action principale, le retour visuel>
 États à forcer : vide · chargement lent · erreur réseau · hors ligne · données longues/extrêmes · permission refusée
-Largeurs : 390 (mobile) · 820 (tablette portrait) · 1180 (tablette paysage) · 1440 (desktop)
+Largeurs : 390 (mobile) · 820 (tablette) · 1440 (desktop) — 3 obligatoires ; 1180 (tablette paysage) en plus si l'écran a une mise en page propre à ce format
 ```
 Couvrir le chemin heureux ET les chemins de bord : retour arrière, double tap, rotation, texte agrandi, mode sombre,
 langue la plus longue, premier lancement (aucune donnée) et compte bien rempli.
@@ -49,11 +49,13 @@ les PNG à relire.
   émulateur ou appareil : `adb exec-out screencap -p > shot.png` (actions : `adb shell input tap x y`, `input text`,
   `input keyevent 4` pour retour), simulateur iOS `xcrun simctl io booted screenshot shot.png`, ou Maestro
   (`takeScreenshot`) pour des scénarios déclaratifs.
-- **Web** : Playwright — `page.setViewportSize` par largeur (390, 820, 1180, 1440), `page.screenshot({ fullPage: true })`
+- **Web** : Playwright — `page.setViewportSize` par largeur (390, 820, 1440, et 1180 si pertinent), `page.screenshot({ fullPage: true })`
   par étape, `page.route` pour simuler lenteur et erreurs, `emulateMedia({ colorScheme, reducedMotion })`,
   `document.fonts.ready` attendu avant capture, puis `toHaveScreenshot` pour la non-régression des écrans validés.
   Sans Playwright : le navigateur intégré (preview) et ses captures.
-- Rangement : `<SHOTS_DIR>/<parcours>/<NN-etape>_<appareil>.png` ; seuls les goldens validés sont versionnés.
+- Rangement : `.ceng/shots/<tâche>/<parcours>/<NN-etape>_<largeur>.png` (non versionné) ; seuls les goldens validés sont versionnés.
+  La gate `visual` n'est enregistrée qu'avec des captures récentes (3 au moins) : `ceng gate record <id> visual pass --note …`
+  (option `--shots <dossier>` si les captures sont ailleurs) ; sans capture possible : `waived` avec la raison.
 
 ## 3. Relire chaque image (grille — skill `ux-principles`)
 Regarder vraiment l'image (outil de lecture d'image), pas seulement vérifier que la capture existe :
@@ -71,11 +73,15 @@ Regarder vraiment l'image (outil de lecture d'image), pas seulement vérifier qu
 
 ## 4. Boucle
 **Tours de critique** : un agent critique (`ceng-quality-auditor`) relit les captures avec la grille et renvoie des écarts
-classés ; l'exécutant corrige ; nouvelles captures (tour 2, tour 3…). L'humain valide en dernier, sur les vraies captures —
-jamais sur des maquettes.
+classés ; l'exécutant corrige ; nouvelles captures (tour 2, tour 3…). L'humain voit les vraies captures à la fin de l'incrément, dans le rapport de livraison (jamais des
+maquettes) ; sa validation n'est pas attendue pour clore la tâche.
 capture → relecture → liste d'écarts classés (bloquant / important / finition) → correction → recapture des seuls
 écrans touchés → … Un écran est **validé** quand la grille ne relève plus rien de bloquant ni d'important aux
 largeurs requises. Les écarts « finition » restants sont listés dans le rapport.
+
+**Indépendance** : celui qui relit n'est pas celui qui a codé. L'exécutant capture et corrige ses propres écarts ; la relecture
+qui enregistre la gate est faite par `ceng-quality-auditor` (tâche `design`, ou risque ≥ 3) ou par l'orchestrateur sur une
+capture par largeur (autres cas).
 
 ## 5. Économie
 - Captures en résolution utile (largeur logique, facteur 1 ou 2), pas en 4K ; recadrer (zoom) sur la zone en doute.
@@ -85,4 +91,4 @@ largeurs requises. Les écarts « finition » restants sont listés dans le rapp
   des captures et la grille — l'orchestrateur ne lit que la liste d'écarts.
 
 ## 6. Livrable
-Dans le rapport de tâche : parcours couverts, largeurs, captures clés (chemins), écarts corrigés, écarts restants.
+Dans le rapport de tâche : parcours couverts, largeurs, dossier des captures (`.ceng/shots/<tâche>/`), captures clés (chemins), écarts corrigés, écarts restants.

@@ -45,8 +45,8 @@ function objectiveDefined(store: BrainStore): boolean {
 export function buildUnattendedArgs(store: BrainStore, opts: UnattendedOptions, first: boolean): string[] {
   const model = opts.model ?? store.config().policy.orchestratorModel;
   const prompt = first && opts.goal
-    ? `/ceng-orchestrate MODE SANS HUMAIN — personne ne peut répondre : ne pose aucune question, consigne tes hypothèses dans assumptions.md. Objectif : ${opts.goal}`
-    : '/ceng-orchestrate MODE SANS HUMAIN — reprends le travail depuis le Project Brain et enchaîne les tâches faisables ; ne pose aucune question.';
+    ? `/ceng-orchestrate MODE SANS HUMAIN (lis .claude/skills/ceng-orchestrate/unattended.md) — personne ne peut répondre : ne pose aucune question, consigne tes hypothèses dans assumptions.md. Objectif : ${opts.goal}`
+    : '/ceng-orchestrate MODE SANS HUMAIN (lis .claude/skills/ceng-orchestrate/unattended.md) — reprends le travail depuis le Project Brain et enchaîne les tâches faisables ; ne pose aucune question.';
   const args = ['-p', prompt, '--model', model, '--permission-mode', opts.permissionMode, '--permission-prompts', 'none', '--output-format', 'text'];
   if (opts.maxBudgetUsd) args.push('--max-budget-usd', opts.maxBudgetUsd);
   return args;

@@ -71,6 +71,8 @@ Les estimations humaines ne valent plus : ce qui prenait 2 mois à une équipe s
 - **Incrément 1 en quelques heures** : le parcours principal de bout en bout, en vrai (pas de maquette), déjà beau.
 - Ensuite des incréments courts, chacun démontrable (captures du flux dans le rapport). Rétro express après chaque
   incrément : `ceng adapt`, leçons (`ceng learn add`), plan ajusté.
+- Dès que le manifeste du projet existe (package.json, pubspec.yaml, pyproject.toml…) : `ceng upgrade` — les commandes
+  des gates et les skills de la pile sont installées ; sans cela build, tests et lint restent « skipped ».
 - Graphe de tâches dense et exact (`ceng task add` avec `--files`, `--deps`, `--accept`, `--interfaces`) : c'est lui qui
   permet le parallélisme et la reprise.
 - Ne pas s'arrêter à la première tâche verte : enchaîner jusqu'à l'objectif (le hook Stop relance tant qu'il reste du
@@ -96,10 +98,7 @@ dans un fichier modifié par la tâche, sinon échec) — déclenchés par les d
 Rangement : `docs/diagrams/<sujet>.md` (bloc ```mermaid) ou à côté du code ; première ligne : ce qu'il reflète (fichiers,
 symboles). Diagramme existant toujours exact après la tâche → `ceng gate record <id> diagrams pass --note "toujours exact : …"`.
 Jamais : classes, objets, composants, paquetages, cas d'utilisation, communication, timing (le code, le SQL et les contrats
-les remplacent). **Diagrammes : seulement quand ils portent le flux** et qu'on les fait vivre. Utiles : diagramme d'états (statuts d'une
-commande, d'une course), séquence d'une intégration (paiement, webhook, dispatch), parcours utilisateur, architecture des
-surfaces. En Mermaid dans `docs/` ou à côté du code, **mis à jour dans la même tâche** que le code qu'ils décrivent.
-Un ER se génère depuis le schéma si besoin. Pas de diagramme UML de classes « pour la forme ».
+les remplacent). Les diagrammes sont **mis à jour dans la même tâche** que le code qu'ils décrivent. Un ER se génère depuis le schéma si besoin. Pas de diagramme UML de classes « pour la forme ».
 
 ## 4. Qui code (modèles)
 - **Opus (toi, orchestrateur)** : cadrage, plan, contrats, arbitrages, revue des résultats. Tu codes toi-même seulement

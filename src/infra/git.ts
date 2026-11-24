@@ -24,6 +24,11 @@ export class Git {
     return this.out(['rev-parse', 'HEAD']);
   }
 
+  /** Le commit existe-t-il encore (pas perdu par un rebase) ? */
+  exists(commit: string): boolean {
+    return this.git(['cat-file', '-e', `${commit}^{commit}`]).code === 0;
+  }
+
   currentBranch(): string | undefined {
     return this.out(['branch', '--show-current']) || undefined;
   }

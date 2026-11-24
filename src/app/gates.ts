@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DIAGRAM_LABEL, diagramsIn, requiredDiagrams, type DiagramKind } from '../domain/diagrams.js';
 import { GATE_KINDS } from '../domain/gates.js';
@@ -23,12 +24,16 @@ export interface GateRunOutcome {
 
 const MAX_SCAN_BYTES = 1_000_000;
 
-export function changedFiles(root: string): string[] {
+/** Fichiers modifiés depuis `base` (début de la tâche) ; repli sur HEAD si la base est inconnue ou perdue (rebase). */
+export function changedFiles(root: string, base?: string): string[] {
   const git = new Git(root);
   if (!git.isRepo()) return [];
-  const head = git.head();
-  return head ? git.filesChangedSince(head) : git.changedFiles();
+  const from = base && git.exists(base) ? base : git.head();
+  return from ? git.filesChangedSince(from) : git.changedFiles();
 }
+
+/** Commit de départ de la tâche : la première tentative qui en porte un fait foi (le travail entier, même après un échec). */
+export const taskBase = (task: Task): string | undefined => task.attempts.find((a) => a.baseCommit)?.baseCommit;
 
 const DIAGRAM_FILE = /\.(md|mdx|mmd)$/i;
 const DIAGRAM_SKIP = /(^|\/)(node_modules|dist|build|\.ceng|graphify-out|vendor)(\/|$)/;
@@ -69,6 +74,18 @@ export function runDiagramsGate(root: string, task: Task, files = changedFiles(r
       ...(stale.length ? [`À mettre à jour, ou confirmer qu'il reste exact : \`ceng gate record ${task.id} diagrams pass --note "toujours exact : …"\``, ...stale.map((s) => `- ${s}`)] : []),
     ].join('\n'),
   };
+}
+
+/** Nombre minimal de captures pour valider un parcours : une par largeur obligatoire (mobile, tablette, desktop). */
+export const MIN_SHOTS = 3;
+
+/** Captures d'un parcours : images présentes, et nombre de celles postérieures au début de la tâche. */
+export function visualEvidence(dir: string, since?: string): { images: string[]; fresh: number } {
+  if (!exists(dir)) return { images: [], fresh: 0 };
+  const images = listFiles(dir, { maxFiles: 2000 }).files.filter((f) => /\.(png|jpe?g|webp)$/i.test(f));
+  const t0 = since ? Date.parse(since) : 0;
+  const fresh = images.filter((f) => fs.statSync(path.join(dir, f)).mtimeMs >= t0).length;
+  return { images, fresh };
 }
 
 export function runSecretsGate(root: string, files = changedFiles(root)): { status: GateStatus; detail: string } {
@@ -134,6 +151,8 @@ export function runGates(store: BrainStore, taskId: string, only?: GateId[]): Ga
   const outcomes: GateRunOutcome[] = [];
   const timeoutMs = config.gateTimeoutMinutes * 60_000;
   const ran = new Map<string, GateRunOutcome>();
+  let changed: string[] | undefined;
+  const files = () => (changed ??= changedFiles(root, taskBase(task)));
 
   for (const req of route.gates) {
     if (only && !only.includes(req.gate)) continue;
@@ -155,10 +174,10 @@ export function runGates(store: BrainStore, taskId: string, only?: GateId[]): Ga
         ran.set(cmd, outcome);
       }
     } else if (req.gate === 'secrets') {
-      outcome = { gate: req.gate, required: req.required, ...runSecretsGate(root) };
+      outcome = { gate: req.gate, required: req.required, ...runSecretsGate(root, files()) };
     } else if (req.gate === 'diagrams') {
       const confirmed = task.gates.find((g) => g.gate === 'diagrams' && g.status === 'pass' && !(g.detail ?? '').startsWith('Diagrammes à jour'));
-      outcome = confirmed ? { gate: req.gate, status: 'pass', required: req.required, detail: confirmed.detail ?? 'confirmé' } : { gate: req.gate, required: req.required, ...runDiagramsGate(root, task) };
+      outcome = confirmed ? { gate: req.gate, status: 'pass', required: req.required, detail: confirmed.detail ?? 'confirmé' } : { gate: req.gate, required: req.required, ...runDiagramsGate(root, task, files()) };
     } else if (req.gate === 'compliance') {
       outcome = { gate: req.gate, required: req.required, ...runComplianceGate(root, store, task) };
     } else if (req.gate === 'report') {

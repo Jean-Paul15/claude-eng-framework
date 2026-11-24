@@ -24,7 +24,7 @@ export const SKILLS: AssetSpec[] = [
   { name: 'ceng-relay', when: always, why: "Coordination entre sessions parallèles : relais d'événements, passage sur un modèle plus fort au bon moment, équipe autonome." },
   { name: 'ceng-setup', when: always, why: 'Installation, mise à jour et diagnostic du framework — voyage avec le dépôt (nouvelle machine, clone).' },
   { name: 'ceng-delivery', when: always, why: 'Du cahier des charges à la livraison : cadrage court, agile accéléré, artefacts exécutables, décisions production.' },
-  // Toujours installées : un projet qui part d'un cahier des charges n'a pas encore d'UI détectable, et une skill non utilisée ne coûte que sa description.
+  // Toujours installées (skills ET agents créatifs) : un projet qui part d'un cahier des charges n'a pas encore d'UI détectable, le routage envoie pourtant ses tâches `design` vers ceng-creative-director ; une skill non utilisée ne coûte que sa description.
   { name: 'ux-principles', when: always, why: "Révélation progressive, budget d'écran, élévation sobre, typographie choisie, responsive mobile/tablette." },
   { name: 'visual-flow-testing', when: always, why: 'Test principal des interfaces : parcours capturés en images, relus et corrigés.' },
   { name: 'scale-algorithms', when: (p) => isServer(p) || hasDb(p) || p.projectTypes.includes('data') || p.projectTypes.includes('mobile') || p.projectTypes.includes('api'), why: 'Algorithmes qui tiennent le volume (proximité, matching, classement) et leur coût.' },
@@ -45,14 +45,14 @@ export const SKILLS: AssetSpec[] = [
   { name: 'database', when: hasDb, why: 'Base de données détectée (transactions, migrations, index).' },
   { name: 'api-design', when: (p) => p.projectTypes.includes('api') || isServer(p), why: 'API exposée.' },
   { name: 'backend', when: isServer, why: 'Code serveur détecté.' },
-  { name: 'frontend', when: (p) => p.ui, why: 'Interface utilisateur détectée.' },
-  { name: 'accessibility', when: (p) => p.ui, why: 'Toute UI doit être accessible.' },
+  { name: 'frontend', when: always, why: 'Interface utilisateur (projet à venir compris).' },
+  { name: 'accessibility', when: always, why: 'Toute UI doit être accessible.' },
   { name: 'performance', when: (p) => p.ui || isServer(p) || p.projectTypes.includes('data') || p.projectTypes.includes('mobile'), why: 'Chemins chauds probables (UI, serveur, data).' },
   { name: 'observability', when: isRunningService, why: 'Service déployé ou serveur : logs, métriques, traces.' },
   { name: 'ci-cd', when: (p) => p.ci.providers.length > 0 || p.deployment.length > 0, why: 'CI ou déploiement détecté.' },
-  { name: 'creative-director', when: (p) => p.ui && p.projectTypes.some((t) => ['web-app', 'mobile', 'desktop'].includes(t)), why: 'Produit avec UI : direction créative et motion.' },
-  { name: 'frontend-executor', when: (p) => p.ui && p.projectTypes.some((t) => ['web-app', 'mobile', 'desktop'].includes(t)), why: 'Exécution fidèle de la direction créative.' },
-  { name: 'quality-gate-auditor', when: (p) => p.ui && p.projectTypes.some((t) => ['web-app', 'mobile', 'desktop'].includes(t)), why: 'Audit implémentation vs direction créative.' },
+  { name: 'creative-director', when: always, why: 'Direction créative et motion (le routage y envoie les tâches design).' },
+  { name: 'frontend-executor', when: always, why: 'Exécution fidèle de la direction créative.' },
+  { name: 'quality-gate-auditor', when: always, why: 'Audit implémentation vs direction créative.' },
 ];
 
 export const AGENTS: AssetSpec[] = [

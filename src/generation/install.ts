@@ -163,7 +163,7 @@ function walkFiles(dir: string, rel = ''): string[] {
   return out;
 }
 
-const GITIGNORE_BLOCK = ['# claude-eng-framework (journaux et sauvegardes locales)', '.ceng/logs/', '.ceng/backups/', '.ceng/upgrade-conflicts/', '.ceng/brain/*.lock', '.ceng/brain/*.tmp', 'graphify-out/'];
+const GITIGNORE_BLOCK = ['# claude-eng-framework (journaux et sauvegardes locales)', '.ceng/logs/', '.ceng/backups/', '.ceng/shots/', '.ceng/upgrade-conflicts/', '.ceng/brain/*.lock', '.ceng/brain/*.tmp', 'graphify-out/'];
 
 export function install(opts: InstallOptions): InstallReport {
   const fw = locateFramework();

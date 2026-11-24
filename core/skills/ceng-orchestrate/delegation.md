@@ -26,6 +26,16 @@ devient un teammate). N'envoie pas le contenu des skills : le worker les charge 
 - Ne donne pas au worker : l'historique, toutes les recherches, tout le repo. Donne des pointeurs.
 - Sortie volumineuse à analyser (logs, tests, grep large) → `ceng-scout` (Haiku) qui renvoie un résumé.
 
+## Une tâche, un agent, une conversation
+- Les phases de la route portées par le même agent (test-design, implement, test, refine) sont **une seule délégation** :
+  un appel à l'outil Agent dont le brief demande toute la séquence.
+- Corrections après revue, gate rouge ou rapport `partial` : reprends le **même** agent avec `SendMessage` (son
+  identifiant est renvoyé à la fin de sa mission), en ne lui donnant que les constats à corriger. Il a déjà les
+  fichiers en contexte : ni agent neuf, ni brief recollé.
+- Agent neuf seulement si : stratégie différente après un échec (`task fail`), escalade vers Opus, conversation de
+  l'agent compactée.
+- Relecteurs (`ceng-reviewer`, `ceng-security`, `ceng-quality-auditor`) : toujours un agent neuf, jamais celui qui a écrit le code.
+
 ## Parallélisme (`ceng plan`)
 Le planner ne met dans un même lot que des tâches **sans recouvrement de fichiers**. Tu dois :
 1. Déclarer des `--files` précis à la création (sinon : séquentiel ou worktree isolé).

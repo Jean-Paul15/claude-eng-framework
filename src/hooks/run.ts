@@ -42,6 +42,7 @@ if (isMain) {
     .then((raw) => runHook(event, raw))
     .then((out) => {
       if (out.json) process.stdout.write(JSON.stringify(out.json));
+      else if (out.stdout) process.stdout.write(out.stdout);
       if (out.stderr) process.stderr.write(`${out.stderr}\n`);
       process.exitCode = out.exitCode;
     })

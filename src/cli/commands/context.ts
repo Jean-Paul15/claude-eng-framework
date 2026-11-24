@@ -1,5 +1,5 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { relevantDecisions } from '../../app/decisions.js';
 import { findSimilar } from '../../app/similar.js';
 import { routeAndStore } from '../../app/tasks.js';
 import { BrainStore } from '../../brain/store.js';
@@ -7,7 +7,7 @@ import { matchesAny, normalizePath } from '../../domain/globs.js';
 import type { Candidate } from '../../domain/similarity.js';
 import { DIAGRAM_LABEL, requiredDiagrams } from '../../domain/diagrams.js';
 import type { Task } from '../../domain/types.js';
-import { exists, listFiles, readText } from '../../infra/fs.js';
+import { exists, listFiles } from '../../infra/fs.js';
 import { out, parse, requirePositional, str, UsageError } from '../args.js';
 
 function storeFor(dir?: string): BrainStore {
@@ -42,24 +42,6 @@ function filesInScope(root: string, globs: readonly string[]): string[] {
   return listFiles(root, { maxFiles: 20000 }).files.filter((f) => matchesAny(f, [...globs])).slice(0, 40);
 }
 
-/** Décisions en vigueur (ADR acceptées ou provisoires), titres seulement : le worker lit celles qui le concernent. */
-function decisionsInForce(store: BrainStore): string[] {
-  const dir = store.paths.decisions;
-  if (!exists(dir)) return [];
-  return fs.readdirSync(dir)
-    .filter((f) => f.endsWith('.md'))
-    .sort()
-    .slice(-12)
-    .map((f) => {
-      const text = readText(path.join(dir, f)) ?? '';
-      const title = /^#\s+(.+)$/m.exec(text)?.[1] ?? f;
-      const status = /statut\s*:\s*\**\s*([a-zé]+)/i.exec(text)?.[1] ?? '';
-      return { f, title, status };
-    })
-    .filter((d) => !/remplac|rejet|superseded|rejected/i.test(d.status))
-    .map((d) => `  - .ceng/brain/decisions/${d.f} — ${d.title}${d.status ? ` (${d.status})` : ''}`);
-}
-
 function depReports(store: BrainStore, task: Task): string[] {
   return task.deps.filter((d) => exists(store.paths.report(d))).map((d) => `  - .ceng/brain/reports/${d}.md`);
 }
@@ -83,7 +65,7 @@ export function briefCommand(argv: string[]): void {
     limit: 6,
     exclude: (f) => (task.files.length > 0 && matchesAny(f, [...task.files])) || refs.includes(f),
   });
-  const decisions = decisionsInForce(store);
+  const decisions = relevantDecisions(store, task).map((d) => `  - .ceng/brain/decisions/${d.file} — ${d.title}${d.status ? ` (${d.status})` : ''}`);
   const reports = depReports(store, task);
   const section = (title: string, lines: string[]) => (lines.length ? [title, ...lines] : []);
   const text = [
@@ -99,7 +81,7 @@ export function briefCommand(argv: string[]): void {
     'Critères d\'acceptation :',
     ...(task.acceptance.length ? task.acceptance.map((a) => `  - ${a}`) : ['  - <critères vérifiables>']),
     `Tests : ${route.testStrategy.flow}${route.testStrategy.types.length ? ` [${route.testStrategy.types.join(', ')}]` : ''}${route.testStrategy.testFirst ? ' — test d\'abord (TDD)' : ''}`,
-    ...(task.domains.includes('frontend') || task.kind === 'ui' || task.kind === 'design' ? ['Validation visuelle : parcours capturé et relu image par image (skill visual-flow-testing), mobile + tablette + desktop.'] : []),
+    ...(task.domains.includes('frontend') || task.kind === 'ui' || task.kind === 'design' ? [`Validation visuelle : parcours capturé et relu image par image (skill visual-flow-testing), mobile + tablette + desktop. Captures à écrire dans .ceng/shots/${task.id}/.`] : []),
     ...section('Diagrammes obligatoires (Mermaid, créés ou mis à jour dans cette tâche — gate `diagrams`) :', requiredDiagrams(task).map((d) => `  - ${DIAGRAM_LABEL[d.kind]} — ${d.why}`)),
     'Règles de contexte : ne lis que les fichiers listés et ceux qu\'ils importent directement ; pas d\'exploration large. S\'il manque une information, arrête-toi et remonte-la (status: blocked) plutôt que de deviner ou de parcourir le dépôt.',
     `Livrable : code + tests + .ceng/brain/reports/${task.id}.md + bloc CENG_REPORT (dont « reuse: » = ce qui a été réutilisé ou pourquoi rien ne l'était ; « removed: » = ancien code, doublons ou code mort supprimés).`,

@@ -2,6 +2,7 @@ import { routeTask } from '../domain/routing.js';
 import { findCycle, missingDeps, nextId } from '../domain/taskgraph.js';
 import { TASK_KINDS, type Assessment, type Level, type ModelTier, type Task, type TaskKind } from '../domain/types.js';
 import { exists } from '../infra/fs.js';
+import { Git } from '../infra/git.js';
 import type { BrainStore } from '../brain/store.js';
 
 /** Cas d'usage autour des tâches : création, routage, transitions d'état. */
@@ -106,6 +107,7 @@ export function startTask(store: BrainStore, id: string, agent?: string, model?:
   if (unmet.length) throw new Error(`${task.id} dépend de tâches non terminées : ${unmet.join(', ')}.`);
   if (!task.route) task = routeAndStore(store, task.id);
   const route = task.route!;
+  const base = new Git(store.paths.root).head();
   task = store.updateTasks((tasks) => {
     const t = tasks.find((x) => x.id === task.id)!;
     t.status = 'in_progress';
@@ -114,6 +116,7 @@ export function startTask(store: BrainStore, id: string, agent?: string, model?:
       agent: agent ?? (route.executor === 'direct' ? 'orchestrator' : route.implementer.agent),
       model: model ?? route.implementer.model,
       ...(strategy ? { strategy } : {}),
+      ...(base ? { baseCommit: base } : {}),
       startedAt: now(),
       outcome: 'running',
     });

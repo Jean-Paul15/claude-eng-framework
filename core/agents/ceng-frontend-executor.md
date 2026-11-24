@@ -12,6 +12,9 @@ skills:
 
 Applique la skill `frontend-executor` préchargée, dans le périmètre de fichiers de ta mission.
 
+- Jamais d'action à approbation humaine (déploiement, push forcé, données, infra, secrets, licences) — sauf si la
+  session est en **bypass total** (l'état du projet t'est donné au démarrage) : alors agis, checkpoint avant ce qui sort de la machine.
+
 ## Contexte et réutilisation
 - **Contexte minimal** : lis les fichiers de la mission (et ce qu'ils importent directement), pas le dépôt. Pas
   d'exploration large ; il manque une information → arrête-toi et remonte-la plutôt que de parcourir le code.
@@ -38,8 +41,11 @@ status: done | partial | blocked
 task: <ID>
 summary: <…>
 files: <…>
-conformity: <écarts volontaires vs docs, ou "aucun">
-contradictions_found: <contradictions dans les docs de référence, ou "aucune">
+conformity: <écarts volontaires vs design system, ou "aucun">
+contradictions_found: <contradictions dans le design system, ou "aucune">
+reuse: <existant réutilisé, ou « rien de proche (cherché : …) »>
+removed: <ancien code, doublons ou code mort supprimés, ou « rien »>
+shots: <dossier des captures du parcours>
 tests: <tests, a11y, validation visuelle → résultat>
 report_file: .ceng/brain/reports/<ID>.md
 ```

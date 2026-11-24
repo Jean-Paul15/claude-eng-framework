@@ -30,6 +30,6 @@ s'appliquent aussi. Aucune direction trouvée → `status: blocked`, n'improvise
 ## Validation avant de rendre la main
 - Tests adaptés (composants clés, parcours critiques), contrôle a11y (axe si disponible).
 - **Validation visuelle obligatoire** (skill `visual-flow-testing`) : parcours de la tâche capturé et relu image par image
-  sur mobile, tablette et desktop, avec la grille de `ux-principles` ; corriger et recapturer jusqu'à validation.
+  sur mobile, tablette et desktop, avec la grille de `ux-principles` ; captures dans `.ceng/shots/<tâche>/` ; corriger et recapturer jusqu'à validation.
 - Résume ce qui est implémenté, la conformité, les écarts volontaires et pourquoi (dans un projet
   claude-eng-framework : rapport `.ceng/brain/reports/<TÂCHE>.md`).

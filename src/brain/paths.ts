@@ -37,6 +37,8 @@ export class BrainPaths {
   get escalations() { return path.join(this.brain, 'escalations'); }
   get research() { return path.join(this.brain, 'research'); }
   get teams() { return path.join(this.brain, 'teams'); }
+  /** Captures du parcours d'une tâche (test visuel) : locales, jamais versionnées. */
+  shots(taskId: string) { return path.join(this.ceng, 'shots', taskId); }
 
   report(taskId: string) { return path.join(this.reports, `${taskId}.md`); }
   escalation(id: string) { return path.join(this.escalations, `${id}.md`); }
