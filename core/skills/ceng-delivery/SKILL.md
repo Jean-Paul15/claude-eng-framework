@@ -44,6 +44,10 @@ parler de temps en temps, il ne contrôle pas chaque étape. Ce qui suit est sa 
    modérable. Côté Android : règles Google Play équivalentes (données, permissions sensibles, suppression de compte).
    Pendant le travail, toute fonction sensible (paiement, données, santé, enfants, IA, contenu publié) → vérifier la
    règle à jour du magasin (skill `research`).
+   **Produit avec comptes ou données personnelles : le socle de la skill `compliance-by-design` fait partie de l'incrément 1** (modèle de
+   données compris). Une invite, quatre questions : pays où le produit est proposé, public (mineurs possibles ?), données sensibles
+   (santé, position précise, pièce d'identité, paiement), contact pour les droits et les alertes ; `ceng-researcher` lit les textes officiels
+   de ces pays → `.ceng/brain/research/legal-<pays>.md`. Le reste prend des valeurs prudentes notées en hypothèse.
    **Cahier des charges en PDF (ou images, maquettes, captures)** — le lire en entier, une fois, sans le relire ensuite :
    - Pages lues par lots (outil Read avec `pages`, 20 pages au plus par lecture) : texte ET images de chaque page sont vus
      (maquettes, schémas, tableaux, captures). Gros document → découpé entre plusieurs `ceng-researcher` (un lot de pages
@@ -88,6 +92,7 @@ Les estimations humaines ne valent plus : ce qui prenait 2 mois à une équipe s
 | Règles métier | code + tests qui les énoncent (noms de tests = règles) | une liste de règles en prose |
 | Design | module de design system (tokens, thème, composants) | un document de direction |
 | Configuration | fichiers de config versionnés, `.env.example` commenté | un guide d'installation long |
+| Conformité | tables et tâches du socle + leurs tests (`compliance-by-design`) | un document de politique |
 | Décision | ADR de quelques lignes (`ceng decision add`) | un document de conception |
 **Diagrammes UML obligatoires quand ils sont pertinents** (gate `diagrams`, vérifiée à chaque tâche concernée : présent
 dans un fichier modifié par la tâche, sinon échec) — déclenchés par les domaines de la tâche :

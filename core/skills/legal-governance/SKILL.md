@@ -17,12 +17,13 @@ L'agent n'est pas juriste : il **détecte, documente et escalade**. Les décisio
   (fichier NOTICE / THIRD_PARTY).
 
 ## Données personnelles (RGPD et équivalents)
-Pour toute nouvelle donnée personnelle collectée, stockée ou transmise :
-- **Minimisation** : est-elle nécessaire ? **Base légale / consentement** (cookies et analytics : consentement préalable en UE).
-- **Conservation** : durée définie et suppression effective ; droits d'accès, rectification, effacement, portabilité.
-- **Sous-traitants / transferts** : envoi à un tiers (analytics, email, IA, paiement) → le lister ; transfert hors UE à signaler.
-- **Sécurité** : chiffrement en transit, accès restreint, pas de données personnelles dans les logs.
-- Nouvelle catégorie de données ou nouveau sous-traitant → **approbation humaine** + mise à jour de la politique de confidentialité.
+Les **mécanismes** (ré-acceptation des politiques, consentements, carte des données, conservation et nettoyage, export et suppression de
+compte, journal d'audit, détection d'anomalies, réponse à incident, tiers, sauvegardes) sont décrits et rendus obligatoires par la skill
+`compliance-by-design` ; `ceng compliance status` en montre l'état. Ici, ce qui reste décision de l'humain :
+- **Nouvelle catégorie de données ou nouveau sous-traitant** → approbation humaine + mise à jour de la politique de confidentialité
+  (et ré-acceptation par les utilisateurs si la finalité ou un tiers change).
+- **Base légale et durées** : proposées par l'agent d'après les textes officiels du pays (`research/legal-<pays>.md`), validées par l'humain.
+- **Transfert hors UE**, données sensibles (santé, mineurs, biométrie, position précise) : signalés dès le cadrage.
 
 ## Autres obligations à signaler (pas à interpréter)
 - Accessibilité : WCAG 2.2 AA est aussi une obligation légale dans de nombreux contextes (ex. European Accessibility Act).

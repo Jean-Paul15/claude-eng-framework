@@ -15,6 +15,8 @@ import { bypassCommand } from './cli/commands/bypass.js';
 import { advisorCommand } from './cli/commands/advisor.js';
 import { depCommand } from './cli/commands/dep.js';
 import { featureCommand } from './cli/commands/feature.js';
+import { complianceCommand } from './cli/commands/compliance.js';
+import { dataMapCommand, readyCommand } from './cli/commands/ready.js';
 import { upgradeAll } from './cli/commands/upgrade-all.js';
 import { briefCommand, similarCommand } from './cli/commands/context.js';
 
@@ -51,6 +53,9 @@ Commandes de gates
 Bypass total (décision humaine)
   bypass status|on|off       Aucune validation ni refus (bypassPermissions) ; journal et instantanés conservés
   feature add|list|show|reject|replace|import  Registre des fonctionnalités (décidées, en cours, livrées, écartées)
+  ready                      Contrôle « prêt pour la production » (variables d'environnement, secrets, CI, santé, conformité…)
+  compliance status|set|waive  Socle de conformité (politiques, consentements, conservation, audit, anomalies, incidents)
+  data-map                   Carte des données personnelles générée depuis les migrations
   dep check [noms…]|list|baseline  Vérifie les dépendances (licence, maintenance, vulnérabilités, usage) dans les registres publics
   advisor [fable|opus|sonnet|off]  Conseiller de Claude Code (modèle plus fort consulté aux décisions clés), lancé avec --advisor
 
@@ -111,6 +116,9 @@ export async function main(argv: string[]): Promise<void> {
     case 'advisor': return advisorCommand(rest);
     case 'dep': return depCommand(rest);
     case 'feature': return featureCommand(rest);
+    case 'compliance': return complianceCommand(rest);
+    case 'ready': return readyCommand(rest);
+    case 'data-map': return dataMapCommand(rest);
     case 'similar': return similarCommand(rest);
     case 'brief': return briefCommand(rest);
     case 'relay': return relayCommand(rest);

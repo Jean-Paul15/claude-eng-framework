@@ -23,6 +23,9 @@ export const GATE_KINDS: Record<GateId, GateKind> = {
   docs: 'agent',
   diagrams: 'builtin',
   dependencies: 'builtin',
+  privacy: 'builtin',
+  'abuse-tests': 'builtin',
+  ready: 'builtin',
   review: 'agent',
   'security-review': 'agent',
   'architecture-review': 'agent',
@@ -73,6 +76,13 @@ export function selectGates(task: Task, review: ReviewLevel, policy: EffectivePo
   if (changesCode && (a.risk >= 3 || a.complexity >= 3 || critical || task.kind === 'migration')) {
     add('integration', critical || a.risk >= 4, 'Frontières I/O touchées ou risque ≥ 3.');
   }
+  if (changesCode && (task.kind === 'migration' || intersects(task.domains, ['database', 'database-migration', 'pii']))) {
+    add('privacy', true, 'Toute colonne personnelle ajoutée est classée (catégorie, finalité, base légale, durée) : carte des données.');
+  }
+  if (changesCode && securitySensitive && task.kind !== 'chore') {
+    add('abuse-tests', true, "Domaine sensible : au moins un test de refus (accès d'autrui, jeton expiré, entrée invalide) accompagne le code.");
+  }
+  if (task.domains.includes('release')) add('ready', true, 'Mise en production : contrôle « prêt pour la production » (`ceng ready`).');
   if (task.kind === 'migration' || task.domains.includes('database-migration')) {
     add('migration', true, 'Migration : application + retour arrière sur base éphémère.');
   }

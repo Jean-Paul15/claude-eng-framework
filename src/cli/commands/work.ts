@@ -48,7 +48,7 @@ const TASK_FLAGS = {
   accept: { type: 'string', multiple: true }, domains: { type: 'string' }, interfaces: { type: 'string' }, group: { type: 'string' },
   status: { type: 'string' }, evidence: { type: 'string' }, waive: { type: 'string' }, reason: { type: 'string' }, agent: { type: 'string' },
   model: { type: 'string' }, strategy: { type: 'string' }, dir: { type: 'string' },
-  feature: { type: 'string' }, extends: { type: 'string' }, new: { type: 'string' },
+  spec: { type: 'string' }, feature: { type: 'string' }, extends: { type: 'string' }, new: { type: 'string' },
 } as const;
 
 export function taskCommand(argv: string[]): void {
@@ -88,6 +88,7 @@ export function taskCommand(argv: string[]): void {
         interfaces: csv(str(p, 'interfaces')),
         ...(str(p, 'group') ? { group: str(p, 'group')! } : {}),
         ...(link ? { feature: link.toUpperCase() } : {}),
+        spec: csv(str(p, 'spec')).map((x) => x.toUpperCase()),
       });
       if (link) linkTask(store, link, t.id);
       if (str(p, 'new')) store.log({ type: 'task.created', taskId: t.id, data: { newBecause: str(p, 'new') } });

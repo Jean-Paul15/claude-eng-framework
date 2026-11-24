@@ -69,6 +69,8 @@ export interface Task {
   group?: string;
   /** Fonctionnalité du registre (`F-xxx`) que la tâche réalise ou étend. */
   feature?: string;
+  /** Exigences du cahier des charges (`EX-xxx`) couvertes par la tâche. */
+  spec?: string[];
   route?: RouteDecision;
   attempts: Attempt[];
   gates: GateResult[];
@@ -175,7 +177,7 @@ export interface RouteDecision {
 export const GATE_IDS = [
   'build', 'typecheck', 'lint', 'format', 'unit', 'integration', 'e2e', 'contract',
   'deps-audit', 'secrets', 'compliance', 'migration', 'performance', 'accessibility',
-  'visual', 'ux', 'docs', 'diagrams', 'dependencies', 'review', 'security-review', 'architecture-review', 'report', 'human-approval',
+  'visual', 'ux', 'docs', 'diagrams', 'dependencies', 'privacy', 'abuse-tests', 'ready', 'review', 'security-review', 'architecture-review', 'report', 'human-approval',
 ] as const;
 export type GateId = (typeof GATE_IDS)[number];
 

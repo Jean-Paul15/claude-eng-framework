@@ -9,7 +9,9 @@ import { runShell, tail } from '../infra/exec.js';
 import { exists, listFiles, readJson, readText, writeTextAtomic } from '../infra/fs.js';
 import { Git } from '../infra/git.js';
 import { redact } from '../domain/secrets.js';
+import { runPrivacyGate } from './data-map.js';
 import { runDependenciesGate } from './deps.js';
+import { runReady } from './ready.js';
 import type { BrainStore } from '../brain/store.js';
 import type { Commands } from '../discovery/profile.js';
 
@@ -87,6 +89,21 @@ export function visualEvidence(dir: string, since?: string): { images: string[];
   const t0 = since ? Date.parse(since) : 0;
   const fresh = images.filter((f) => fs.statSync(path.join(dir, f)).mtimeMs >= t0).length;
   return { images, fresh };
+}
+
+const TEST_FILE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[a-z]+$|_test\.(go|dart|py)$|(^|\/)test_[^/]*\.py$/i;
+const NEGATIVE_CASE = /\b(it|test|describe|def test_\w*|testWidgets|t\.Run|func Test\w*)\b[^\n]*(refus|refuse|interdit|forbidden|denied|unauthori[sz]ed|cannot|can't|ne peut pas|rejette|rejects?|invalid|invalide|expir)/i;
+
+/** Domaine sensible : un test de refus doit accompagner le code (nom de test exprimant un refus, dans un fichier de test modifié). */
+export function runAbuseTestsGate(root: string, changed: readonly string[]): { status: GateStatus; detail: string } {
+  const tests = changed.filter((f) => TEST_FILE.test(f));
+  const found = tests.filter((f) => {
+    const text = readText(path.join(root, f));
+    return text && text.length < MAX_SCAN_BYTES && NEGATIVE_CASE.test(text);
+  });
+  return found.length
+    ? { status: 'pass', detail: `Cas de refus présents : ${found.slice(0, 3).join(', ')}` }
+    : { status: 'fail', detail: tests.length ? `Aucun cas de refus dans les tests modifiés (${tests.slice(0, 3).join(', ')}) : ajouter ex. « refuse la ressource d'un autre utilisateur », « rejette un jeton expiré », « refuse une entrée invalide ».` : 'Aucun fichier de test modifié : domaine sensible, ajouter des tests d\'abus (accès d\'autrui, jeton expiré, entrée invalide, signature invalide).' };
 }
 
 export function runSecretsGate(root: string, files = changedFiles(root)): { status: GateStatus; detail: string } {
@@ -176,6 +193,13 @@ export function runGates(store: BrainStore, taskId: string, only?: GateId[]): Ga
       }
     } else if (req.gate === 'secrets') {
       outcome = { gate: req.gate, required: req.required, ...runSecretsGate(root, files()) };
+    } else if (req.gate === 'privacy') {
+      outcome = { gate: req.gate, required: req.required, ...runPrivacyGate(root, files()) };
+    } else if (req.gate === 'abuse-tests') {
+      outcome = { gate: req.gate, required: req.required, ...runAbuseTestsGate(root, files()) };
+    } else if (req.gate === 'ready') {
+      const r = runReady(store);
+      outcome = { gate: req.gate, required: req.required, status: r.ok ? 'pass' : 'fail', detail: r.summary };
     } else if (req.gate === 'dependencies') {
       outcome = { gate: req.gate, required: req.required, ...runDependenciesGate(store, task) };
     } else if (req.gate === 'diagrams') {

@@ -20,6 +20,7 @@ export interface NewTaskInput {
   interfaces?: string[];
   group?: string;
   feature?: string;
+  spec?: string[];
 }
 
 const now = () => new Date().toISOString();
@@ -60,6 +61,7 @@ export function createTask(store: BrainStore, input: NewTaskInput): Task {
       interfaces: input.interfaces ?? [],
       ...(input.group ? { group: input.group } : {}),
       ...(input.feature ? { feature: input.feature } : {}),
+      ...(input.spec?.length ? { spec: input.spec } : {}),
       attempts: [],
       gates: [],
       createdAt: now(),

@@ -31,6 +31,7 @@ export const SKILLS: AssetSpec[] = [
   { name: 'ios-release', when: always, why: 'App mobile : pré-contrôles, build iOS sans Mac, TestFlight, App Store Connect, motifs de rejet.' },
   { name: 'supabase-workflow', when: always, why: 'Supabase : local sous Docker, production par migrations ou directe selon la consigne, CLI ou MCP.' },
   { name: 'dependencies', when: always, why: 'Choisir et vérifier une dépendance (licence, maintenance, vulnérabilités) avant de l\'ajouter.' },
+  { name: 'compliance-by-design', when: always, why: 'Socle obligatoire des produits avec comptes ou données personnelles (politiques, consentements, conservation, audit, anomalies, incidents).' },
   { name: 'software-engineering', when: always, why: 'Critères de qualité et leurs contre-indications.' },
   { name: 'architecture', when: always, why: 'Jugement architectural proportionné.' },
   { name: 'testing', when: always, why: 'Choix de la stratégie de test.' },
