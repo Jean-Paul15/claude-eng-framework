@@ -230,6 +230,7 @@ export function install(opts: InstallOptions): InstallReport {
     ...(previousConfig?.bypass ? { bypass: previousConfig.bypass } : {}),
     ...(previousConfig?.advisor ? { advisor: previousConfig.advisor } : {}),
     ...(previousConfig?.autoResume ? { autoResume: previousConfig.autoResume } : {}),
+    ...(previousConfig?.testsWatch ? { testsWatch: previousConfig.testsWatch } : {}),
     installedSkills: [...skillSel.selected.map((s) => s.name), ...generated.map((g) => g.name)],
     installedAgents: agentSel.selected.map((a) => a.name),
     createdAt: previousConfig?.createdAt ?? new Date().toISOString(),
@@ -247,7 +248,7 @@ export function install(opts: InstallOptions): InstallReport {
 
   // 6. Intégration Claude Code : settings.json (fusion), CLAUDE.md (bloc), .gitignore
   const settingsPath = path.join(root, '.claude', 'settings.json');
-  const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: policy.autonomy, parallelism: policy.parallelism, allowedSecrets: previousConfig?.secrets?.allow ?? [], bypass: previousConfig?.bypass?.enabled === true });
+  const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: policy.autonomy, parallelism: policy.parallelism, allowedSecrets: previousConfig?.secrets?.allow ?? [], bypass: previousConfig?.bypass?.enabled === true, testsWatch: previousConfig?.testsWatch?.enabled === true });
   w.generated('.claude/settings.json', `${JSON.stringify(merged, null, 2)}\n`, 'hooks + règles de permission (fusion non destructive)');
   w.generated('CLAUDE.md', upsertBlock(readText(path.join(root, 'CLAUDE.md')), renderBlock(profile, policy, config.codeGraph?.enabled ?? false, config.stage, config.bypass?.enabled === true)), 'bloc ceng (pointeurs compacts)');
   const gi = readText(path.join(root, '.gitignore')) ?? '';

@@ -1,3 +1,5 @@
+import { mergeSettings, type ClaudeSettings } from '../../generation/settings.js';
+import { readJson, writeJsonAtomic } from '../../infra/fs.js';
 import { activeThrottle, clearThrottle } from '../../app/throttle.js';
 import * as path from 'node:path';
 import { applyCommands, diffCommands, hasChanges, type CommandChange, type CommandRow } from '../../app/commands-config.js';
@@ -28,6 +30,7 @@ export function configCommand(argv: string[]): void {
   const [sub, ...rest] = argv;
   if (sub === 'stage') return stageCommand(rest);
   if (sub === 'throttle') return throttleCommand(rest);
+  if (sub === 'tests-watch') return testsWatchCommand(rest);
   if (sub === 'auto-resume') return autoResumeCommand(rest);
   if (sub !== 'detect') throw new UsageError('Usage : ceng config detect [--apply] | ceng config stage [prototype|production] [--dir <projet>]');
   const p = parse(rest, { dir: { type: 'string' }, apply: { type: 'boolean' } });
@@ -66,6 +69,25 @@ function throttleCommand(argv: string[]): void {
   }
   const t = activeThrottle(store);
   out(p, t ? `Frein actif jusqu'à ${t.until} (routage économe, un agent à la fois). Lever : ceng config throttle off` : 'Aucun frein actif.', { throttle: t ?? null });
+}
+
+/** `config tests-watch [on|off] [--command "…"]` : tests relancés en arrière-plan après chaque écriture (l'agent n'est réveillé que s'ils échouent). */
+function testsWatchCommand(argv: string[]): void {
+  const p = parse(argv, { dir: { type: 'string' }, command: { type: 'string' } });
+  const store = new BrainStore(path.resolve(str(p, 'dir') ?? process.cwd()));
+  store.requireInitialized();
+  const wanted = p.positionals[0];
+  const config = store.config();
+  if (wanted === undefined) {
+    out(p, config.testsWatch?.enabled ? `Contrôle continu des tests : activé (${config.testsWatch.command ?? config.commands.unit ?? 'aucune commande unit'}).` : 'Contrôle continu des tests : désactivé.', { testsWatch: config.testsWatch ?? null });
+    return;
+  }
+  if (wanted !== 'on' && wanted !== 'off') throw new UsageError('Usage : ceng config tests-watch [on|off] [--command "…"]');
+  const next = { ...config, testsWatch: { enabled: wanted === 'on', ...(str(p, 'command') ? { command: str(p, 'command')! } : {}) } };
+  store.saveConfig(next);
+  const settingsPath = path.join(store.paths.root, '.claude', 'settings.json');
+  writeJsonAtomic(settingsPath, mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: next.policy.autonomy, parallelism: next.policy.parallelism, allowedSecrets: next.secrets?.allow ?? [], bypass: next.bypass?.enabled === true, testsWatch: wanted === 'on' }));
+  out(p, wanted === 'on' ? 'Contrôle continu des tests activé (nouvelle session pour que Claude Code recharge ses hooks). Verts : silence ; rouges : l\'agent est réveillé avec la fin de la sortie.' : 'Contrôle continu des tests désactivé.', { testsWatch: next.testsWatch });
 }
 
 /** `config auto-resume [on|off]` : reprise automatique du travail après une limite d'usage (décision de l'humain). */

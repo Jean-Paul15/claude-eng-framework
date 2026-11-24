@@ -1,3 +1,5 @@
+import { redact } from '../domain/secrets.js';
+import { runShell, tail } from '../infra/exec.js';
 import * as fs from 'node:fs';
 import { readVetted, unvettedDeps } from '../app/deps.js';
 import { logAnswers } from '../app/answers-log.js';
@@ -461,6 +463,39 @@ function dependencyNote(store: BrainStore): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+const WATCHED = /\.(ts|tsx|js|jsx|mjs|py|go|rs|dart|kt|java|swift|php|rb|cs)$/i;
+const TESTS_DEBOUNCE_MS = 3000;
+const TESTS_TOO_SLOW_MS = 90_000;
+
+/**
+ * Contrôle continu (option `testsWatch`) : après une rafale d'écritures, la suite de tests tourne en arrière-plan ; verte, l'agent n'en
+ * entend rien (aucun jeton) ; rouge, il est réveillé (hook `asyncRewake`, code 2) avec la fin de la sortie. Trop lente (> 90 s) : le
+ * contrôle se désactive et le dit. En TDD, un test rouge voulu réveille aussi : à utiliser sur les phases d'implémentation.
+ */
+export function testsWatch(store: BrainStore, input: HookInput): HookOutput {
+  const cfg = store.config().testsWatch;
+  if (cfg?.enabled !== true) return OK;
+  const rel = relativeToProject(store, String(input.tool_input?.['file_path'] ?? ''));
+  if (!rel || rel.startsWith('..') || rel.startsWith('.ceng/') || !WATCHED.test(rel) || /(^|\/)(node_modules|dist|build)\//.test(rel)) return OK;
+  const cmd = cfg.command ?? store.config().commands.unit;
+  if (!cmd) return OK;
+  const stamp = `${Date.now()}-${Math.random()}`;
+  store.updateState((s) => {
+    s.testsWatchAt = stamp;
+  });
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, TESTS_DEBOUNCE_MS);
+  if (store.state().testsWatchAt !== stamp) return OK; // une écriture plus récente a pris le relais
+  const r = runShell(cmd, { cwd: store.paths.root, timeoutMs: 4 * 60_000 });
+  if (r.durationMs > TESTS_TOO_SLOW_MS) {
+    store.saveConfig({ ...store.config(), testsWatch: { enabled: false, ...(cfg.command ? { command: cfg.command } : {}) } });
+    store.log({ type: 'code.check', data: { testsWatch: 'disabled-slow', ms: r.durationMs } });
+    return { exitCode: 2, stderr: `[ceng] Suite de tests trop lente (${Math.round(r.durationMs / 1000)} s) pour le contrôle continu : désactivé. Définir une commande plus rapide (ceng config tests-watch on --command "…") ou lancer les tests à la gate.` };
+  }
+  if (r.code === 0) return OK;
+  store.log({ type: 'code.check', data: { testsWatch: 'red', file: rel } });
+  return { exitCode: 2, stderr: `[ceng] Tests en échec après la modification de ${rel} :\n${redact(tail(`${r.stdout}\n${r.stderr}`.trim(), 25))}` };
 }
 
 /** PostToolUse d'écriture : suivi du fichier modifié puis contrôle du code, en un seul processus. */
@@ -951,6 +986,7 @@ export const HANDLERS: Record<string, (store: BrainStore, input: HookInput) => H
   'subagent-start': subagentStart,
   'file-edited': fileEdited,
   'after-edit': afterEdit,
+  'tests-watch': testsWatch,
   'skill-used': skillUsed,
   'agent-handback': agentHandback,
   'subagent-stop': subagentStop,

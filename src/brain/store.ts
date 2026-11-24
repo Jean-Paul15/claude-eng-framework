@@ -39,6 +39,8 @@ export interface FrameworkConfig {
   advisor?: { model: string };
   /** Reprise automatique après une limite d'usage (décision de l'humain) : le travail repart seul, en mode sans humain. */
   autoResume?: { enabled: boolean };
+  /** Tests relancés en arrière-plan après chaque écriture de code ; l'agent n'est réveillé que s'ils échouent. `command` : commande plus rapide que `unit`. */
+  testsWatch?: { enabled: boolean; command?: string };
   /** Contrôle immédiat du code écrit (hook PostToolUse) : seuils ajustables, désactivable. */
   codeCheck?: { enabled?: boolean; maxFileLines?: number; maxLineLength?: number; maxIndentLevels?: number };
   /** Fichiers de secrets que l'humain autorise l'agent à lire/écrire (clés de test ou de développement). */
@@ -110,6 +112,8 @@ export interface BrainState {
   throttle?: { since: string; until: string };
   /** Reprise automatique déjà programmée (une seule par projet). */
   resumeAt?: string;
+  /** Dernière écriture vue par le contrôle continu des tests (anti-rebond) et durée de sa dernière exécution (ms). */
+  testsWatchAt?: string;
   contextWarnLevel?: number;
   /** Des fichiers ont changé depuis la dernière mise à jour du graphe de code. */
   graphDirty?: boolean;

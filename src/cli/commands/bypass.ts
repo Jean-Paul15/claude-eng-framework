@@ -45,7 +45,7 @@ function refreshClaudeFiles(store: BrainStore): void {
   const root = store.paths.root;
   const settingsPath = path.join(root, '.claude', 'settings.json');
   writeJsonAtomic(settingsPath, mergeSettings(readJson<ClaudeSettings>(settingsPath), {
-    autonomy: config.policy.autonomy, parallelism: config.policy.parallelism, allowedSecrets: config.secrets?.allow ?? [], bypass: config.bypass?.enabled === true,
+    autonomy: config.policy.autonomy, parallelism: config.policy.parallelism, allowedSecrets: config.secrets?.allow ?? [], bypass: config.bypass?.enabled === true, testsWatch: config.testsWatch?.enabled === true,
   }));
   const profile = store.profile();
   if (!profile) return;

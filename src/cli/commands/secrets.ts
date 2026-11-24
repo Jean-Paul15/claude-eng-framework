@@ -16,7 +16,7 @@ const PRODUCTION_HINT = /(^|[./_-])(prod|production|live)([./_-]|$)/i;
 function refreshSettings(store: BrainStore, allow: string[]): void {
   const config = store.config();
   const settingsPath = path.join(store.paths.root, '.claude', 'settings.json');
-  const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: config.policy.autonomy, parallelism: config.policy.parallelism, allowedSecrets: allow, bypass: config.bypass?.enabled === true });
+  const merged = mergeSettings(readJson<ClaudeSettings>(settingsPath), { autonomy: config.policy.autonomy, parallelism: config.policy.parallelism, allowedSecrets: allow, bypass: config.bypass?.enabled === true, testsWatch: config.testsWatch?.enabled === true });
   writeJsonAtomic(settingsPath, merged);
 }
 

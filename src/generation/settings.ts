@@ -13,6 +13,8 @@ export interface HookHandler {
   command: string;
   timeout?: number;
   async?: boolean;
+  /** Hook en arrière-plan qui réveille Claude quand il sort avec le code 2 (sa sortie d'erreur lui est montrée). */
+  asyncRewake?: boolean;
   statusMessage?: string;
 }
 
@@ -94,6 +96,8 @@ export interface MergeOptions {
   allowedSecrets?: readonly string[];
   /** Bypass total : mode de permission natif `bypassPermissions`, règles deny/ask du framework retirées. */
   bypass?: boolean;
+  /** Tests relancés en arrière-plan après chaque écriture de code (option `testsWatch` de la configuration). */
+  testsWatch?: boolean;
 }
 
 /** Une règle native `Read(./x)` / `Edit(./x)` couvre-t-elle un fichier autorisé ? (deny l'emporterait sur tout) */
@@ -135,6 +139,7 @@ export function mergeSettings(existing: ClaudeSettings | undefined, opts: MergeO
   }
   for (const [event, groups] of Object.entries(frameworkHooks())) hooks[event] = [...(hooks[event] ?? []), ...groups];
   if (allowed.length && !opts.bypass) hooks['PreToolUse'] = [...(hooks['PreToolUse'] ?? []), { matcher: 'Read', hooks: [hook('guard-read', { timeout: 10 })] }];
+  if (opts.testsWatch) hooks['PostToolUse'] = [...(hooks['PostToolUse'] ?? []), { matcher: 'Edit|Write|MultiEdit', hooks: [hook('tests-watch', { async: true, asyncRewake: true, timeout: 300 })] }];
   base.hooks = hooks;
   if (opts.parallelism === 'teams') base.env = { ...(base.env ?? {}), CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: base.env?.['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] ?? '1' };
   return base;
