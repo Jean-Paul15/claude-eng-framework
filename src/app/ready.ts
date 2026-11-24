@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import { dataMapProblems } from './data-map.js';
 import { applies, missingMechanisms } from './compliance.js';
+import { PAID_DOMAINS, readCosts } from './costs.js';
 import { contractDrift, listContracts } from './contracts.js';
 import { listDecisions } from './decisions.js';
 import { runSecretsGate } from './gates.js';
@@ -123,6 +124,12 @@ export function runChecks(store: BrainStore): ReadyCheck[] {
 
   const drift = contractDrift(store);
   if (listContracts(store).length) add('contracts', 'Contrats gelés inchangés', drift.length ? 'fail' : 'pass', drift.length ? `modifiés sans bump : ${drift.map((d) => d.file).join(', ')}` : 'inchangés', '`ceng contract bump <fichier> --reason …` après un changement voulu');
+
+  const paid = store.tasks().filter((t) => t.status !== 'cancelled' && t.domains.some((d) => (PAID_DOMAINS as readonly string[]).includes(d)));
+  if (paid.length) {
+    const costs = readCosts(store);
+    add('costs', 'Coûts de production connus', costs.length ? 'pass' : 'fail', costs.length ? `${costs.length} service(s) chiffré(s) (ceng cost)` : `services payants utilisés (${[...new Set(paid.flatMap((t) => t.domains.filter((d) => (PAID_DOMAINS as readonly string[]).includes(d))))].join(', ')}) sans ligne de coût`, '`ceng cost add --name … --unit … --price … --per-user … --source <url>` puis `ceng cost --users N`');
+  }
 
   // Décisions à impact fort en attente
   const pending = decisions.filter((d) => /EN ATTENTE/i.test(d.text.slice(0, 400)) && /impact d'un changement : fort/i.test(d.text.slice(0, 400)));

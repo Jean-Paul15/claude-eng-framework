@@ -41,6 +41,11 @@ export interface FrameworkConfig {
   autoResume?: { enabled: boolean };
   /** Tests relancés en arrière-plan après chaque écriture de code ; l'agent n'est réveillé que s'ils échouent. `command` : commande plus rapide que `unit`. */
   testsWatch?: { enabled: boolean; command?: string };
+  /** Budget mensuel d'exploitation visé (USD), fixé au cadrage ; `ceng cost` y compare la facture estimée. */
+  costBudgetUsd?: number;
+  /** Tolérance de dégradation d'une mesure de performance (%, défaut 10) et budgets absolus par mesure. */
+  perfTolerancePct?: number;
+  perfBudgets?: Record<string, number>;
   /** Contrôle immédiat du code écrit (hook PostToolUse) : seuils ajustables, désactivable. */
   codeCheck?: { enabled?: boolean; maxFileLines?: number; maxLineLength?: number; maxIndentLevels?: number };
   /** Fichiers de secrets que l'humain autorise l'agent à lire/écrire (clés de test ou de développement). */

@@ -10,6 +10,7 @@ import { exists, listFiles, readJson, readText, writeTextAtomic } from '../infra
 import { Git } from '../infra/git.js';
 import { redact } from '../domain/secrets.js';
 import { runDbSecurityGate, runPrivacyGate } from './data-map.js';
+import { checkPerformance } from './perf.js';
 import { runDependenciesGate } from './deps.js';
 import { runReady } from './ready.js';
 import type { BrainStore } from '../brain/store.js';
@@ -189,6 +190,10 @@ export function runGates(store: BrainStore, taskId: string, only?: GateId[]): Ga
         writeTextAtomic(logFile, redact(`$ ${cmd}\n(exit ${r.code}, ${r.durationMs} ms${r.timedOut ? ', TIMEOUT' : ''})\n\n${r.stdout}\n${r.stderr}`));
         const status: GateStatus = r.code === 0 ? 'pass' : 'fail';
         outcome = { gate: req.gate, status, required: req.required, detail: `${cmd} → exit ${r.code}${r.timedOut ? ' (timeout)' : ''}${status === 'fail' ? `\n${redact(tail(`${r.stdout}\n${r.stderr}`.trim(), 25))}` : ''}`, logFile: store.paths.rel(logFile) };
+        if (req.gate === 'performance' && status === 'pass') {
+          const perf = checkPerformance(store, r.stdout, task.id);
+          outcome = { ...outcome, status: perf.ok ? 'pass' : 'fail', detail: `${cmd} → exit 0\n${perf.lines.join('\n')}` };
+        }
         ran.set(cmd, outcome);
       }
     } else if (req.gate === 'secrets') {
