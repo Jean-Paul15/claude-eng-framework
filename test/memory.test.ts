@@ -89,3 +89,19 @@ describe('rappel à chaque demande, ceng similar, réponses et décisions', () =
     assert.notEqual(run('decision', 'reject', 'ADR-0002').code, 0);
   });
 });
+
+describe('tableau de bord HTML (N-03)', () => {
+  it('page autonome : ce qui attend l\'humain en tête, rien d\'externe, secrets masqués', () => {
+    run('task', 'add', '--title', 'Choix prestataire', '--kind', 'chore');
+    run('task', 'block', 'T-0006', '--reason', 'décision métier');
+    fs.mkdirSync(path.join(dir, '.ceng/shots/T-0001/parcours'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.ceng/shots/T-0001/parcours/01_390.png'), 'png');
+    assert.equal(run('report', '--html').code, 0);
+    const html = fs.readFileSync(path.join(dir, '.ceng/report/index.html'), 'utf8');
+    assert.match(html, /Ce qui t'attend/);
+    assert.match(html, /décision métier/);
+    assert.match(html, /\.\.\/shots\/T-0001\/parcours\/01_390\.png/);
+    assert.match(html, /prefers-color-scheme:dark/);
+    assert.ok(!/https?:\/\//.test(html), 'aucune ressource externe');
+  });
+});

@@ -15,6 +15,7 @@ import { bypassCommand } from './cli/commands/bypass.js';
 import { advisorCommand } from './cli/commands/advisor.js';
 import { depCommand } from './cli/commands/dep.js';
 import { featureCommand } from './cli/commands/feature.js';
+import { storeCommand } from './cli/commands/store.js';
 import { costCommand, perfCommand } from './cli/commands/economy.js';
 import { verifyCommand } from './cli/commands/verify.js';
 import { contractCommand, inboxCommand, incrementCommand } from './cli/commands/governance.js';
@@ -67,6 +68,7 @@ Bypass total (décision humaine)
   verify                     Vérification après déploiement (commands.smoke)
   perf show|reset            Références de performance (la gate performance compare chaque mesure)
   cost [add …] [--users N]   Registre des coûts de production et facture mensuelle estimée
+  store check                Motifs de rejet Apple détectables (permissions, connexion Apple, suppression de compte)
   dep check [noms…]|list|baseline  Vérifie les dépendances (licence, maintenance, vulnérabilités, usage) dans les registres publics
   advisor [fable|opus|sonnet|off]  Conseiller de Claude Code (modèle plus fort consulté aux décisions clés), lancé avec --advisor
 
@@ -127,6 +129,7 @@ export async function main(argv: string[]): Promise<void> {
     case 'advisor': return advisorCommand(rest);
     case 'dep': return depCommand(rest);
     case 'feature': return featureCommand(rest);
+    case 'store': return storeCommand(rest);
     case 'perf': return perfCommand(rest);
     case 'cost': return costCommand(rest);
     case 'verify': return verifyCommand(rest);

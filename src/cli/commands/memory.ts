@@ -1,3 +1,7 @@
+import * as fs from 'node:fs';
+import { inboxItems } from '../../app/inbox.js';
+import { listFeatures } from '../../app/features.js';
+import { renderReport } from '../../generation/report-html.js';
 import * as path from 'node:path';
 import { adapt } from '../../domain/adaptation.js';
 import { normalizeTopic, promotionCandidates, type Learning, type LearningKind } from '../../domain/learning.js';
@@ -7,7 +11,7 @@ import { openEscalation, recordDecision, resolveEscalation } from '../../app/coo
 import { endDecision } from '../../app/decisions.js';
 import { renderIndex, resumeBrief, statusCounts } from '../../brain/brief.js';
 import { BrainStore } from '../../brain/store.js';
-import { exists, writeTextAtomic } from '../../infra/fs.js';
+import { exists, listFiles, readText, writeTextAtomic } from '../../infra/fs.js';
 import { yamlString } from '../../generation/project-skills.js';
 import { bool, out, parse, requirePositional, requireStr, str, UsageError } from '../args.js';
 
@@ -130,9 +134,38 @@ export function logCommand(argv: string[]): void {
 }
 
 /** Rapport d'observabilité : qui a travaillé, avec quel modèle, pourquoi, combien de tentatives, pourquoi terminé. */
+/** `ceng report --html` : tableau de bord de livraison (`.ceng/report/index.html`, page autonome lisible sur téléphone). */
+function writeHtmlReport(store: BrainStore): string {
+  const root = store.paths.root;
+  const shotsDir = path.join(store.paths.ceng, 'shots');
+  const shots: Record<string, string[]> = {};
+  if (exists(shotsDir)) {
+    for (const t of fs.readdirSync(shotsDir)) {
+      const dir = path.join(shotsDir, t);
+      if (!fs.statSync(dir).isDirectory()) continue;
+      shots[t] = listFiles(dir, { maxFiles: 200 }).files.filter((f) => /\.(png|jpe?g|webp)$/i.test(f)).map((f) => `../shots/${t}/${f}`);
+    }
+  }
+  const spec = readText(path.join(store.paths.brain, 'spec.md'));
+  const ids = spec ? [...new Set([...spec.matchAll(/\bEX-\d{3,}\b/g)].map((x) => x[0]))] : [];
+  const covered = new Set(store.tasks().filter((t) => t.status !== 'cancelled').flatMap((t) => t.spec ?? []));
+  const html = renderReport({
+    project: path.basename(root), generatedAt: new Date().toISOString(), tasks: store.tasks(), features: listFeatures(store), inbox: inboxItems(store), shots,
+    ...(ids.length ? { specCoverage: { total: ids.length, open: ids.filter((i) => !covered.has(i)).length } } : {}),
+  });
+  const file = path.join(store.paths.ceng, 'report', 'index.html');
+  writeTextAtomic(file, html);
+  return store.paths.rel(file);
+}
+
 export function reportCommand(argv: string[]): void {
-  const p = parse(argv, { dir: { type: 'string' } });
+  const p = parse(argv, { dir: { type: 'string' }, html: { type: 'boolean' } });
   const store = storeFor(str(p, 'dir'));
+  if (bool(p, 'html')) {
+    const file = writeHtmlReport(store);
+    out(p, `Tableau de bord écrit : ${file} (page autonome : l'ouvrir dans un navigateur, ou la faire ouvrir sur téléphone).`, { file });
+    return;
+  }
   const events = store.events();
   const rows = store.tasks().map((t) => {
     const spawns = events.filter((e) => e.type === 'agent.spawn' && e.taskId === t.id && e.data?.['phase'] !== 'started');

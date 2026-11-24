@@ -19,6 +19,9 @@ Attendu à chaque étape : <ce qui doit être évident, l'action principale, le 
 États à forcer : vide · chargement lent · erreur réseau · hors ligne · données longues/extrêmes · permission refusée
 Largeurs : 390 (mobile) · 820 (tablette) · 1440 (desktop) — 3 obligatoires ; 1180 (tablette paysage) en plus si l'écran a une mise en page propre à ce format
 ```
+**Application mobile : scénario obligatoire « premier lancement sans compte »** — l'utilisateur parcourt l'application et voit son contenu
+sans s'inscrire ; l'inscription n'apparaît qu'au moment où elle est indispensable (Apple 5.1.1(v), rejet réel). `ceng store check` contrôle
+le reste (permissions, connexion Apple, suppression de compte, manifeste de confidentialité).
 Couvrir le chemin heureux ET les chemins de bord : retour arrière, double tap, rotation, texte agrandi, mode sombre,
 langue la plus longue, premier lancement (aucune donnée) et compte bien rempli.
 
