@@ -128,6 +128,7 @@ describe('page du tableau de bord', () => {
       for (const code of scripts) assert.doesNotThrow(() => new vm.Script(code));
       assert.ok(!/(src|href)=["']https?:/.test(html) && !/url\(["']?https?:/.test(html), 'aucune ressource externe');
       assert.match(html, /font\/woff2;base64,/, 'police intégrée');
+      assert.match(html, /scrollbar-width:none/, 'barres de défilement masquées, le défilement reste possible');
     }
   });
 
