@@ -104,4 +104,14 @@ describe('tableau de bord HTML (N-03)', () => {
     assert.match(html, /prefers-color-scheme:dark/);
     assert.ok(!/https?:\/\//.test(html), 'aucune ressource externe');
   });
+  it('Markdown rendu, coupe à un mot entier, rubrique longue repliée', () => {
+    const long = `**Gras** et \`code\` ${'mot '.repeat(150)}fin`;
+    fs.appendFileSync(path.join(dir, '.ceng/brain/pending-approvals.md'), [1, 2, 3, 4, 5, 6].map((n) => `- [ ] ${n === 1 ? long : `Action ${n}`}\n`).join(''));
+    assert.equal(run('report', '--html').code, 0);
+    const html = fs.readFileSync(path.join(dir, '.ceng/report/index.html'), 'utf8');
+    assert.match(html, /<strong>Gras<\/strong> et <code>code<\/code>/);
+    assert.doesNotMatch(html, /\*\*Gras|`code`/);
+    assert.match(html, /mot…</, 'coupé sur une frontière de mot, avec ellipse');
+    assert.match(html, /<summary>Voir les \d+ autres<\/summary>/);
+  });
 });

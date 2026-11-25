@@ -26,22 +26,37 @@ const FEATURE = { decided: 'décidée', in_progress: 'en cours', delivered: 'liv
 const CSS = `:root{--bg:#f7f6f3;--fg:#1c1b19;--mut:#6b6860;--card:#fff;--line:#e4e1da;--acc:#2f5d50;--warn:#a4472b}
 @media (prefers-color-scheme:dark){:root{--bg:#161614;--fg:#ecebe6;--mut:#a09d94;--card:#201f1c;--line:#34322d;--acc:#7fb8a5;--warn:#e08a6c}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:760px;margin:0 auto;padding:24px 16px 64px}h1{font-size:1.4rem;margin:0 0 4px}h2{font-size:1.05rem;margin:28px 0 10px}
+main{max-width:760px;margin:0 auto;padding:24px 16px 64px}h1{font-size:1.4rem;margin:0 0 4px}h2{font-size:1.05rem;margin:28px 0 10px}h3{font-size:.95rem;margin:18px 0 6px}
 .mut{color:var(--mut);font-size:.9rem}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}.stat b{display:block;font-size:1.6rem}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .card.block{border-left:4px solid var(--warn)}.card.ok{border-left:4px solid var(--acc)}
 details{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:4px 14px}summary{cursor:pointer;padding:10px 0;font-weight:600}
 li{margin:4px 0}.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin:8px 0}.shots img{width:100%;border-radius:8px;border:1px solid var(--line)}
+code{font:.85em ui-monospace,Consolas,monospace;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}.card{overflow-wrap:anywhere}
 .tag{display:inline-block;font-size:.78rem;padding:1px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}`;
+
+/** Texte échappé puis mis en forme : `code` et **gras** (les notes du cerveau sont écrites en Markdown). */
+const inline = (s: string): string => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+/** Nombre de cartes montrées d'emblée par rubrique : le reste est replié (révélation progressive). */
+const VISIBLE = 4;
+
+/** Une rubrique d'attente : titre avec effectif, conséquence commune écrite une fois, premières cartes, le reste replié. */
+function section(title: string, items: readonly InboxItem[], blocking: boolean): string {
+  if (!items.length) return '';
+  const defaults = new Set(items.map((i) => i.default));
+  const common = defaults.size === 1 ? [...defaults][0] : undefined;
+  const card = (i: InboxItem) => `<div class="card${blocking ? ' block' : ''}">${inline(i.question)}${common ? '' : `<div class="mut">Par défaut : ${esc(i.default)}</div>`}</div>`;
+  const rest = items.slice(VISIBLE);
+  return `<h3>${title} <span class="tag">${items.length}</span></h3>${common ? `<div class="mut">Sans réponse : ${esc(common)}.</div>` : ''}${items.slice(0, VISIBLE).map(card).join('')}${rest.length ? `<details><summary>Voir les ${rest.length} autres</summary>${rest.map(card).join('')}</details>` : ''}`;
+}
 
 export function renderReport(d: ReportData): string {
   const count = (s: string) => d.tasks.filter((t) => t.status === s).length;
   const blocking = d.inbox.filter((i) => i.level === 'blocking');
   const confirm = d.inbox.filter((i) => i.level === 'confirm');
-  const waiting = [...blocking, ...confirm]
-    .map((i) => `<div class="card ${i.level === 'blocking' ? 'block' : ''}"><strong>${i.level === 'blocking' ? 'Bloquant' : 'À confirmer'}</strong> — ${esc(i.question)}<div class="mut">Par défaut : ${esc(i.default)}</div></div>`)
-    .join('');
+  const waiting = [section('Bloquant', blocking, true), section('À confirmer', confirm, false)].join('');
   const features = d.features.map((f) => `<li><strong>${esc(f.id)}</strong> ${esc(f.name)} <span class="tag">${FEATURE[f.status] ?? f.status}</span>${f.reason ? ` <span class="mut">(${esc(f.reason)})</span>` : ''}</li>`).join('');
   const tasks = d.tasks.filter((t) => t.status !== 'cancelled').map((t) => `<li><strong>${esc(t.id)}</strong> ${esc(t.title)} <span class="tag">${STATUS[t.status] ?? t.status}</span></li>`).join('');
   const shots = Object.entries(d.shots).filter(([, f]) => f.length).map(([task, files]) => `<details><summary>Captures ${esc(task)} (${files.length})</summary><div class="shots">${files.slice(0, 24).map((f) => `<a href="${esc(f)}"><img loading="lazy" src="${esc(f)}" alt="${esc(f)}"></a>`).join('')}</div></details>`).join('');

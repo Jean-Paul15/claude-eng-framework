@@ -19,11 +19,18 @@ export interface InboxItem {
   ref: string;
 }
 
+/** Coupe à la limite sur une frontière de mot (jamais « Exi ») et le signale par une ellipse. */
+function clip(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), max / 2))}…`;
+}
+
 export function inboxItems(store: BrainStore): InboxItem[] {
   const items: InboxItem[] = [];
   const approvals = readText(`${store.paths.brain}/pending-approvals.md`) ?? '';
   for (const l of approvals.split(/\r?\n/).filter((x) => x.startsWith('- [ ]'))) {
-    items.push({ level: 'blocking', source: 'approval', question: l.replace(/^- \[ \]\s*/, '').slice(0, 220), default: 'action non exécutée, tâche bloquée', ref: 'pending-approvals.md' });
+    items.push({ level: 'blocking', source: 'approval', question: clip(l.replace(/^- \[ \]\s*/, ''), 400), default: 'action non exécutée, tâche bloquée', ref: 'pending-approvals.md' });
   }
   for (const d of listDecisions(store)) {
     const head = d.text.slice(0, 500);
