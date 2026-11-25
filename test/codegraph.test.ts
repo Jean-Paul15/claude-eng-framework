@@ -34,6 +34,7 @@ describe('graphe de code : intégration réelle avec graphify', { skip: hasGraph
     execFileSync(process.execPath, [CLI, 'init', '--yes', '--code-graph', 'on'], { cwd: dir, env, stdio: 'pipe' });
     const graph = path.join(dir, 'graphify-out', 'graph.json');
     assert.ok(fs.existsSync(graph), 'graphe construit à l\'init');
+    assert.ok(fs.existsSync(path.join(dir, 'graphify-out', 'GRAPH_REPORT.md')), "rapport d'architecture produit sans IA");
     const before = fs.readFileSync(graph, 'utf8');
     assert.ok(!before.includes('multiply'));
     fs.appendFileSync(path.join(dir, 'src/index.ts'), '\nexport function multiply(a: number, b: number) { return a * b }\n');

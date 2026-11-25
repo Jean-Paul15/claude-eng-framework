@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { DEFAULT_PREFERENCES } from '../../domain/policy.js';
 import type { Preferences, Stage } from '../../domain/types.js';
@@ -176,6 +177,22 @@ export function profileCommand(argv: string[]): void {
   out(p, JSON.stringify(profile, null, 2), profile);
 }
 
+/**
+ * Outils d'économie de jetons installés par l'utilisateur dans `~/.claude/settings.json` (RTK, Ponytail) : jamais installés par ceng,
+ * seulement signalés avec ce qu'il faut savoir. Informatif : ne fait jamais échouer le diagnostic.
+ */
+export function companionNotes(home = os.homedir()): { name: string; detail: string }[] {
+  const settings = readJson<ClaudeSettings & { enabledPlugins?: Record<string, boolean> }>(path.join(home, '.claude', 'settings.json'));
+  const notes: { name: string; detail: string }[] = [];
+  if (JSON.stringify(settings?.hooks ?? {}).includes('rtk hook')) {
+    notes.push({ name: 'rtk', detail: "RTK actif : il réécrit les commandes Bash pour en résumer la sortie. Compatibilité avec le garde-fou ceng non vérifiée : en cas de refus ou de sortie étrange, essayer RTK_DISABLED=1 (voir docs/economie-tokens.md)" });
+  }
+  if (Object.entries(settings?.enabledPlugins ?? {}).some(([name, on]) => on && name.startsWith('ponytail@'))) {
+    notes.push({ name: 'ponytail', detail: "Ponytail actif : ses consignes recoupent les règles de ceng ; préférer le niveau lite (« ultra » remet les demandes en question, ce qui gêne le travail autonome ; voir docs/economie-tokens.md)" });
+  }
+  return notes;
+}
+
 export function doctorCommand(argv: string[]): void {
   const p = parse(argv, { dir: { type: 'string' } });
   const root = path.resolve(str(p, 'dir') ?? process.cwd());
@@ -206,6 +223,7 @@ export function doctorCommand(argv: string[]): void {
       const has = graphifyAvailable(root);
       add('graphify', has, has ? (exists(path.join(root, 'graphify-out', 'graph.json')) ? 'graphe présent, mis à jour automatiquement' : 'installé ; graphe pas encore construit → `ceng graph build`') : 'graphe activé mais graphify absent → `ceng graph install`');
     }
+    for (const note of companionNotes()) add(note.name, true, note.detail);
     const gitignore = readText(path.join(root, '.gitignore')) ?? '';
     add('gitignore', gitignore.includes('.ceng/logs/'), '.ceng/logs/ exclu du dépôt');
   }

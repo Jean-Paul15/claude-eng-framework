@@ -50,11 +50,16 @@ export function installGraphify(cwd: string): InstallAttempt {
   return { ok: false, log };
 }
 
-/** Construction synchrone (init, `ceng graph build`). */
+/** Regroupement en communautés, rapport d'architecture (`GRAPH_REPORT.md`) et carte `graph.html` : local, sans IA (`--no-label`), quelques secondes. */
+const CLUSTER_ARGS = (root: string): string[] => ['cluster-only', root, '--no-label'];
+
+/** Construction synchrone (init, `ceng graph build`). Le regroupement est un plus : son échec n'invalide pas le graphe. */
 export function buildGraph(root: string): { ok: boolean; detail: string } {
   const r = run('graphify', ['extract', root, '--code-only', '--no-cluster'], { cwd: root, timeoutMs: 10 * 60_000 });
   const last = `${r.stdout}\n${r.stderr}`.trim().split(/\r?\n/).filter((l) => l.includes('wrote') || l.includes('error') || l.includes('Error')).pop();
-  return { ok: r.code === 0 && exists(graphPath(root)), detail: last ?? `exit ${r.code}` };
+  const ok = r.code === 0 && exists(graphPath(root));
+  if (ok) run('graphify', CLUSTER_ARGS(root), { cwd: root, timeoutMs: 3 * 60_000 });
+  return { ok, detail: last ?? `exit ${r.code}` };
 }
 
 function lockFile(store: BrainStore): string {
@@ -94,7 +99,8 @@ export function refreshInBackground(store: BrainStore, action: 'build' | 'update
   const args = action === 'build' ? ['extract', root, '--code-only', '--no-cluster'] : ['update', root, '--no-cluster'];
   // Le verrou est retiré par un petit processus Node qui attend la fin de graphify.
   const script = `const {spawnSync}=require('node:child_process');const fs=require('node:fs');` +
-    `spawnSync('graphify',${JSON.stringify(args)},{stdio:'inherit',windowsHide:true});` +
+    `const r=spawnSync('graphify',${JSON.stringify(args)},{stdio:'inherit',windowsHide:true});` +
+    `if(r.status===0)spawnSync('graphify',${JSON.stringify(CLUSTER_ARGS(root))},{stdio:'inherit',windowsHide:true});` +
     `try{fs.rmSync(${JSON.stringify(lockFile(store))},{force:true})}catch{}`;
   const child = spawn(process.execPath, ['-e', script], { cwd: root, detached: true, stdio: ['ignore', out, out], windowsHide: true });
   child.unref();
