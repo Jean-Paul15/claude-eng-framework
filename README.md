@@ -89,7 +89,7 @@ Trois choix structurent le code.
 | Langage | <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/> | TypeScript 5.9, ESM, mode `strict` |
 | Exécution | <img src="https://img.shields.io/badge/Node.js-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js"/> | Node.js 22 ou plus, sans dépendance d'exécution |
 | Tests | <img src="https://img.shields.io/badge/Node%20test%20runner-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node test runner"/> | `node --test`, 399 tests en 100 suites d'après [docs/validation.md](docs/validation.md) |
-| Intégration continue | <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white" alt="GitHub Actions"/> | Ubuntu, Windows, macOS ; Node 22 et 24 |
+| Intégration continue | <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white" alt="GitHub Actions"/> | Ubuntu et Windows ; Node 22 et 24 |
 | Cible | <img src="https://img.shields.io/badge/Claude%20Code-D97757?style=flat-square&logo=claude&logoColor=white" alt="Claude Code"/> | Hooks, subagents, skills, Agent Teams |
 | Packaging | <img src="https://img.shields.io/badge/npm-CB3837?style=flat-square&logo=npm&logoColor=white" alt="npm"/> | CLI `ceng` ou `claude-eng-framework` (champ `bin`), installation depuis GitHub |
 | Documentation | <img src="https://img.shields.io/badge/Mermaid-FF3670?style=flat-square&logo=mermaid&logoColor=white" alt="Mermaid"/> | Schéma d'architecture ci-dessus, détail dans `docs/` |
