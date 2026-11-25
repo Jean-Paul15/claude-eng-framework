@@ -127,7 +127,8 @@ Ce que Claude consulte et vérifie tout seul, et les commandes qui le portent (t
 |---|---|---|
 | Ne pas refaire ce qui existe | `feature add/list/reject`, `similar`, `task add --extends F-xxx` | à chaque demande, Claude voit ce qui est déjà livré, en cours ou écarté ; une tâche proche d'une existante est refusée sans justification |
 | Ne pas reposer une question | `decision supersede/reject`, `.ceng/brain/answers.md` | les réponses données et les décisions mortes sont retrouvées |
-| Savoir ce qui t'attend | `inbox`, `report --html` | décisions bloquantes d'abord, puis à confirmer ; page unique lisible sur téléphone |
+| Suivre le travail en direct | `dashboard` (`--background`, `--all`, `stop`) · `config dashboard on` | page à ouvrir une fois, mise à jour à chaque action des agents : synthèse (burndown, vélocité, entonnoir, date de fin prévue), tableau scrum, Gantt avec dépendances, backlog en trois bandes, équipe d'agents, qualité, jetons. Vues 3D en option (bouton 2D/3D). Locale, lecture seule, hors ligne ; `--all` = accueil de tous les projets ; `config dashboard on` la lance à chaque session |
+| Savoir ce qui t'attend | `inbox`, `report --html` | décisions bloquantes d'abord, puis à confirmer ; `report --html` écrit un instantané figé, lisible sur téléphone |
 | Livrer en incréments | `increment close <groupe>` | tout est terminé, vu en captures, testé |
 | Geler un contrat entre agents | `contract freeze/bump` | un sous-agent ne modifie pas l'API ou le schéma |
 | Prêt pour la production | `ready` | variables d'environnement documentées, secrets, migrations, CI, santé, suivi d'erreurs, conformité, coûts |

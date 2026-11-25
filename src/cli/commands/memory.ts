@@ -1,8 +1,7 @@
 import { familyOf, type Usage } from '../../app/usage.js';
 import * as fs from 'node:fs';
-import { inboxItems } from '../../app/inbox.js';
-import { listFeatures } from '../../app/features.js';
-import { renderReport } from '../../generation/report-html.js';
+import { loadDashboardState } from '../../app/dashboard.js';
+import { renderDashboardPage } from '../../generation/dashboard-page.js';
 import * as path from 'node:path';
 import { adapt } from '../../domain/adaptation.js';
 import { normalizeTopic, promotionCandidates, type Learning, type LearningKind } from '../../domain/learning.js';
@@ -135,27 +134,10 @@ export function logCommand(argv: string[]): void {
 }
 
 /** Rapport d'observabilité : qui a travaillé, avec quel modèle, pourquoi, combien de tentatives, pourquoi terminé. */
-/** `ceng report --html` : tableau de bord de livraison (`.ceng/report/index.html`, page autonome lisible sur téléphone). */
+/** `ceng report --html` : instantané statique du tableau de bord (`.ceng/report/index.html`) ; `ceng dashboard` est la version vivante. */
 function writeHtmlReport(store: BrainStore): string {
-  const root = store.paths.root;
-  const shotsDir = path.join(store.paths.ceng, 'shots');
-  const shots: Record<string, string[]> = {};
-  if (exists(shotsDir)) {
-    for (const t of fs.readdirSync(shotsDir)) {
-      const dir = path.join(shotsDir, t);
-      if (!fs.statSync(dir).isDirectory()) continue;
-      shots[t] = listFiles(dir, { maxFiles: 200 }).files.filter((f) => /\.(png|jpe?g|webp)$/i.test(f)).map((f) => `../shots/${t}/${f}`);
-    }
-  }
-  const spec = readText(path.join(store.paths.brain, 'spec.md'));
-  const ids = spec ? [...new Set([...spec.matchAll(/\bEX-\d{3,}\b/g)].map((x) => x[0]))] : [];
-  const covered = new Set(store.tasks().filter((t) => t.status !== 'cancelled').flatMap((t) => t.spec ?? []));
-  const html = renderReport({
-    project: path.basename(root), generatedAt: new Date().toISOString(), tasks: store.tasks(), features: listFeatures(store), inbox: inboxItems(store), shots,
-    ...(ids.length ? { specCoverage: { total: ids.length, open: ids.filter((i) => !covered.has(i)).length } } : {}),
-  });
   const file = path.join(store.paths.ceng, 'report', 'index.html');
-  writeTextAtomic(file, html);
+  writeTextAtomic(file, renderDashboardPage(loadDashboardState(store), 'snapshot'));
   return store.paths.rel(file);
 }
 
@@ -164,7 +146,7 @@ export function reportCommand(argv: string[]): void {
   const store = storeFor(str(p, 'dir'));
   if (bool(p, 'html')) {
     const file = writeHtmlReport(store);
-    out(p, `Tableau de bord écrit : ${file} (page autonome : l'ouvrir dans un navigateur, ou la faire ouvrir sur téléphone).`, { file });
+    out(p, `Instantané écrit : ${file} (page autonome, figée à cet instant). Pour le suivre en direct : ceng dashboard.`, { file });
     return;
   }
   const events = store.events();

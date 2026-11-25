@@ -98,20 +98,19 @@ describe('tableau de bord HTML (N-03)', () => {
     fs.writeFileSync(path.join(dir, '.ceng/shots/T-0001/parcours/01_390.png'), 'png');
     assert.equal(run('report', '--html').code, 0);
     const html = fs.readFileSync(path.join(dir, '.ceng/report/index.html'), 'utf8');
-    assert.match(html, /Ce qui t'attend/);
+    assert.match(html, /data-mode="snapshot"/);
+    assert.match(html, /<script id="state" type="application\/json">/);
     assert.match(html, /décision métier/);
-    assert.match(html, /\.\.\/shots\/T-0001\/parcours\/01_390\.png/);
-    assert.match(html, /prefers-color-scheme:dark/);
-    assert.ok(!/https?:\/\//.test(html), 'aucune ressource externe');
+    assert.match(html, /T-0001\/parcours\/01_390\.png/);
+    assert.match(html, /data-theme="dark"/, 'thème sombre sur choix');
+    assert.doesNotMatch(html, /prefers-color-scheme/, 'clair par défaut, quel que soit le thème du système');
+    assert.ok(!/(src|href)=["']https?:/.test(html) && !/url\(["']?https?:/.test(html), 'aucune ressource externe');
   });
-  it('Markdown rendu, coupe à un mot entier, rubrique longue repliée', () => {
-    const long = `**Gras** et \`code\` ${'mot '.repeat(150)}fin`;
-    fs.appendFileSync(path.join(dir, '.ceng/brain/pending-approvals.md'), [1, 2, 3, 4, 5, 6].map((n) => `- [ ] ${n === 1 ? long : `Action ${n}`}\n`).join(''));
+  it('une approbation longue est coupée sur un mot entier, jamais au milieu', () => {
+    fs.appendFileSync(path.join(dir, '.ceng/brain/pending-approvals.md'), `- [ ] **Gras** ${'mot '.repeat(150)}fin\n`);
     assert.equal(run('report', '--html').code, 0);
     const html = fs.readFileSync(path.join(dir, '.ceng/report/index.html'), 'utf8');
-    assert.match(html, /<strong>Gras<\/strong> et <code>code<\/code>/);
-    assert.doesNotMatch(html, /\*\*Gras|`code`/);
-    assert.match(html, /mot…</, 'coupé sur une frontière de mot, avec ellipse');
-    assert.match(html, /<summary>Voir les \d+ autres<\/summary>/);
+    assert.match(html, /mot…/);
+    assert.doesNotMatch(html, /mo…/);
   });
 });

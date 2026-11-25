@@ -32,6 +32,7 @@ export function configCommand(argv: string[]): void {
   if (sub === 'throttle') return throttleCommand(rest);
   if (sub === 'tests-watch') return testsWatchCommand(rest);
   if (sub === 'auto-resume') return autoResumeCommand(rest);
+  if (sub === 'dashboard') return dashboardConfigCommand(rest);
   if (sub !== 'detect') throw new UsageError('Usage : ceng config detect [--apply] | ceng config stage [prototype|production] [--dir <projet>]');
   const p = parse(rest, { dir: { type: 'string' }, apply: { type: 'boolean' } });
   const root = path.resolve(str(p, 'dir') ?? process.cwd());
@@ -103,6 +104,21 @@ function autoResumeCommand(argv: string[]): void {
   if (wanted !== 'on' && wanted !== 'off') throw new UsageError('Usage : ceng config auto-resume [on|off]');
   store.saveConfig({ ...store.config(), autoResume: { enabled: wanted === 'on' } });
   out(p, wanted === 'on' ? "Reprise automatique activée : après une limite d'usage, le travail repart seul à la réinitialisation, en mode sans humain (actions à approbation consignées, sauf bypass)." : 'Reprise automatique désactivée.', { autoResume: wanted === 'on' });
+}
+
+/** `config dashboard [on|off]` : tableau de bord vivant lancé tout seul à l'ouverture de chaque session. */
+function dashboardConfigCommand(argv: string[]): void {
+  const p = parse(argv, { dir: { type: 'string' } });
+  const store = new BrainStore(path.resolve(str(p, 'dir') ?? process.cwd()));
+  store.requireInitialized();
+  const wanted = p.positionals[0];
+  if (wanted === undefined) {
+    out(p, store.config().dashboard?.enabled ? 'Tableau de bord automatique : activé (lancé à chaque ouverture de session).' : 'Tableau de bord automatique : désactivé (à la demande : ceng dashboard).', { dashboard: store.config().dashboard?.enabled === true });
+    return;
+  }
+  if (wanted !== 'on' && wanted !== 'off') throw new UsageError('Usage : ceng config dashboard [on|off]');
+  store.saveConfig({ ...store.config(), dashboard: { enabled: wanted === 'on' } });
+  out(p, wanted === 'on' ? "Tableau de bord automatique activé : à l'ouverture d'une session, il se lance en arrière-plan et son adresse est rappelée (nouvelle session pour que Claude Code recharge ses hooks)." : 'Tableau de bord automatique désactivé.', { dashboard: wanted === 'on' });
 }
 
 const STAGE_TEXT: Record<Stage, string> = {

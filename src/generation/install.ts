@@ -165,7 +165,7 @@ function walkFiles(dir: string, rel = ''): string[] {
   return out;
 }
 
-const GITIGNORE_BLOCK = ['# claude-eng-framework (journaux et sauvegardes locales)', '.ceng/logs/', '.ceng/backups/', '.ceng/shots/', '.ceng/upgrade-conflicts/', '.ceng/brain/*.lock', '.ceng/brain/*.tmp', 'graphify-out/'];
+const GITIGNORE_BLOCK = ['# claude-eng-framework (journaux et sauvegardes locales)', '.ceng/logs/', '.ceng/backups/', '.ceng/shots/', '.ceng/dashboard.json', '.ceng/upgrade-conflicts/', '.ceng/brain/*.lock', '.ceng/brain/*.tmp', 'graphify-out/'];
 
 export function install(opts: InstallOptions): InstallReport {
   const fw = locateFramework();
@@ -192,6 +192,11 @@ export function install(opts: InstallOptions): InstallReport {
   for (const rel of walkFiles(fw.dist)) {
     if (!rel.endsWith('.js')) continue;
     w.managed(`.ceng/runtime/${rel}`, fs.readFileSync(path.join(fw.dist, rel)), 'runtime du framework');
+  }
+  // Page du tableau de bord (feuille de style, scripts, police) : `ceng dashboard` fonctionne aussi depuis la copie du projet
+  const assets = path.join(fw.root, 'assets', 'dashboard');
+  if (exists(assets)) {
+    for (const f of fs.readdirSync(assets)) w.managed(`.ceng/runtime/dashboard-assets/${f}`, fs.readFileSync(path.join(assets, f)), 'page du tableau de bord');
   }
   w.managed('.ceng/runtime/package.json', '{\n  "type": "module",\n  "private": true\n}\n', 'modules ESM du runtime');
 
@@ -230,6 +235,7 @@ export function install(opts: InstallOptions): InstallReport {
     ...(previousConfig?.bypass ? { bypass: previousConfig.bypass } : {}),
     ...(previousConfig?.advisor ? { advisor: previousConfig.advisor } : {}),
     ...(previousConfig?.autoResume ? { autoResume: previousConfig.autoResume } : {}),
+    ...(previousConfig?.dashboard ? { dashboard: previousConfig.dashboard } : {}),
     ...(previousConfig?.testsWatch ? { testsWatch: previousConfig.testsWatch } : {}),
     ...(previousConfig?.costBudgetUsd !== undefined ? { costBudgetUsd: previousConfig.costBudgetUsd } : {}),
     ...(previousConfig?.perfTolerancePct !== undefined ? { perfTolerancePct: previousConfig.perfTolerancePct } : {}),

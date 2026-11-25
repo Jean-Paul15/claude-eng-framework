@@ -1,9 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { attemptsByModel, doneOverTime, gateTallies, groupProgress, statusCounts } from '../src/domain/report-stats.js';
-import { renderReport } from '../src/generation/report-html.js';
+import { buildDashboardState, dailySeries, feed } from '../src/domain/dashboard-state.js';
+import { attemptsByModel, gateTallies, groupProgress, statusCounts } from '../src/domain/report-stats.js';
+import type { FrameworkEvent } from '../src/domain/events.js';
 import { task } from './helpers.js';
 
+const NOW = new Date('2026-03-10T12:00:00Z');
 const done = (id: string, at: string, over: Parameters<typeof task>[1] = {}) => task(id, { status: 'done', updatedAt: at, ...over });
 
 describe('chiffres du tableau de bord', () => {
@@ -21,16 +23,6 @@ describe('chiffres du tableau de bord', () => {
     assert.deepEqual(r.rows[0], { group: 'bug', done: 1, total: 2 });
   });
 
-  it('terminées dans le temps : zéros entre les jours, semaines au-delà de 45 jours', () => {
-    const days = doneOverTime([done('T-1', '2026-01-01T10:00:00Z'), done('T-2', '2026-01-01T12:00:00Z'), done('T-3', '2026-01-04T09:00:00Z')]);
-    assert.equal(days.unit, 'jour');
-    assert.deepEqual(days.buckets.map((b) => b.count), [2, 0, 0, 1]);
-    const weeks = doneOverTime([done('T-1', '2026-01-01T10:00:00Z'), done('T-2', '2026-03-01T10:00:00Z')]);
-    assert.equal(weeks.unit, 'semaine');
-    assert.equal(weeks.buckets[0]!.count, 1);
-    assert.deepEqual(doneOverTime([task('T-1')]).buckets, []);
-  });
-
   it('contrôles : réussi, échec, dispensé, autre', () => {
     const g = (gate: string, status: string) => ({ gate, status, required: true, at: '2026-01-01' }) as never;
     const t = gateTallies([task('T-1', { gates: [g('unit', 'pass'), g('lint', 'fail')] }), task('T-2', { gates: [g('unit', 'waived'), g('lint', 'pending')] })]);
@@ -44,16 +36,36 @@ describe('chiffres du tableau de bord', () => {
   });
 });
 
-describe('page du tableau de bord', () => {
-  const html = renderReport({ project: 'p', generatedAt: '2026-01-01T00:00:00Z', tasks: [done('T-1', '2026-01-01T00:00:00Z'), task('T-2')], features: [], inbox: [], shots: {} });
-  it('graphiques, relief 3D et aucune ressource externe', () => {
-    assert.match(html, /<canvas class="relief"/);
-    assert.match(html, /<svg class="donut"/);
-    assert.match(html, /<svg class="chart"/);
-    assert.match(html, /prefers-reduced-motion/);
-    assert.ok(!/https?:\/\//.test(html));
+describe('état du tableau de bord', () => {
+  it('série par jour : 84 jours, zéros compris, cumuls partant de l\'avant-fenêtre', () => {
+    const tasks = [
+      done('T-0', '2025-01-01T00:00:00Z', { createdAt: '2025-01-01T00:00:00Z' }),
+      done('T-1', '2026-03-10T09:00:00Z', { createdAt: '2026-03-09T09:00:00Z' }),
+      task('T-2', { createdAt: '2026-03-10T10:00:00Z' }),
+    ];
+    const d = dailySeries(tasks, NOW);
+    assert.equal(d.length, 84);
+    assert.equal(d[83]!.day, '2026-03-10');
+    assert.deepEqual([d[82]!.created, d[83]!.created, d[83]!.done], [1, 1, 1]);
+    assert.deepEqual([d[0]!.doneCum, d[0]!.createdCum], [1, 1], 'la tâche ancienne compte dans le point de départ');
+    assert.deepEqual([d[83]!.doneCum, d[83]!.createdCum], [2, 3]);
   });
-  it('sans JavaScript les chiffres restent écrits dans la page', () => {
-    assert.match(html, /<b data-count="1">1<\/b>/);
+
+  it('fil d\'activité : phrases lisibles, bruit écarté, plus récent d\'abord', () => {
+    const ev = (type: string, taskId?: string, data?: Record<string, unknown>): FrameworkEvent => ({ ts: '2026-03-10T10:00:00Z', type, ...(taskId ? { taskId } : {}), ...(data ? { data } : {}) }) as FrameworkEvent;
+    const items = feed([ev('task.started', 'T-1'), ev('file.edited', 'T-1'), ev('guard.verdict'), ev('gate.result', 'T-1', { gate: 'unit', status: 'fail' }), ev('task.done', 'T-1')], new Map([['T-1', 'Page']]));
+    assert.deepEqual(items.map((i) => i.text), ['T-1 · Page terminée', 'Contrôle unit en échec sur T-1', 'T-1 · Page démarrée']);
+    assert.deepEqual(items.map((i) => i.tone), ['good', 'warn', 'info']);
+  });
+
+  it('assemble tout : attente, fonctionnalités, activité', () => {
+    const s = buildDashboardState({
+      project: 'p', now: NOW, tasks: [done('T-1', '2026-03-10T09:00:00Z'), task('T-2')], events: [], closedIncrements: [], activity: { last: '2026-03-10T11:59:50Z', total: 7 },
+      featureStatuses: ['delivered', 'delivered', 'decided'], waiting: [{ level: 'blocking', source: 'approval', question: 'a' }, { level: 'confirm', source: 'decision', question: 'b' }], shots: {},
+    });
+    assert.equal(s.total, 2);
+    assert.deepEqual([s.waiting.total, s.waiting.blocking, s.waiting.confirm, s.waiting.bySource], [2, 1, 1, { approval: 1, decision: 1 }]);
+    assert.deepEqual(s.features, { delivered: 2, decided: 1 });
+    assert.equal(s.activity.total, 7);
   });
 });

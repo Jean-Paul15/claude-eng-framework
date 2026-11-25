@@ -7,6 +7,7 @@ import { readUsage } from '../app/usage.js';
 import { isUsageLimit, scheduleResume, setThrottle } from '../app/throttle.js';
 import { isFrozen } from '../app/contracts.js';
 import { acceptByDefault, AUTO_ACCEPT_DAYS, AUTO_ACCEPT_SESSIONS } from '../app/decisions.js';
+import { ensureDashboard } from '../app/dashboard-launch.js';
 import { inboxItems, inboxSummary } from '../app/inbox.js';
 import { listRules } from '../app/rules.js';
 import { recall, renderRecall } from '../app/recall.js';
@@ -204,7 +205,7 @@ export function sessionStart(store: BrainStore, input: HookInput): HookOutput {
   });
   removeOrphanTemps(store.paths.brain);
   store.log({ type: 'session.start', ...(input.session_id ? { sessionId: input.session_id } : {}), data: { source } });
-  const brief = [resumeBrief(store, source), ...autoUpgrade(store), ...intentWarnings(store), ...stageNotes(store), ...machineWarnings(store)].join('\n');
+  const brief = [resumeBrief(store, source), ...autoUpgrade(store), ...intentWarnings(store), ...stageNotes(store), ...machineWarnings(store), ...dashboardNote(store)].join('\n');
   return { exitCode: 0, json: { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: brief } } };
 }
 
@@ -269,6 +270,17 @@ function machineWarnings(store: BrainStore): string[] {
     out.push(`⚠ Graphe de code activé mais graphify absent sur cette machine : proposer à l'humain \`${CLI_INVOCATION} graph install\` puis \`graph build\` (sinon, travailler avec grep).`);
   }
   return out;
+}
+
+/** Tableau de bord vivant (option `config dashboard on`) : lancé en arrière-plan, adresse rappelée à l'humain. Jamais bloquant. */
+function dashboardNote(store: BrainStore): string[] {
+  if (store.config().dashboard?.enabled !== true) return [];
+  try {
+    const url = ensureDashboard(store, path.join(store.paths.root, '.ceng', 'runtime', 'cli.js'), 1500);
+    return [url ? `Tableau de bord en direct (se met à jour à chaque action) : ${url} — le rappeler à l'humain en début de session.` : `Tableau de bord demandé mais pas encore prêt : \`${CLI_INVOCATION} dashboard\` pour le lancer.`];
+  } catch {
+    return [];
+  }
 }
 
 /** Suppression que même le stade prototype ne laisse pas passer : hors du projet, internes git, mémoire du framework. */

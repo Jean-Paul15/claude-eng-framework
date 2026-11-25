@@ -26,10 +26,13 @@ export interface GroupProgress {
  * Avancement par chantier (groupe de tâches), du plus chargé au moins chargé. Quand le projet n'a pas (ou presque pas) de groupes —
  * moins de trois —, le regroupement se fait par type de tâche, pour que le relief reste parlant ; `by` dit lequel a été retenu.
  */
+/** Clé de regroupement d'une tâche : son chantier, ou son type quand le projet n'a pas de chantiers. */
+export const groupKey = (t: Task, by: 'chantier' | 'type'): string => (by === 'chantier' ? t.group?.trim() || 'Sans groupe' : t.kind);
+
 export function groupProgress(tasks: readonly Task[]): { by: 'chantier' | 'type'; rows: GroupProgress[] } {
   const named = new Set(live(tasks).map((t) => t.group?.trim()).filter(Boolean));
   const by: 'chantier' | 'type' = named.size >= 3 ? 'chantier' : 'type';
-  return { by, rows: tally(tasks, (t) => (by === 'chantier' ? t.group?.trim() || 'Sans groupe' : t.kind)) };
+  return { by, rows: tally(tasks, (t) => groupKey(t, by)) };
 }
 
 function tally(tasks: readonly Task[], keyOf: (t: Task) => string): GroupProgress[] {
@@ -67,37 +70,6 @@ export function gateTallies(tasks: readonly Task[]): GateTally[] {
     }
   }
   return [...by.values()].sort((a, b) => b.pass + b.fail + b.waived + b.other - (a.pass + a.fail + a.waived + a.other) || a.gate.localeCompare(b.gate));
-}
-
-export interface Bucket {
-  /** Début de la période (AAAA-MM-JJ). */
-  start: string;
-  count: number;
-}
-
-const DAY = 86_400_000;
-const dayOf = (iso: string): number => Math.floor(Date.parse(iso.slice(0, 10)) / DAY);
-const isoDay = (n: number): string => new Date(n * DAY).toISOString().slice(0, 10);
-
-/**
- * Tâches terminées par jour (par semaine au-delà de 45 jours, pour rester lisible), zéros compris entre la première et la dernière.
- * La date d'une tâche terminée est sa dernière mise à jour.
- */
-export function doneOverTime(tasks: readonly Task[]): { unit: 'jour' | 'semaine'; buckets: Bucket[] } {
-  const days = live(tasks).filter((t) => t.status === 'done' && Number.isFinite(Date.parse(t.updatedAt))).map((t) => dayOf(t.updatedAt));
-  if (!days.length) return { unit: 'jour', buckets: [] };
-  const first = Math.min(...days);
-  const last = Math.max(...days);
-  const weekly = last - first > 45;
-  const step = weekly ? 7 : 1;
-  const counts = new Map<number, number>();
-  for (const d of days) {
-    const key = first + Math.floor((d - first) / step) * step;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  const buckets: Bucket[] = [];
-  for (let d = first; d <= last; d += step) buckets.push({ start: isoDay(d), count: counts.get(d) ?? 0 });
-  return { unit: weekly ? 'semaine' : 'jour', buckets };
 }
 
 /** Tentatives par modèle (à titre d'activité : opus, sonnet, haiku). */

@@ -39,6 +39,8 @@ export interface FrameworkConfig {
   advisor?: { model: string };
   /** Reprise automatique après une limite d'usage (décision de l'humain) : le travail repart seul, en mode sans humain. */
   autoResume?: { enabled: boolean };
+  /** Tableau de bord vivant lancé tout seul à l'ouverture de chaque session (`ceng config dashboard on`). */
+  dashboard?: { enabled: boolean };
   /** Tests relancés en arrière-plan après chaque écriture de code ; l'agent n'est réveillé que s'ils échouent. `command` : commande plus rapide que `unit`. */
   testsWatch?: { enabled: boolean; command?: string };
   /** Budget mensuel d'exploitation visé (USD), fixé au cadrage ; `ceng cost` y compare la facture estimée. */

@@ -13,6 +13,7 @@ import { configCommand } from './cli/commands/config.js';
 import { relayCommand, teamCommand } from './cli/commands/team.js';
 import { bypassCommand } from './cli/commands/bypass.js';
 import { advisorCommand } from './cli/commands/advisor.js';
+import { dashboardCommand } from './cli/commands/dashboard.js';
 import { depCommand } from './cli/commands/dep.js';
 import { featureCommand } from './cli/commands/feature.js';
 import { storeCommand } from './cli/commands/store.js';
@@ -62,6 +63,7 @@ Bypass total (décision humaine)
   compliance status|set|waive  Socle de conformité (politiques, consentements, conservation, audit, anomalies, incidents)
   data-map                   Carte des données personnelles générée depuis les migrations
   rule add|list|remove       Règles de contrôle du code propres au projet (une erreur relevée ne se réécrit plus)
+  dashboard [--background|--all|stop]  Tableau de bord vivant dans le navigateur (se met à jour pendant le travail) ; --all : accueil de tous les projets · report --html = instantané
   inbox                      Tout ce qui attend l'humain (décisions bloquantes, à confirmer), trié
   contract freeze|bump|list  Contrats partagés gelés : un sous-agent ne les modifie pas
   increment close <groupe>   Clôture d'un incrément (tout terminé, vu, testé) et rapport
@@ -118,6 +120,7 @@ export async function main(argv: string[]): Promise<void> {
     case 'decision': return decisionCommand(rest);
     case 'log': return logCommand(rest);
     case 'report': return reportCommand(rest);
+    case 'dashboard': return dashboardCommand(rest);
     case 'adapt': return adaptCommand(rest);
     case 'learn': return learnCommand(rest);
     case 'skill': return skillCommand(rest);
